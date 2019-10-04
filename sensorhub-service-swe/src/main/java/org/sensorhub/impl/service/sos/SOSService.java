@@ -38,7 +38,7 @@ import org.vast.ows.sos.SOSServiceCapabilities;
  */
 public class SOSService extends AbstractModule<SOSServiceConfig> implements IServiceModule<SOSServiceConfig>, IEventListener
 {
-    SOSServlet servlet;
+    protected SOSServlet servlet;
     
     
     @Override
