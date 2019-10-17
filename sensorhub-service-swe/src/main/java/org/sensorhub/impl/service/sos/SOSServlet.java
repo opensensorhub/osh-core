@@ -909,6 +909,7 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
             // prepare obs stream writer for requested O&M version
             String format = request.getFormat();
             String omVersion = format.substring(format.lastIndexOf('/') + 1);
+            @SuppressWarnings("unchecked")
             IXMLWriterDOM<IObservation> obsWriter = (IXMLWriterDOM<IObservation>)OGCRegistry.createWriter(OMUtils.OM, OMUtils.OBSERVATION, omVersion);
             String sosNsUri = OGCRegistry.getNamespaceURI(SOSUtils.SOS, DEFAULT_VERSION);
             
@@ -1856,43 +1857,17 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
 
     protected void checkQueryTime(String offeringID, TimeExtent requestTime, OWSExceptionReport report) throws SOSException
     {
-        SOSOfferingCapabilities offering = checkAndGetOffering(offeringID);
-        
+        // reject null time period
         if (requestTime.isNull())
             return;
         
-        // make sure startTime <= stopTime
+        // reject if startTime > stopTime
         if (requestTime.getStartTime() > requestTime.getStopTime())
-            report.add(new SOSException("The requested period must begin before the it ends"));
-            
-        // refresh offering capabilities if needed
-        try
-        {
-            ISOSDataProviderFactory provider = dataProviders.get(offeringID);
-            provider.updateCapabilities();
-        }
-        catch (Exception e)
-        {
-            log.error("Error while updating capabilities for offering " + offeringID, e);
-        }
+            report.add(new SOSException("The requested period must begin before it ends"));
         
-        // check that request time is within allowed time period
-        TimeExtent allowedPeriod = offering.getPhenomenonTime();
-        boolean nowOk = allowedPeriod.isBaseAtNow() || allowedPeriod.isEndNow();
-        
-        boolean requestOk = false;
-        if (requestTime.isBaseAtNow()) // always accept request for latest obs
-            requestOk = true;
-        else if (requestTime.isBeginNow() && nowOk)
-        {
-            double now = System.currentTimeMillis() / 1000.0;
-            if (requestTime.getStopTime() >= now)
-                requestOk = true;
-        }
-        else if (requestTime.intersects(allowedPeriod))
-            requestOk = true;
-        
-        if (!requestOk)
+        // check that provider can handle the requested time
+        ISOSDataProviderFactory provider = dataProviders.get(offeringID);
+        if (!provider.checkQueryTime(requestTime))
             report.add(new SOSException(SOSException.invalid_param_code, "phenomenonTime", requestTime.getIsoString(0), null));            
     }
     

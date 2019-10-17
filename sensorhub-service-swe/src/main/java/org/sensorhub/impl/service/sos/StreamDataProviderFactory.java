@@ -168,27 +168,44 @@ public class StreamDataProviderFactory implements ISOSDataProviderFactory, IEven
     
     
     @Override
-    public synchronized void updateCapabilities() throws SensorHubException
+    public void updateCapabilities() throws SensorHubException
     {
         checkEnabled();
         if (caps == null)
             return;
-            
-        updateNameAndDescription();
-        SOSProviderUtils.updateFois(caps, producer, config.maxFois);
         
-        // enable real-time requests if streaming data source is enabled
-        if (producer.isStarted())
+        try
         {
-            // if latest record is not too old, enable real-time
-            if (getTimeSinceLastRecord() < liveDataTimeOut)
+            service.capabilitiesLock.writeLock().lock();
+            
+            updateNameAndDescription();
+            SOSProviderUtils.updateFois(caps, producer, config.maxFois);
+            
+            // enable real-time requests if streaming data source is enabled
+            if (producer.isStarted())
             {
-                caps.getPhenomenonTime().setBeginNow(true);
-                caps.getPhenomenonTime().setEndNow(true);
+                // if latest record is not too old, enable real-time
+                if (getTimeSinceLastRecord() < liveDataTimeOut)
+                {
+                    caps.getPhenomenonTime().setBeginNow(true);
+                    caps.getPhenomenonTime().setEndNow(true);
+                }
+                else
+                    caps.getPhenomenonTime().nullify();
             }
-            else
-                caps.getPhenomenonTime().nullify();
         }
+        finally
+        {
+            service.capabilitiesLock.writeLock().unlock();
+        }
+    }
+    
+    
+    @Override
+    public boolean checkQueryTime(TimeExtent requestTime)
+    {
+        return (requestTime.isBaseAtNow() || requestTime.isBeginNow()) &&
+                getTimeSinceLastRecord() < liveDataTimeOut;
     }
     
     

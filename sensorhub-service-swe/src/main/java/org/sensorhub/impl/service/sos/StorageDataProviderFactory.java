@@ -174,6 +174,8 @@ public class StorageDataProviderFactory implements ISOSDataProviderFactory, IEve
         
         try
         {
+            service.capabilitiesLock.writeLock().lock();
+            
             // update time extent
             TimeExtent newTimeExtent = getTimeExtentFromStorage();
             if (!newTimeExtent.isNull())
@@ -190,6 +192,18 @@ public class StorageDataProviderFactory implements ISOSDataProviderFactory, IEve
         {
             throw new ServiceException("Cannot update capabilities for storage provider " + MsgUtils.moduleString(storage), e);
         }
+        finally
+        {
+            service.capabilitiesLock.writeLock().unlock();
+        }
+    }
+    
+    
+    @Override
+    public boolean checkQueryTime(TimeExtent requestTime)
+    {
+        TimeExtent storageTimeExtent = getTimeExtentFromStorage();
+        return !storageTimeExtent.isNull() && storageTimeExtent.intersects(requestTime);
     }
 
 

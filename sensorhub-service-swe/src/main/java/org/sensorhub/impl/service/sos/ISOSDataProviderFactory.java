@@ -21,6 +21,7 @@ import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.persistence.IFoiFilter;
 import org.vast.ows.OWSException;
 import org.vast.ows.sos.SOSOfferingCapabilities;
+import org.vast.util.TimeExtent;
 
 
 /**
@@ -71,6 +72,14 @@ public interface ISOSDataProviderFactory
      * @throws SensorHubException 
      */
     public void updateCapabilities() throws SensorHubException;
+    
+    
+    /**
+     * Check that requested time is supported by provider
+     * @param requestTime Time range or instant requested
+     * @return True if requested time is valid, false otherwise
+     */
+    public boolean checkQueryTime(TimeExtent requestTime);
         
     
     /**

@@ -76,6 +76,7 @@ public class StreamWithStorageProviderFactory extends StorageDataProviderFactory
         
         // build alt provider to generate capabilities in case storage is disabled
         this.altProvider = new StreamDataProviderFactory(config, producer);
+        this.altProvider.liveDataTimeOut = liveDataTimeOut;
         
         // listen to producer lifecycle events
         disableEvents = true; // disable events on startup
@@ -145,6 +146,14 @@ public class StreamWithStorageProviderFactory extends StorageDataProviderFactory
             if (!(storage instanceof IObsStorage))
                 SOSProviderUtils.updateFois(caps, producer, config.maxFois);
         }
+    }
+    
+    
+    @Override
+    public boolean checkQueryTime(TimeExtent requestTime)
+    {
+        return (producer.isStarted() && altProvider.checkQueryTime(requestTime)) ||
+                super.checkQueryTime(requestTime);
     }
 
 
