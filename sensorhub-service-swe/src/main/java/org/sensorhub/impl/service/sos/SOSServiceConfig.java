@@ -70,7 +70,5 @@ public class SOSServiceConfig extends OGCServiceConfig
     {
         this.moduleClass = SOSService.class.getCanonicalName();
         this.endPoint = "/sos";
-        this.customFormats.add(new SOSCustomFormatConfig("video/mp4", "org.sensorhub.impl.service.sos.video.MP4Serializer"));
-        this.customFormats.add(new SOSCustomFormatConfig("video/x-motion-jpeg", "org.sensorhub.impl.service.sos.video.MJPEGSerializer"));
     }
 }
