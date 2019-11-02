@@ -90,7 +90,7 @@ public class AsyncEventHandler implements IEventHandler
                                 
                                 listener.handleEvent(e);
                             }
-                            catch (Exception ex)
+                            catch (Throwable ex)
                             {
                                 String srcName = e.getSource().getClass().getSimpleName();
                                 String destName = listener.getClass().getSimpleName();
