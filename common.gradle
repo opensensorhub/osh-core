@@ -203,10 +203,10 @@ afterEvaluate { // disable all distTar tasks
 
 
 // collect all configured repositories in parent build
-afterEvaluate { project ->
+gradle.projectsEvaluated { g ->
   if (gradle.parent != null) {
     gradle.parent.rootProject {
-      repositories.addAll(project.repositories)
+      repositories.addAll(g.rootProject.repositories)
     }
   }
 }
