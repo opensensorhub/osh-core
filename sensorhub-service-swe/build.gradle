@@ -1,23 +1,10 @@
 description = 'OSH SWE Services'
 ext.details = 'Implementation of OGC SWE standard interfaces as OSH services and virtual sensors'
 
-rootProject.allprojects {
-  repositories {
-    maven { url "http://52north.org/maven/repo/releases" }
-  }
-}
-
 dependencies {
   compile project(':sensorhub-core')
   compile project(':ogc-services-sos')
   compile project(':ogc-services-sps')
-   
-  compile('org.n52.amused:amused-core:1.0.0') {
-    // excludes are needed here so the generated pom contains them too
-    exclude group: 'xalan', module: 'xalan'
-    exclude group: 'xerces', module: 'xercesImpl'
-  }
-  compile 'org.n52.amused:amused-wsn-impl:1.0.0'
   compile 'xml-apis:xml-apis:1.4.01'
   compile 'org.eclipse.jetty.websocket:websocket-server:9.4.7.v20170914'
     
