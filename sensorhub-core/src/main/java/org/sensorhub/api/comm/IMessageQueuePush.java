@@ -14,6 +14,8 @@ Copyright (C) 2012-2017 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.comm;
 
+import java.util.Map;
+
 /**
  * <p>
  * Common interface to publish and receive messages from various message
@@ -28,7 +30,7 @@ public interface IMessageQueuePush
     
     public interface MessageListener
     {
-        public void receive(byte[] msg);
+        public void receive(Map<String,String> attrs, byte[] payload);
     }
     
     
