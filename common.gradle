@@ -6,7 +6,7 @@ allprojects  {
 
   repositories {
     //jcenter() 
-    maven { url "http://repo.maven.apache.org/maven2" }
+    maven { url "https://repo.maven.apache.org/maven2" }
   }
   
   // set build number to HEAD SHA-1
