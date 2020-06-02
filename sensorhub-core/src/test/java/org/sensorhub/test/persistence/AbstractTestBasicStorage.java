@@ -639,19 +639,19 @@ public abstract class AbstractTestBasicStorage<StorageType extends IRecordStorag
                             term.setDefinition(SWEHelper.getPropertyUri("Manufacturer"));
                             term.setLabel("Manufacturer Name");
                             term.setValue("My manufacturer");
-                            identifierList.addIdentifier2(term);
+                            identifierList.addIdentifier(term);
                             
                             term = smlFac.newTerm();
                             term.setDefinition(SWEHelper.getPropertyUri("ModelNumber"));
                             term.setLabel("Model Number");
                             term.setValue("SENSOR_2365");
-                            identifierList.addIdentifier2(term);
+                            identifierList.addIdentifier(term);
                             
                             term = smlFac.newTerm();
                             term.setDefinition(SWEHelper.getPropertyUri("SerialNumber"));
                             term.setLabel("Serial Number");
                             term.setValue("FZEFZE154618989");
-                            identifierList.addIdentifier2(term);
+                            identifierList.addIdentifier(term);
                             
                             // generate unique time stamp
                             TimePosition timePos = gmlFac.newTimePosition(startCount + System.currentTimeMillis()/1000.);

@@ -14,11 +14,11 @@ include 'sensorhub-tools'
 include 'sensorhub-webui-core'
 include 'sensorhub-webui-widgetset'
 
-project(':swe-common-core').projectDir = "$rootDir/lib-swe-common/swe-common-core" as File
-project(':swe-common-om').projectDir = "$rootDir/lib-swe-common/swe-common-om" as File
-project(':sensorml-core').projectDir = "$rootDir/lib-sensorml/sensorml-core" as File
-project(':ogc-services-common').projectDir = "$rootDir/lib-ows/ogc-services-common" as File
-project(':ogc-services-swe').projectDir = "$rootDir/lib-ows/ogc-services-swe" as File
-project(':ogc-services-sos').projectDir = "$rootDir/lib-ows/ogc-services-sos" as File
-project(':ogc-services-sps').projectDir = "$rootDir/lib-ows/ogc-services-sps" as File
+project(':swe-common-core').projectDir = "$rootDir/lib-ogc/swe-common-core" as File
+project(':swe-common-om').projectDir = "$rootDir/lib-ogc/swe-common-om" as File
+project(':sensorml-core').projectDir = "$rootDir/lib-ogc/sensorml-core" as File
+project(':ogc-services-common').projectDir = "$rootDir/lib-ogc/ogc-services-common" as File
+project(':ogc-services-swe').projectDir = "$rootDir/lib-ogc/ogc-services-swe" as File
+project(':ogc-services-sos').projectDir = "$rootDir/lib-ogc/ogc-services-sos" as File
+project(':ogc-services-sps').projectDir = "$rootDir/lib-ogc/ogc-services-sps" as File
 project(':sensorhub-webui-widgetset').projectDir = "$rootDir/sensorhub-webui-core/widgetset" as File
