@@ -64,18 +64,18 @@ public class TestSensorPosition
     protected void checkSmlLocationVector(Vector vector) throws Exception
     {
         DataBlock posData = vector.getData();
-        assertEquals("Wrong latitude value", lat, posData.getDoubleValue(0), 0.0);
-        assertEquals("Wrong longitude value", lon, posData.getDoubleValue(1), 0.0);
-        assertEquals("Wrong altitude value", alt, posData.getDoubleValue(2), 0.0);
+        assertEquals("Wrong latitude value", lat, posData.getDoubleValue(0), 1e-12);
+        assertEquals("Wrong longitude value", lon, posData.getDoubleValue(1), 1e-12);
+        assertEquals("Wrong altitude value", alt, posData.getDoubleValue(2), 1e-12);
     }
     
     
     protected void checkSmlOrientationVector(Vector vector) throws Exception
     {
         DataBlock posData = vector.getData();
-        assertEquals("Wrong heading value", heading, posData.getDoubleValue(0), 0.0);
-        assertEquals("Wrong pitch value", pitch, posData.getDoubleValue(1), 0.0);
-        assertEquals("Wrong roll value", roll, posData.getDoubleValue(2), 0.0);
+        assertEquals("Wrong heading value", heading, posData.getDoubleValue(0), 1e-6);
+        assertEquals("Wrong pitch value", pitch, posData.getDoubleValue(1), 1e-6);
+        assertEquals("Wrong roll value", roll, posData.getDoubleValue(2), 1e-6);
     }
     
     
