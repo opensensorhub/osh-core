@@ -32,10 +32,11 @@ import org.sensorhub.api.common.Event;
 import org.sensorhub.api.common.IEventListener;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.DataEvent;
+import org.sensorhub.api.data.IDataProducerModule;
+import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.sensor.ISensorDataInterface;
-import org.sensorhub.api.sensor.ISensorModule;
 import org.sensorhub.api.sensor.SensorDataEvent;
 import org.sensorhub.api.sensor.SensorEvent;
 import org.sensorhub.impl.SensorHub;
@@ -76,11 +77,11 @@ import org.vast.swe.SWEData;
 public class SOSTClient extends AbstractModule<SOSTClientConfig> implements IClientModule<SOSTClientConfig>, IEventListener
 {
     RobustConnection connection;
-    ISensorModule<?> sensor;
+    IDataProducerModule<?> dataSource;
     SOSUtils sosUtils = new SOSUtils();  
     String sosEndpointUrl;
     String offering;
-    Map<ISensorDataInterface, StreamInfo> dataStreams;
+    Map<IStreamingDataInterface, StreamInfo> dataStreams;
     
     
     public class StreamInfo
@@ -145,11 +146,11 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
         // get handle to sensor data source
         try
         {
-            sensor = SensorHub.getInstance().getSensorManager().getModuleById(config.sensorID);
+            dataSource = (IDataProducerModule<?>)SensorHub.getInstance().getModuleRegistry().getModuleById(config.dataSourceID);
         }
         catch (Exception e)
         {
-            throw new ClientException("Cannot find sensor with local ID " + config.sensorID, e);
+            throw new ClientException("Cannot find data source with local ID " + config.dataSourceID, e);
         }
         
         // create connection handler
@@ -213,8 +214,8 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
             try
             {
                 // register to sensor events            
-                reportStatus("Waiting for data source " + MsgUtils.moduleString(sensor));
-                sensor.registerListener(this);                
+                reportStatus("Waiting for data source " + MsgUtils.moduleString(dataSource));
+                dataSource.registerListener(this);                
                 
                 // we'll actually start when we receive sensor STARTED event
             }
@@ -237,8 +238,8 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
         try
         {   
             // register sensor
-            registerSensor(sensor);
-            getLogger().info("Sensor {} registered with SOS", MsgUtils.moduleString(sensor));
+            registerSensor(dataSource);
+            getLogger().info("Data source {} registered with SOS", MsgUtils.moduleString(dataSource));
         }
         catch (Exception e)
         {
@@ -247,7 +248,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
         
         
         // register all stream templates
-        for (ISensorDataInterface o: sensor.getAllOutputs().values())
+        for (IStreamingDataInterface o: dataSource.getAllOutputs().values())
         {
             // skip excluded outputs
             if (config.excludedOutputs != null && config.excludedOutputs.contains(o.getName()))
@@ -276,11 +277,11 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
             connection.cancel();
         
         // unregister from sensor
-        if (sensor != null)
-            sensor.unregisterListener(this);
+        if (dataSource != null)
+            dataSource.unregisterListener(this);
         
         // stop all streams
-        for (Entry<ISensorDataInterface, StreamInfo> entry: dataStreams.entrySet())
+        for (Entry<IStreamingDataInterface, StreamInfo> entry: dataStreams.entrySet())
             stopStream(entry.getKey(), entry.getValue());
     }
     
@@ -288,7 +289,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
     /*
      * Stop listening and pushing data for the given stream
      */
-    protected void stopStream(ISensorDataInterface output, StreamInfo streamInfo)
+    protected void stopStream(IStreamingDataInterface output, StreamInfo streamInfo)
     {
         // unregister listeners
         output.unregisterListener(this);
@@ -326,7 +327,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
     /*
      * Registers sensor with remote SOS
      */
-    protected void registerSensor(ISensorModule<?> sensor) throws OWSException
+    protected void registerSensor(IDataProducerModule<?> sensor) throws OWSException
     {
         // build insert sensor request
         InsertSensorRequest req = new InsertSensorRequest();
@@ -347,7 +348,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
     /*
      * Update sensor description at remote SOS
      */
-    protected void updateSensor(ISensorModule<?> sensor) throws OWSException
+    protected void updateSensor(IDataProducerModule<?> sensor) throws OWSException
     {
         // build update sensor request
         UpdateSensorRequest req = new UpdateSensorRequest(SOSUtils.SOS);
@@ -366,7 +367,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
     /*
      * Prepare to send the given sensor output data to the remote SOS server
      */
-    protected void registerDataStream(ISensorDataInterface sensorOutput) throws OWSException
+    protected void registerDataStream(IStreamingDataInterface sensorOutput) throws OWSException
     {
         // generate insert result template
         InsertResultTemplateRequest req = new InsertResultTemplateRequest();
@@ -402,7 +403,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
         
         // send last record
         if (sensorOutput.getLatestRecord() != null)
-            sendAsNewRequest(new SensorDataEvent(
+            sendAsNewRequest(new DataEvent(
                     sensorOutput.getLatestRecordTime(), 
                     sensorOutput, sensorOutput.getLatestRecord()),
                     streamInfo);
@@ -442,7 +443,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
             {
                 try
                 {
-                    updateSensor(sensor);
+                    updateSensor(dataSource);
                 }
                 catch (OWSException ex)
                 {
@@ -484,9 +485,9 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
             
             // send record using one of 2 methods
             if (config.connection.usePersistentConnection)
-                sendInPersistentRequest((SensorDataEvent)e, streamInfo);
+                sendInPersistentRequest((DataEvent)e, streamInfo);
             else
-                sendAsNewRequest((SensorDataEvent)e, streamInfo);
+                sendAsNewRequest((DataEvent)e, streamInfo);
         }
     }
     
@@ -515,7 +516,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
     /*
      * Sends each new record using an XML InsertResult POST request
      */
-    private void sendAsNewRequest(final SensorDataEvent e, final StreamInfo streamInfo)
+    private void sendAsNewRequest(final DataEvent e, final StreamInfo streamInfo)
     {
         // append records to buffer
         for (DataBlock record: e.getRecords())
@@ -569,7 +570,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
      * Sends all records in the same persistent HTTP connection.
      * The connection is created when the first record is received
      */
-    private void sendInPersistentRequest(final SensorDataEvent e, final StreamInfo streamInfo)
+    private void sendInPersistentRequest(final DataEvent e, final StreamInfo streamInfo)
     {
         // skip records while we are connecting to remote SOS
         if (streamInfo.connecting)
@@ -666,7 +667,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
     }
     
     
-    public Map<ISensorDataInterface, StreamInfo> getDataStreams()
+    public Map<IStreamingDataInterface, StreamInfo> getDataStreams()
     {
         return dataStreams;
     }

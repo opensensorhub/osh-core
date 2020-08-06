@@ -15,7 +15,7 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.api.sensor;
 
 import java.util.Map;
-import net.opengis.sensorml.v20.AbstractPhysicalProcess;
+import net.opengis.sensorml.v20.AbstractProcess;
 import org.sensorhub.api.common.IEventProducer;
 import org.sensorhub.api.data.IDataProducerModule;
 
@@ -38,7 +38,7 @@ public interface ISensorModule<ConfigType extends SensorConfig> extends IDataPro
      * Retrieves most current sensor description.
      */
     @Override
-    public AbstractPhysicalProcess getCurrentDescription();
+    public AbstractProcess getCurrentDescription();
 
 
     /**

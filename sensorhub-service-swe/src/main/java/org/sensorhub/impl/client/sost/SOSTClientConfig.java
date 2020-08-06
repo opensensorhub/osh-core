@@ -21,10 +21,11 @@ import org.sensorhub.api.config.DisplayInfo;
 import org.sensorhub.api.config.DisplayInfo.FieldType;
 import org.sensorhub.api.config.DisplayInfo.ModuleType;
 import org.sensorhub.api.config.DisplayInfo.Required;
+import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.config.DisplayInfo.FieldType.Type;
-import org.sensorhub.api.sensor.ISensorModule;
 import org.sensorhub.impl.comm.HTTPConfig;
 import org.sensorhub.impl.comm.RobustIPConnectionConfig;
+import com.google.gson.annotations.SerializedName;
 
 
 /**
@@ -37,11 +38,12 @@ import org.sensorhub.impl.comm.RobustIPConnectionConfig;
  */
 public class SOSTClientConfig extends ClientConfig
 {
-    @DisplayInfo(desc="Local ID of sensor to register with SOS")
+    @DisplayInfo(desc="Local ID of data source to register with SOS")
     @FieldType(Type.MODULE_ID)
-    @ModuleType(ISensorModule.class)
+    @ModuleType(IDataProducerModule.class)
     @Required
-    public String sensorID;
+    @SerializedName(value="dataSourceID", alternate={"sensorID"})
+    public String dataSourceID;
     
     
     @DisplayInfo(desc="Names of outputs that should not be pushed to remote SOS server")

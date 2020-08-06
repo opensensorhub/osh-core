@@ -90,7 +90,7 @@ public class TestSOSTClient
         SOSTClientConfig config = new SOSTClientConfig();
         config.id = "SOST";
         config.name = "SOS-T Client";
-        config.sensorID = sensorID;
+        config.dataSourceID = sensorID;
         config.sos.remoteHost = sosUrl.getHost();
         config.sos.remotePort = (sosUrl.getPort() > 0) ? sosUrl.getPort() : 80;
         config.sos.resourcePath = sosUrl.getPath();

@@ -254,7 +254,7 @@ public class SWETransactionalSensor extends AbstractSensorModule<SWETransactiona
     
     public void updateSensorDescription(AbstractProcess systemDesc)
     {
-        sensorDescription = (AbstractPhysicalProcess)systemDesc;
+        sensorDescription = systemDesc;
         uniqueID = systemDesc.getUniqueIdentifier();
         
         // generate output hashcodes to compare with newly registered outputs
