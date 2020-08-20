@@ -17,7 +17,6 @@ package org.sensorhub.impl.sensor.swe;
 import java.util.ArrayList;
 import java.util.List;
 import net.opengis.gml.v32.AbstractFeature;
-import net.opengis.sensorml.v20.AbstractPhysicalProcess;
 import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataChoice;
 import net.opengis.swe.v20.DataComponent;
@@ -25,6 +24,8 @@ import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.impl.client.sos.SOSClient;
 import org.sensorhub.impl.client.sos.SOSClient.SOSRecordListener;
 import org.sensorhub.impl.client.sps.SPSClient;
+import org.sensorhub.impl.comm.HTTPConfig;
+import org.sensorhub.impl.security.ClientAuth;
 import org.sensorhub.impl.sensor.AbstractSensorModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +44,6 @@ import org.vast.util.TimeExtent;
  * Driver for SWE enabled sensors communicating via SOS & SPS standard services.
  * This can also be used to communicate with a sensor deployed on another
  * (usually remote) sensor hub node.
- * TODO forward full SensorML description
  * </p>
  *
  * @author Alex Robin <alex.robin@sensiasoftware.com>
@@ -56,7 +56,9 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
     private static final String SPS_VERSION = "2.0";
     private static final double STREAM_END_TIME = 2e9; // 
     
-    AbstractFeature currentFoi;    
+    String sosEndpointUrl;
+    String spsEndpointUrl;
+    AbstractFeature currentFoi;  
     List<SOSClient> sosClients;
     SPSClient spsClient;
         
@@ -66,12 +68,51 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
     }
     
     
+    private void setAuth(HTTPConfig httpConfig)
+    {
+        ClientAuth.getInstance().setUser(httpConfig.user);
+        if (httpConfig.password != null)
+            ClientAuth.getInstance().setPassword(httpConfig.password.toCharArray());
+    }
+    
+    
+    @Override
+    public void setConfiguration(SWEVirtualSensorConfig config)
+    {
+        super.setConfiguration(config);
+         
+        // compute full endpoint URLs
+        if (config.sosEndpoint != null)
+            sosEndpointUrl = buildEndpointUrl(config.sosEndpoint);
+        if (config.spsEndpoint != null)
+            spsEndpointUrl = buildEndpointUrl(config.spsEndpoint);        
+    }
+    
+    
+    private String buildEndpointUrl(HTTPConfig endpoint)
+    {
+        String scheme = "http";
+        if (endpoint.enableTLS)
+            scheme = "https";
+        
+        String endpointUrl = scheme + "://" + endpoint.remoteHost + ":" + endpoint.remotePort;
+        if (endpoint.resourcePath != null)
+        {
+            if (endpoint.resourcePath.charAt(0) != '/')
+                endpointUrl += '/';
+            endpointUrl += endpoint.resourcePath;
+        }
+        
+        return endpointUrl;
+    }
+    
+    
     protected void checkConfig() throws SensorHubException
     {
         if (config.sensorUID == null)
             throw new SensorHubException("Sensor UID must be specified");
         
-        if (config.sosEndpointUrl != null && config.observedProperties.size() == 0)
+        if (sosEndpointUrl != null && config.observedProperties.isEmpty())
             throw new SensorHubException("At least one observed property must be specified");
     }
     
@@ -86,8 +127,10 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
         OWSUtils owsUtils = new OWSUtils();
         
         // create and start SOS clients
-        if (config.sosEndpointUrl != null)
+        if (sosEndpointUrl != null)
         {
+            setAuth(config.sosEndpoint);
+            
             // find matching offering(s) for sensor UID
             SOSServiceCapabilities caps = null;
             try
@@ -95,7 +138,7 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
                 GetCapabilitiesRequest getCap = new GetCapabilitiesRequest();
                 getCap.setService(SOSUtils.SOS);
                 getCap.setVersion(SOS_VERSION);
-                getCap.setGetServer(config.sosEndpointUrl);
+                getCap.setGetServer(sosEndpointUrl);
                 caps = owsUtils.<SOSServiceCapabilities>sendRequest(getCap, false);
             }
             catch (OWSException e)
@@ -105,7 +148,7 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
             
             // scan all offerings and connect to selected ones
             int outputNum = 1;
-            sosClients = new ArrayList<SOSClient>(config.observedProperties.size());            
+            sosClients = new ArrayList<>(config.observedProperties.size());            
             for (SOSOfferingCapabilities offering: caps.getLayers())
             {
                 if (offering.getMainProcedure().equals(config.sensorUID))
@@ -118,7 +161,7 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
                         {                            
                             // create data request
                             GetResultRequest req = new GetResultRequest();
-                            req.setGetServer(config.sosEndpointUrl);
+                            req.setGetServer(sosEndpointUrl);
                             req.setVersion(SOS_VERSION);
                             req.setOffering(offeringID);
                             req.getObservables().add(obsProp);
@@ -137,7 +180,7 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
                             try
                             {
                                 if (outputNum == 1 && config.sensorML == null)
-                                    this.sensorDescription = (AbstractPhysicalProcess)sos.getSensorDescription(config.sensorUID);
+                                    this.sensorDescription = sos.getSensorDescription(config.sensorUID);
                             }
                             catch (SensorHubException e)
                             {
@@ -163,14 +206,16 @@ public class SWEVirtualSensor extends AbstractSensorModule<SWEVirtualSensorConfi
             }
             
             if (sosClients.isEmpty())
-                throw new SensorHubException("Requested observation data is not available from SOS " + config.sosEndpointUrl +
+                throw new SensorHubException("Requested observation data is not available from SOS " + sosEndpointUrl +
                                              ". Check Sensor UID and observed properties have valid values." );
         }
         
         // create and start SPS client
-        if (config.spsEndpointUrl != null)
+        if (spsEndpointUrl != null)
         {
-            spsClient = new SPSClient(config.spsEndpointUrl, SPS_VERSION, config.sensorUID);
+            setAuth(config.spsEndpoint);
+            
+            spsClient = new SPSClient(spsEndpointUrl, SPS_VERSION, config.sensorUID);
             spsClient.retrieveCommandDescription();
             DataComponent cmdDef = spsClient.getCommandDescription();
             if (cmdDef instanceof DataChoice)

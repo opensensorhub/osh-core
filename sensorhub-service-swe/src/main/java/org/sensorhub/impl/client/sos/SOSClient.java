@@ -204,7 +204,8 @@ public class SOSClient
         try
         {
             destUri = sosUtils.buildURLQuery(grRequest);
-            destUri = destUri.replace("http://", "ws://");
+            destUri = destUri.replace("http://", "ws://")
+                             .replace("https://", "wss://");
         }
         catch (OWSException e)
         {
