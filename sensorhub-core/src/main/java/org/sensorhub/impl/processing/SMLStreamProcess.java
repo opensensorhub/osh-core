@@ -135,7 +135,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
             AbstractSWEIdentifiable ioDesc = ioList.get(i);
             DataComponent ioComponent = SMLHelper.getIOComponent(ioDesc);
             ioComponent.setName(ioName);
-            ioMap.put(ioName, ioComponent.copy());
+            ioMap.put(ioName, isOutput ? ioComponent.copy() : ioComponent);
             
             if (isOutput)
                 outputInterfaces.put(ioName, new SMLOutputInterface(this, ioComponent));
