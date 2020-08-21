@@ -16,8 +16,10 @@ package org.sensorhub.ui;
 
 import org.sensorhub.api.sensor.ISensorControlInterface;
 import org.sensorhub.api.sensor.SensorException;
+import org.sensorhub.ui.api.UIConstants;
 import net.opengis.swe.v20.DataChoice;
 import net.opengis.swe.v20.DataComponent;
+import net.opengis.swe.v20.DataRecord;
 import net.opengis.swe.v20.SimpleComponent;
 import com.vaadin.data.Property.ValueChangeEvent;
 import com.vaadin.data.Property.ValueChangeListener;
@@ -39,7 +41,8 @@ import com.vaadin.ui.Button.ClickListener;
 public class SWEControlForm extends SWECommonForm
 {
     transient ISensorControlInterface controlInput;
-    transient DataComponent command;
+    transient DataComponent controlSink;
+    transient DataComponent command;    
     
     
     public SWEControlForm(final ISensorControlInterface controlInput)
@@ -47,7 +50,17 @@ public class SWEControlForm extends SWECommonForm
         this.addSpacing = true;
         this.controlInput = controlInput;
         this.command = controlInput.getCommandDescription().copy();
-        this.command.assignNewDataBlock();        
+        this.command.assignNewDataBlock();
+        buildForm();
+    }
+    
+    
+    public SWEControlForm(final DataComponent params)
+    {
+        this.addSpacing = true;
+        this.controlSink = params;
+        this.command = params.copy();
+        this.command.setData(params.getData());
         buildForm();
     }
     
@@ -56,10 +69,18 @@ public class SWEControlForm extends SWECommonForm
     {
         removeAllComponents();
         setSpacing(true);
-        addComponent(buildWidget(command, false));
+        
+        if (command instanceof DataRecord)
+        {
+            for (int i = 0; i < command.getComponentCount(); i++)
+                addComponent(buildWidget(command.getComponent(i), false));
+        }
+        else
+            addComponent(buildWidget(command, false));
         
         // send button
         Button sendBtn = new Button("Send Command");
+        sendBtn.addStyleName(UIConstants.STYLE_SMALL);
         addComponent(sendBtn);
         setComponentAlignment(sendBtn, Alignment.MIDDLE_LEFT);
         sendBtn.addClickListener(new ClickListener()
@@ -71,11 +92,14 @@ public class SWEControlForm extends SWECommonForm
             {
                 try
                 {
-                    controlInput.execCommand(command.getData());
+                    if (controlInput != null)
+                        controlInput.execCommand(command.getData());
+                    else
+                        controlSink.setData(command.getData());
                 }
                 catch (SensorException e)
                 {
-                    DisplayUtils.showErrorPopup("Error while sending command to sensor", e);
+                    DisplayUtils.showErrorPopup("Error while sending command", e);
                 }
             }
         });
@@ -97,6 +121,7 @@ public class SWEControlForm extends SWECommonForm
             // combo to select command type
             HorizontalLayout header = getCaptionLayout(component);
             ListSelect combo = new ListSelect();
+            combo.addStyleName(UIConstants.STYLE_SMALL);
             combo.setItemCaptionMode(ItemCaptionMode.ID);
             combo.setNullSelectionAllowed(false);
             combo.setRows(1);
@@ -130,6 +155,7 @@ public class SWEControlForm extends SWECommonForm
         {
             HorizontalLayout layout = getCaptionLayout(component);
             final TextField f = new TextField();
+            f.addStyleName(UIConstants.STYLE_SMALL);
             f.setValue(component.getData().getStringValue());
             layout.addComponent(f);
             f.addValueChangeListener(new ValueChangeListener() {
@@ -157,6 +183,7 @@ public class SWEControlForm extends SWECommonForm
         header.setSpacing(true);
         
         Label l = new Label();
+        l.addStyleName(UIConstants.STYLE_SMALL);
         l.setContentMode(ContentMode.HTML);
         l.setValue(getCaption(component, false));
         l.setDescription(getTooltip(component));

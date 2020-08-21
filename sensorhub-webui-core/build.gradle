@@ -2,7 +2,7 @@ description = 'OSH Vaadin Admin UI'
 ext.details = 'Web based admin user interface for OSH'
 
 rootProject.allprojects {
-  ext.vaadinVersion = '7.7.12'
+  ext.vaadinVersion = '7.7.17'
   repositories {
     maven { url "http://maven.vaadin.com/vaadin-addons" }
   }

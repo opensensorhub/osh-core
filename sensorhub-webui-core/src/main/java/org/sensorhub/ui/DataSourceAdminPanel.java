@@ -24,6 +24,7 @@ import net.opengis.swe.v20.DataComponent;
 import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.module.ModuleConfig;
+import org.sensorhub.api.sensor.ISensorModule;
 import org.sensorhub.ui.api.IModuleAdminPanel;
 import org.sensorhub.ui.data.MyBeanItem;
 import com.vaadin.server.FontAwesome;
@@ -170,39 +171,53 @@ public class DataSourceAdminPanel<ModuleType extends IDataProducerModule<?>> ext
     {
         if (module != null)
         {
-            Panel oldPanel;
-            
-            // measurement outputs
-            if (!module.getAllOutputs().isEmpty())
+            if (module instanceof ISensorModule)
             {
-                oldPanel = obsPanel;
-                obsPanel = newPanel("Observation Outputs");
-                for (IStreamingDataInterface output: module.getAllOutputs().values())
-                {
-                    // used cached output component if available
-                    DataComponent dataStruct = outputBuffers.get(output.getName());                    
-                    if (dataStruct == null)
-                    {
-                        dataStruct = output.getRecordDescription().copy();
-                        outputBuffers.put(dataStruct.getName(), dataStruct);
-                    }
-                        
-                    // load latest data into component
-                    DataBlock latestRecord = output.getLatestRecord();
-                    if (latestRecord != null)
-                        dataStruct.setData(latestRecord);
-                    
-                    // data structure
-                    Component sweForm = new SWECommonForm(dataStruct);
-                    ((Layout)obsPanel.getContent()).addComponent(sweForm);
-                }
-                
-                if (oldPanel != null)
-                    replaceComponent(oldPanel, obsPanel);
-                else
-                    addComponent(obsPanel);
+                obsPanel = newOutputsPanel("Observation Outputs", ((ISensorModule<?>) module).getObservationOutputs(), obsPanel);
+                statusPanel = newOutputsPanel("Status Outputs", ((ISensorModule<?>) module).getStatusOutputs(), statusPanel);
+            }
+            else
+            {
+                obsPanel = newOutputsPanel("Outputs", module.getAllOutputs(), obsPanel);
             }
         }
+    }
+    
+    
+    protected Panel newOutputsPanel(String name, Map<String, ? extends IStreamingDataInterface> outputs, Panel oldPanel)
+    {
+        Panel newPanel = null;
+        
+        if (!outputs.isEmpty())
+        {
+            newPanel = newPanel(name);
+            for (IStreamingDataInterface output: outputs.values())
+            {
+                // used cached output component if available
+                DataComponent dataStruct = outputBuffers.get(output.getName());                    
+                if (dataStruct == null)
+                {
+                    dataStruct = output.getRecordDescription().copy();
+                    outputBuffers.put(dataStruct.getName(), dataStruct);
+                }
+                    
+                // load latest data into component
+                DataBlock latestRecord = output.getLatestRecord();
+                if (latestRecord != null)
+                    dataStruct.setData(latestRecord);
+                
+                // data structure
+                Component sweForm = new SWECommonForm(dataStruct);
+                ((Layout)newPanel.getContent()).addComponent(sweForm);
+            }
+            
+            if (oldPanel != null)
+                replaceComponent(oldPanel, newPanel);
+            else
+                addComponent(newPanel);
+        }
+        
+        return newPanel;
     }
     
     
