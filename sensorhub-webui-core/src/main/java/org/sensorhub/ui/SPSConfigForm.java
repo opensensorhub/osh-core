@@ -93,10 +93,11 @@ public class SPSConfigForm extends GenericConfigForm
     {
         if (propId.equals(PROP_CONNECTORS))
         {
-            Map<String, Class<?>> classList = new LinkedHashMap<String, Class<?>>();
+            Map<String, Class<?>> classList = new LinkedHashMap<>();
             try
             {
-                classList.put("Sensor Connector", Class.forName(SPS_PACKAGE + "SensorConnectorConfig"));               
+                classList.put("Sensor Connector", Class.forName(SPS_PACKAGE + "SensorConnectorConfig"));
+                classList.put("Stream Process Connector", Class.forName(SPS_PACKAGE + "StreamProcessConnectorConfig"));             
             }
             catch (ClassNotFoundException e)
             {
