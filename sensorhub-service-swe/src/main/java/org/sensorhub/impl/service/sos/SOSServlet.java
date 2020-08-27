@@ -1439,7 +1439,7 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
             providerConfig.sensorID = sensorUID;
             providerConfig.storageID = (storageModule != null) ? storageModule.getLocalID() : null;
             providerConfig.offeringID = offeringID;
-            providerConfig.liveDataTimeout = 600;
+            providerConfig.liveDataTimeout = config.defaultLiveTimeout;
             config.dataProviders.replaceOrAdd(providerConfig);
             
             // instantiate and register provider

@@ -50,6 +50,10 @@ public class SOSServiceConfig extends OGCServiceConfig
     public StorageConfig newStorageConfig;
     
     
+    @DisplayInfo(desc="Default live time-out for new offerings created via SOS-T")
+    public double defaultLiveTimeout = 600.0;
+    
+    
     @DisplayInfo(label="Offerings", desc="Configuration of data providers for SOS offerings")
     public OfferingList<SOSProviderConfig> dataProviders = new OfferingList<>();
     
