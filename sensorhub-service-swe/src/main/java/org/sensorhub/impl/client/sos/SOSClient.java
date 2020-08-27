@@ -18,12 +18,15 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Authenticator;
 import java.net.HttpURLConnection;
+import java.net.PasswordAuthentication;
 import java.net.URI;
 import net.opengis.sensorml.v20.AbstractProcess;
 import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.DataEncoding;
+import org.eclipse.jetty.client.util.BasicAuthentication;
 import org.eclipse.jetty.websocket.api.WebSocketAdapter;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
@@ -151,6 +154,7 @@ public class SOSClient
         try
         {
             log.debug("Connecting to {}", sosUtils.buildURLQuery(grRequest));
+            grRequest.setConnectTimeOut(60000);
             HttpURLConnection conn = sosUtils.sendGetRequest(grRequest);
             InputStream is = new BufferedInputStream(conn.getInputStream());
             parser.setInput(is);
@@ -243,15 +247,22 @@ public class SOSClient
             @Override
             public void onWebSocketError(Throwable cause)
             {
-                
+                log.error("Error connecting to websocket", cause);
             }            
         };
         
         try
         {
+            // init WS client with optional auth
             wsClient = new WebSocketClient();
+            PasswordAuthentication auth = Authenticator.requestPasswordAuthentication(grRequest.getGetServer(), null, 0, null, null, null);
+            if (auth != null) {
+                wsClient.getHttpClient().getAuthenticationStore().addAuthenticationResult(
+                        new BasicAuthentication.BasicResult(new URI(destUri), auth.getUserName(), new String(auth.getPassword())));
+            }
             started = true;
             wsClient.start();
+            
             URI wsUri = new URI(destUri);
             wsClient.connect(socket, wsUri);
             log.debug("Connecting to {}", destUri);
