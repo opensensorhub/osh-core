@@ -1053,11 +1053,11 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
             // build filtered component tree
             // always keep sampling time and entity ID if present
             DataComponent filteredStruct = dataProvider.getResultStructure().copy();
-            request.getObservables().add(SWEConstants.DEF_SAMPLING_TIME);
+            filter.getObservables().add(SWEConstants.DEF_SAMPLING_TIME);
             String entityComponentUri = SOSProviderUtils.findEntityIDComponentURI(filteredStruct);
             if (entityComponentUri != null)
-                request.getObservables().add(entityComponentUri);
-            filteredStruct.accept(new DataStructFilter(request.getObservables()));
+                filter.getObservables().add(entityComponentUri);
+            filteredStruct.accept(new DataStructFilter(filter.getObservables()));
             
             // build and send response
             if (OWSUtils.JSON_MIME_TYPE.equals(request.getFormat()))
@@ -1168,15 +1168,15 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
                 
                 // we also do filtering here in case data provider hasn't modified the datablocks
                 // always keep sampling time and entity ID if present
-                request.getObservables().add(SWEConstants.DEF_SAMPLING_TIME);
+                filter.getObservables().add(SWEConstants.DEF_SAMPLING_TIME);
                 String entityComponentUri = SOSProviderUtils.findEntityIDComponentURI(resultStructure);
                 if (entityComponentUri != null)
                     request.getObservables().add(entityComponentUri);
                 // temporary hack to switch btw old and new writer architecture
                 if (writer instanceof AbstractDataWriter)
-                    writer = new FilteredWriter((AbstractDataWriter)writer, request.getObservables());
+                    writer = new FilteredWriter((AbstractDataWriter)writer, filter.getObservables());
                 else
-                    ((DataBlockProcessor)writer).setDataComponentFilter(new FilterByDefinition(request.getObservables()));
+                    ((DataBlockProcessor)writer).setDataComponentFilter(new FilterByDefinition(filter.getObservables()));
                 writer.setDataComponents(resultStructure);
                 writer.setOutput(os);
                                 
