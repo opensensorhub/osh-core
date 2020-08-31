@@ -66,6 +66,15 @@ public interface IObsStorage extends IBasicStorage
     
     
     /**
+     * Retrieves the time ranges during which observations are available for 
+     * features of interest matching the given filter 
+     * @param filter filtering criterias
+     * @return A read-only iterator over observation periods
+     */
+    public Iterator<ObsPeriod> getFoiTimeRanges(IObsFilter filter);
+    
+    
+    /**
      * Stores a new feature of interest description into storage.
      * @param producerID ID of producer by which this FOI has been observed
      * @param foi feature object to store

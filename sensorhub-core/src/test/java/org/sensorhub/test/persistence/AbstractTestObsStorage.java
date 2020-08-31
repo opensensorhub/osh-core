@@ -18,6 +18,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -39,6 +40,7 @@ import org.sensorhub.api.persistence.IObsFilter;
 import org.sensorhub.api.persistence.IObsStorage;
 import org.sensorhub.api.persistence.ObsFilter;
 import org.sensorhub.api.persistence.ObsKey;
+import org.sensorhub.api.persistence.ObsPeriod;
 import org.sensorhub.test.TestUtils;
 import org.vast.ogc.gml.GenericFeatureImpl;
 import org.vast.util.Bbox;
@@ -607,6 +609,29 @@ public abstract class AbstractTestObsStorage<StorageType extends IObsStorageModu
         
         // Storage bounding box may be larger than real extent, but not smaller
         assertTrue("Wrong FOI spatial extent", foiExtent.contains(realExtent));
+    }
+    
+    
+    @Test
+    public void testGetFoiTimeRanges() throws Exception
+    {
+        addFoisToStorage(null);
+        
+        DataComponent recordDef = createDs2();
+        addObservationsWithFoiToStorage(recordDef);
+        
+        Iterator<ObsPeriod> timeRanges = storage.getFoiTimeRanges(new ObsFilter(recordDef.getName()));
+        assertTrue("No FOI times returned", timeRanges != null && timeRanges.hasNext());
+        
+        double timeStep = 0.1;
+        while (timeRanges.hasNext())
+        {
+            ObsPeriod p = timeRanges.next();
+            int foiIdx = Arrays.asList(FOI_IDS).indexOf(p.foiID);
+            assertEquals(FOI_STARTS[foiIdx]*timeStep, p.begin, 1e-12);
+            if (foiIdx < FOI_STARTS.length-1)
+                assertEquals((FOI_STARTS[foiIdx+1]-1)*timeStep, p.end, 1e-12);
+        }
     }
     
     

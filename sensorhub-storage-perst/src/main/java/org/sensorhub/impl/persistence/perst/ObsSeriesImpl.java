@@ -116,7 +116,7 @@ public class ObsSeriesImpl extends TimeSeriesImpl
     }
     
     
-    Set<FoiTimePeriod> getFoiTimePeriods(final IDataFilter filter)
+    Set<FoiTimePeriod> getFoiTimePeriods(final IDataFilter filter, boolean returnAllIfNoFoiSelected)
     {
         // extract FOI filters if any
         Collection<String> foiIDs = null;
@@ -163,7 +163,7 @@ public class ObsSeriesImpl extends TimeSeriesImpl
         }
         
         // if no FOIs selected don't compute periods
-        if (foiIDs == null)
+        if (foiIDs == null && !returnAllIfNoFoiSelected)
             return null;
         
         // get time periods for list of FOIs
@@ -230,7 +230,7 @@ public class ObsSeriesImpl extends TimeSeriesImpl
     IteratorWithFoi getEntryIterator(IDataFilter filter, boolean preloadValue)
     {
         // get time periods for matching FOIs
-        Set<FoiTimePeriod> foiTimePeriods = getFoiTimePeriods(filter);
+        Set<FoiTimePeriod> foiTimePeriods = getFoiTimePeriods(filter, false);
             
         // if no FOIs have been added just process whole time range
         if (foiTimePeriods == null)

@@ -21,8 +21,10 @@ import net.opengis.swe.v20.DataEncoding;
 import org.garret.perst.Persistent;
 import org.garret.perst.Storage;
 import org.sensorhub.api.persistence.IFoiFilter;
+import org.sensorhub.api.persistence.IObsFilter;
 import org.sensorhub.api.persistence.IObsStorage;
 import org.sensorhub.api.persistence.IObsStorageModule;
+import org.sensorhub.api.persistence.ObsPeriod;
 import org.vast.util.Bbox;
 
 
@@ -70,6 +72,13 @@ public class ObsStorageImpl extends BasicStorageImpl implements IObsStorageModul
     public Iterator<AbstractFeature> getFois(IFoiFilter filter)
     {
         return ((ObsStorageRoot)dbRoot).getFois(filter);
+    }
+
+
+    @Override
+    public Iterator<ObsPeriod> getFoiTimeRanges(IObsFilter filter)
+    {
+        return ((ObsStorageRoot)dbRoot).getFoiTimeRanges(filter);
     }
     
     

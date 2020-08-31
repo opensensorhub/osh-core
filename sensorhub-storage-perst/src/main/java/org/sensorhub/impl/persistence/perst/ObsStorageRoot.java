@@ -14,13 +14,18 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.persistence.perst;
 
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.Set;
 import net.opengis.gml.v32.AbstractFeature;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.DataEncoding;
 import org.garret.perst.Storage;
 import org.sensorhub.api.persistence.IFoiFilter;
+import org.sensorhub.api.persistence.IObsFilter;
 import org.sensorhub.api.persistence.IObsStorage;
+import org.sensorhub.api.persistence.ObsPeriod;
+import org.sensorhub.impl.persistence.perst.FoiTimesStoreImpl.FoiTimePeriod;
 import org.vast.util.Bbox;
 
 
@@ -81,6 +86,33 @@ class ObsStorageRoot extends BasicStorageRoot implements IObsStorage
     public Iterator<AbstractFeature> getFois(IFoiFilter filter)
     {
         return featureStore.getFeatures(filter);
+    }
+
+
+    @Override
+    public Iterator<ObsPeriod> getFoiTimeRanges(IObsFilter filter)
+    {
+        ObsSeriesImpl dataStore = (ObsSeriesImpl)getRecordStore(filter.getRecordType());
+        Set<FoiTimePeriod> timePeriods = dataStore.getFoiTimePeriods(filter, true);
+        if (timePeriods == null)
+            return Collections.emptyIterator();
+        
+        Iterator<FoiTimePeriod> it = timePeriods.iterator();
+        return new Iterator<ObsPeriod>() {
+
+            @Override
+            public boolean hasNext()
+            {
+                return it.hasNext();
+            }
+
+            @Override
+            public ObsPeriod next()
+            {
+                FoiTimePeriod p = it.next();
+                return new ObsPeriod(p.uid, p.start, p.stop);
+            }
+        };
     }
     
     
