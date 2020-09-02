@@ -17,15 +17,19 @@ package org.sensorhub.impl.processing;
 import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.DataEncoding;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
+import org.sensorhub.api.common.Event;
 import org.sensorhub.api.common.IEventHandler;
 import org.sensorhub.api.common.IEventListener;
 import org.sensorhub.api.data.DataEvent;
 import org.sensorhub.api.data.IDataProducerModule;
-import org.sensorhub.api.data.IStreamingDataInterface;
+import org.sensorhub.api.data.IMultiSourceDataInterface;
 import org.sensorhub.api.processing.ProcessException;
 import org.sensorhub.impl.SensorHub;
-import org.sensorhub.impl.common.BasicEventHandler;
-import org.vast.process.DataQueue;
+import org.sensorhub.impl.processing.SMLMultiStreamProcess.SMLStreamProcessExt;
 import org.vast.swe.SWEHelper;
 
 
@@ -33,69 +37,29 @@ import org.vast.swe.SWEHelper;
  * Implementation of streaming data interface that forwards data obtained from
  * SensorML process output data queues as SensorHub DataEvents
  */
-class SMLOutputInterface implements IStreamingDataInterface
+class SMLMultiSourceOutput implements IMultiSourceDataInterface, IEventListener
 {
-    SMLStreamProcess parentProcess;
+    SMLMultiStreamProcess parentProcess;
     IEventHandler eventHandler;
     DataComponent outputDef;
     DataEncoding outputEncoding;
-    DataBlock lastRecord;
+    DataBlock latestRecord;
+    Map<String, DataBlock> latestRecords = new ConcurrentSkipListMap<>();
     long lastRecordTime = Long.MIN_VALUE;
     double avgSamplingPeriod = 1.0;
     int avgSampleCount = 0;
 
 
-    protected DataQueue outputQueue = new DataQueue()
-    {
-        @Override
-        public synchronized void add(DataBlock data)
-        {
-            long now = System.currentTimeMillis();
-            double timeStamp = now / 1000.;
-
-            // refine sampling period
-            if (!Double.isNaN(lastRecordTime))
-            {
-                double dT = timeStamp - lastRecordTime;
-                avgSampleCount++;
-                if (avgSampleCount == 1)
-                    avgSamplingPeriod = dT;
-                else
-                    avgSamplingPeriod += (dT - avgSamplingPeriod) / avgSampleCount;
-            }
-
-            // save last record and send event
-            lastRecord = data.clone();
-            lastRecordTime = now;
-            DataEvent e = new DataEvent(now, SMLOutputInterface.this, lastRecord);
-            eventHandler.publishEvent(e);
-        }
-    };
-
-
-    protected SMLOutputInterface(SMLStreamProcess parentProcess, DataComponent outputDef) throws ProcessException
+    protected SMLMultiSourceOutput(SMLMultiStreamProcess parentProcess, DataComponent outputDef) throws ProcessException
     {
         this.parentProcess = parentProcess;
         this.outputDef = outputDef;
         this.outputEncoding = SWEHelper.getDefaultEncoding(outputDef);
 
-        try
-        {
-            parentProcess.smlProcess.connectOutput(outputDef.getName(), "/", outputQueue);
-        }
-        catch (org.vast.process.SMLException e)
-        {
-            throw new ProcessException("Error while connecting output " + outputDef.getName(), e);
-        }
-
         // obtain an event handler for this output
         String moduleID = parentProcess.getLocalID();
         String topic = getName();
-
-        if (parentProcess.connectToEventBus)
-            this.eventHandler = SensorHub.getInstance().getEventBus().registerProducer(moduleID, topic);
-        else
-            this.eventHandler = new BasicEventHandler();
+        this.eventHandler = SensorHub.getInstance().getEventBus().registerProducer(moduleID, topic);
     }
 
 
@@ -137,7 +101,7 @@ class SMLOutputInterface implements IStreamingDataInterface
     @Override
     public DataBlock getLatestRecord()
     {
-        return lastRecord;
+        return latestRecord;
     }
 
 
@@ -166,6 +130,44 @@ class SMLOutputInterface implements IStreamingDataInterface
     public void unregisterListener(IEventListener listener)
     {
         eventHandler.unregisterListener(listener);
+    }
+
+
+    @Override
+    public Collection<String> getEntityIDs()
+    {
+        return Collections.unmodifiableCollection(latestRecords.keySet());
+    }
+
+
+    @Override
+    public Map<String, DataBlock> getLatestRecords()
+    {
+        return Collections.unmodifiableMap(latestRecords);
+    }
+
+
+    @Override
+    public DataBlock getLatestRecord(String entityID)
+    {
+        return latestRecords.get(entityID);
+    }
+
+
+    @Override
+    public void handleEvent(Event<?> e)
+    {
+        if (e instanceof DataEvent)
+        {
+            SMLStreamProcessExt subProcess = (SMLStreamProcessExt) ((DataEvent) e).getSource().getParentModule();
+            String entityID = subProcess.getEntityID();
+
+            // save last record and forward event
+            latestRecord = ((DataEvent) e).getRecords()[0];
+            latestRecords.put(entityID, latestRecord);
+            lastRecordTime = e.getTimeStamp();
+            eventHandler.publishEvent(new DataEvent(e.getTimeStamp(), entityID, SMLMultiSourceOutput.this, latestRecord));
+        }
     }
 
 }

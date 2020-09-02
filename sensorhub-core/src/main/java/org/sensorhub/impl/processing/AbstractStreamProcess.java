@@ -78,6 +78,7 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
     protected long lastUpdatedSensorDescription = Long.MIN_VALUE;
     protected boolean paused = false;
     protected int errorCount = 0;
+    protected boolean connectToEventBus = true;
     
     
     protected class InputData
@@ -210,7 +211,7 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
     
     
     protected void connectInput(String inputName, String dataPath, DataQueue inputQueue) throws ProcessException
-    {        
+    {
         DataComponent destData = inputs.get(inputName);
         if (destData == null)
             throw new ProcessException("Input " + inputName + " doesn't exist");
@@ -229,6 +230,12 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
 
     @Override
     public void start() throws SensorHubException
+    {
+        connectToDataSources();
+    }
+
+
+    protected void connectToDataSources() throws SensorHubException
     {
         errorCount = 0;
         streamSources = new WeakHashMap<IStreamingDataInterface, InputData>();
@@ -308,7 +315,8 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
                     }
                     
                     inputData.dataQueues.add(inputQueue);
-                    streamInterface.registerListener(this);
+                    if (connectToEventBus)
+                        streamInterface.registerListener(this);
                 }
             }
             
@@ -318,7 +326,7 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
                 // TODO what do we do with storage input?
                 // should it be handled by the process impl directly?
             }
-        }            
+        }
     }
     
     

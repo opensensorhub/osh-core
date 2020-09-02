@@ -14,7 +14,9 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.processing;
 
+import java.io.File;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
 import net.opengis.OgcPropertyList;
@@ -29,8 +31,11 @@ import org.vast.process.DataQueue;
 import org.vast.process.SMLException;
 import org.vast.sensorML.AbstractProcessImpl;
 import org.vast.sensorML.AggregateProcessImpl;
+import org.vast.sensorML.ProcessLoader;
 import org.vast.sensorML.SMLHelper;
 import org.vast.sensorML.SMLUtils;
+import org.vast.util.Asserts;
+import com.google.common.base.Strings;
 
 
 /**
@@ -55,14 +60,28 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
         
         // only go further if sensorML file was provided
         // otherwise we'll do it at the next update
-        if (config.sensorML != null)
+        if (config.sensorMLFile != null)
         {
             SMLUtils utils = new SMLUtils(SMLUtils.V2_0);
-            
+
+            // load process map if specified
+            if (config.processMapFile != null)
+            {
+                try
+                {
+                    URL processMapUrl = toURL(config.processMapFile);
+                    ProcessLoader.loadMaps(processMapUrl.toString(), false);
+                }
+                catch (Exception e)
+                {
+                    throw new ProcessException("Error loading process map XML file", e);
+                }
+            }
+
             // parse SensorML file
             try
             {
-                InputStream is = new URL(config.sensorML).openStream();
+                InputStream is = toURL(config.sensorMLFile).openStream();
                 processDescription = utils.readProcess(is);
                 smlProcess = (AbstractProcessImpl)processDescription;
                 
@@ -75,7 +94,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
                 throw new ProcessException("Error while parsing static SensorML description for process " +
                         MsgUtils.moduleString(this), e);
             }
-            
+
             // make process executable
             try
             {
@@ -95,8 +114,22 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
             scanIOList(smlProcess.getOutputList(), outputs, true);
         }
     }
-    
-    
+
+
+    /*
+     * Builds a URL from either a file system location or an actual URL
+     */
+    protected URL toURL(String fileLocation) throws MalformedURLException
+    {
+        Asserts.checkArgument(!Strings.isNullOrEmpty(fileLocation));
+
+        if (fileLocation.startsWith("file:/") || fileLocation.startsWith("http://"))
+            return new URL(fileLocation);
+        else
+            return new File(fileLocation).toURI().toURL();
+    }
+
+
     @Override
     public void updateConfig(SMLStreamProcessConfig config) throws SensorHubException
     {
@@ -114,7 +147,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
 
     @Override
     protected void connectInput(String inputName, String dataPath, DataQueue inputQueue) throws ProcessException
-    {        
+    {
         try
         {
             smlProcess.connectInput(inputName, dataPath, inputQueue);
@@ -152,7 +185,8 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
         try
         {
             // start process thread
-            smlProcess.start();
+            //smlProcess.start();
+            smlProcess.init();
             
             // call super to register to input events
             super.start();
@@ -168,10 +202,11 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     public void stop()
     {
         // stop processing thread
-        smlProcess.stop();
-        
+        if (smlProcess != null)
+            smlProcess.stop();
+
         // call super to unregister from input events
-        super.stop();        
+        super.stop();
     }
     
 
@@ -195,6 +230,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     {
         // nothing to do
         // the process thread takes care of getting data from input queues
-        // and sending events whenever data is available on output queues        
+        // and sending events whenever data is available on output queues 
+        smlProcess.run();
     }
 }

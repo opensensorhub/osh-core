@@ -2,4 +2,5 @@ org.sensorhub.impl.comm.TCPCommModuleDescriptor
 org.sensorhub.impl.comm.UDPCommModuleDescriptor
 org.sensorhub.impl.persistence.GenericStreamStorageDescriptor
 org.sensorhub.impl.processing.SMLStreamProcessDescriptor
+org.sensorhub.impl.processing.SMLMultiStreamProcessDescriptor
 org.sensorhub.impl.security.BasicSecurityRealmDescriptor
