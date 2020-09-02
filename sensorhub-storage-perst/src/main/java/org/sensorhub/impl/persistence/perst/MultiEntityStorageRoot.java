@@ -28,7 +28,9 @@ import org.sensorhub.api.persistence.IDataFilter;
 import org.sensorhub.api.persistence.IDataRecord;
 import org.sensorhub.api.persistence.IFoiFilter;
 import org.sensorhub.api.persistence.IMultiSourceStorage;
+import org.sensorhub.api.persistence.IObsFilter;
 import org.sensorhub.api.persistence.IObsStorage;
+import org.sensorhub.api.persistence.ObsPeriod;
 import org.sensorhub.impl.persistence.perst.TimeSeriesImpl.DBRecord;
 import org.vast.util.Bbox;
 
@@ -454,6 +456,36 @@ class MultiEntityStorageRoot extends ObsStorageRoot implements IObsStorage, IMul
         }
         
         return fois.iterator();
+    }
+    
+    
+    @Override
+    public Iterator<ObsPeriod> getFoiTimeRanges(IObsFilter filter)
+    {
+        return new Iterator<ObsPeriod>() {
+            Iterator<ObsStorageRoot> dataStoresIt = obsStores.values().iterator();
+            Iterator<ObsPeriod> currentIterator;
+            
+            @Override
+            public boolean hasNext()
+            {
+                while (currentIterator == null || !currentIterator.hasNext())
+                {
+                    if (!dataStoresIt.hasNext())
+                        return false;
+                    
+                    currentIterator = dataStoresIt.next().getFoiTimeRanges(filter);
+                }
+                
+                return true;
+            }
+
+            @Override
+            public ObsPeriod next()
+            {
+                return currentIterator.next();
+            }
+        };
     }
 
 
