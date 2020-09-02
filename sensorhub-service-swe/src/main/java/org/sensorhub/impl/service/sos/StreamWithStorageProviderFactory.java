@@ -28,6 +28,7 @@ import org.sensorhub.impl.SensorHub;
 import org.sensorhub.impl.service.sos.StreamDataProviderConfig.DataSource;
 import org.sensorhub.utils.MsgUtils;
 import org.vast.ows.OWSException;
+import org.vast.ows.sos.SOSException;
 import org.vast.ows.sos.SOSOfferingCapabilities;
 import org.vast.util.TimeExtent;
 
@@ -162,6 +163,10 @@ public class StreamWithStorageProviderFactory extends StorageDataProviderFactory
     {
         checkEnabled();
         TimeExtent timeRange = filter.getTimeRange();
+        
+        // disallow real-time requests for FOI time ranges
+        if ((timeRange.isBeginNow() || timeRange.isBaseAtNow()) && filter.getObservables().contains(StorageFoiTimePeriodsProvider.DEF_FOI_TIMERANGE_URI))
+            throw new SOSException("FOI observation time ranges can only be requested in the past");
         
         // if request for streaming data, connect to stream source
         // or if request for latest records and configured source = STREAM
