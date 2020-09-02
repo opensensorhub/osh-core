@@ -43,7 +43,6 @@ import org.vast.ogc.om.IObservation;
 import org.vast.ows.OWSException;
 import org.vast.ows.sos.SOSOfferingCapabilities;
 import org.vast.swe.SWEConstants;
-import org.vast.swe.SWEHelper;
 import org.vast.util.Bbox;
 import org.vast.util.TimeExtent;
 
@@ -67,8 +66,6 @@ import org.vast.util.TimeExtent;
  */
 public class StorageDataProviderFactory implements ISOSDataProviderFactory, IEventListener
 {
-    static final String FOI_TIME_PERIODS = SWEHelper.getPropertyUri("PhenomenonTimeRange");
-    
     final SOSServlet service;
     final StorageDataProviderConfig config;
     final IRecordStorageModule<?> storage;
@@ -294,7 +291,7 @@ public class StorageDataProviderFactory implements ISOSDataProviderFactory, IEve
             
             // also add special "data availability" observable
             if (storage instanceof IObsStorage)
-                observables.add(FOI_TIME_PERIODS);
+                observables.add(StorageFoiTimePeriodsProvider.DEF_FOI_TIMERANGE_URI);
         }
     }
     
@@ -397,7 +394,7 @@ public class StorageDataProviderFactory implements ISOSDataProviderFactory, IEve
     {
         checkEnabled();
         
-        if (storage instanceof IObsStorage && filter.getObservables().contains(FOI_TIME_PERIODS))
+        if (storage instanceof IObsStorage && filter.getObservables().contains(StorageFoiTimePeriodsProvider.DEF_FOI_TIMERANGE_URI))
             return new StorageFoiTimePeriodsProvider((IObsStorage)storage, config, filter);
         else
             return new StorageDataProvider(storage, config, filter);

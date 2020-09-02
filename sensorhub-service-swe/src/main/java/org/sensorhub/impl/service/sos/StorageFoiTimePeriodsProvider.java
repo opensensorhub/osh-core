@@ -46,7 +46,9 @@ import com.vividsolutions.jts.geom.Polygon;
  */
 public class StorageFoiTimePeriodsProvider implements ISOSDataProvider
 {
+    static final String DEF_FOI_TIMERANGE_URI = SWEHelper.getPropertyUri("FeatureObservationTimeRange");
     static final String DEF_FOI_URI = SWEHelper.getPropertyUri("FeatureOfInterestUID");
+    
     SWEHelper swe = new SWEHelper();
     IObsStorage storage;
     List<IObsFilter> dataStoreFilters;
