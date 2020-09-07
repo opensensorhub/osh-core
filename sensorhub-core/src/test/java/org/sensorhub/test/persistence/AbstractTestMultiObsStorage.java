@@ -244,6 +244,14 @@ public abstract class AbstractTestMultiObsStorage<StorageType extends IObsStorag
     
     
     @Test
+    public void testGetFoiTimeRanges() throws Exception
+    {
+        addProducersToStorage();
+        super.testGetFoiTimeRanges();
+    }
+    
+    
+    @Test
     public void testGetNumMatchingRecordsWithOneFoi() throws Exception
     {
         addProducersToStorage();
