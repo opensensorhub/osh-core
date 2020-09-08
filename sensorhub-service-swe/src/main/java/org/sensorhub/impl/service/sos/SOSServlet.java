@@ -1171,7 +1171,7 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
                 filter.getObservables().add(SWEConstants.DEF_SAMPLING_TIME);
                 String entityComponentUri = SOSProviderUtils.findEntityIDComponentURI(resultStructure);
                 if (entityComponentUri != null)
-                    request.getObservables().add(entityComponentUri);
+                    filter.getObservables().add(entityComponentUri);
                 // temporary hack to switch btw old and new writer architecture
                 if (writer instanceof AbstractDataWriter)
                     writer = new FilteredWriter((AbstractDataWriter)writer, filter.getObservables());
