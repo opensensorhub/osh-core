@@ -136,6 +136,9 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
                 processDescription = utils.readProcess(is);
                 smlProcess = (AbstractProcessImpl)processDescription;
                 
+                if (config.processUID != null)
+                    smlProcess.setUniqueIdentifier(config.processUID);
+                
                 // execute the whole chain in a single thread
                 if (smlProcess instanceof AggregateProcessImpl)
                     ((AggregateProcessImpl)smlProcess).setChildrenThreadsOn(false);

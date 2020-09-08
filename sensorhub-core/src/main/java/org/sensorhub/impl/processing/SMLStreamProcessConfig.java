@@ -35,6 +35,11 @@ public class SMLStreamProcessConfig extends StreamProcessConfig
 
     @DisplayInfo(label="Process Map URL", desc="URL of process map XML file")
     public String processMapFile;
+    
+    
+    @DisplayInfo(label="Process UID Override", desc="UID to override the UID defined in the SensorML document"
+        + " (needed in case the same SensorML process file is instantiated multiple times with different data sources)")
+    public String processUID;
 
 
     @DisplayInfo(label="Num threads", desc="Number of threads to use to execute the process")
