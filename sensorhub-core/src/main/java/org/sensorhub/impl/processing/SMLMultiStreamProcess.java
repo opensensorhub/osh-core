@@ -38,8 +38,8 @@ import net.opengis.sensorml.v20.AbstractProcess;
  * <p>
  * Implementation of process module fully configured using a SensorML process
  * chain description. This process module is intended to be connected to a
- * IMultiSourceDataProducer and a separate instance of the chain is created
- * for each data source.
+ * IMultiSourceDataProducer and a separate instance of the chain (maintaining
+ * its own separate state) is created for each data producer (i.e. entity).
  * </p>
  *
  * @author Alex Robin <alex.robin@sensiasoftware.com>
@@ -127,8 +127,6 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
             IDataProducerModule<?> dataProducer = ((IStreamingDataInterface)e.getSource()).getParentModule();
             String entityID = ((DataEvent) e).getRelatedEntityID();
             SMLStreamProcessExt smlProcess = processMap.get(entityID);
-            //if (!"300234068510730".equals(entityID))
-            //    return;
 
             // create subprocess if no data for this entity has been received yet
             if (smlProcess == null)

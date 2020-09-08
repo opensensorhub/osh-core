@@ -18,7 +18,10 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import net.opengis.OgcPropertyList;
 import net.opengis.swe.v20.AbstractSWEIdentifiable;
 import net.opengis.swe.v20.DataComponent;
@@ -50,7 +53,55 @@ import com.google.common.base.Strings;
  */
 public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConfig>
 {
+    Executor exec;
     AbstractProcessImpl smlProcess;
+    
+    // serial executor to ensure input data events are processed in order
+    class SerialExecutor implements Executor
+    {
+        final ArrayDeque<Runnable> tasks = new ArrayDeque<>();
+        final Executor executor;
+        Runnable active;
+
+        SerialExecutor(Executor executor)
+        {
+            this.executor = executor;
+        }
+
+        public synchronized void execute(final Runnable r)
+        {
+            tasks.offer(new Runnable()
+            {
+                public void run()
+                {
+                    try { r.run(); }
+                    finally { scheduleNext(); }
+                }
+            });
+            
+            if (active == null)
+                scheduleNext();
+        }
+
+
+        protected synchronized void scheduleNext()
+        {
+            if ((active = tasks.poll()) != null)
+                executor.execute(active);
+        }
+    }
+    
+    
+    public SMLStreamProcess()
+    {
+        this.exec = new SerialExecutor(ForkJoinPool.commonPool());
+    }
+    
+    
+    public SMLStreamProcess(Executor executor)
+    {
+        this.exec = new SerialExecutor(executor);
+    }
     
 
     @Override
@@ -184,8 +235,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
         
         try
         {
-            // start process thread
-            //smlProcess.start();
+            // init executable process
             smlProcess.init();
             
             // call super to register to input events
@@ -201,11 +251,6 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     @Override
     public void stop()
     {
-        // stop processing thread
-        if (smlProcess != null)
-            smlProcess.stop();
-
-        // call super to unregister from input events
         super.stop();
     }
     
@@ -228,9 +273,8 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     @Override
     protected void process(DataEvent lastEvent) throws ProcessException
     {
-        // nothing to do
-        // the process thread takes care of getting data from input queues
-        // and sending events whenever data is available on output queues 
-        smlProcess.run();
+        // run the process asynchronously
+        exec.execute(smlProcess);
+        //smlProcess.run();
     }
 }
