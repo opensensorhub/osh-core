@@ -123,7 +123,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     {
         Asserts.checkArgument(!Strings.isNullOrEmpty(fileLocation));
 
-        if (fileLocation.startsWith("file:/") || fileLocation.startsWith("http://"))
+        if (fileLocation.startsWith("jar:") || fileLocation.startsWith("file:/") || fileLocation.startsWith("http://"))
             return new URL(fileLocation);
         else
             return new File(fileLocation).toURI().toURL();

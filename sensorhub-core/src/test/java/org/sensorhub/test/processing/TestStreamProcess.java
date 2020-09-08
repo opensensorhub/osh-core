@@ -110,8 +110,8 @@ public class TestStreamProcess implements IEventListener
         for (StreamingDataSourceConfig dataSrc: dataSources)
             processCfg.dataSources.add(dataSrc);
 
-        @SuppressWarnings("rawtypes")
-        IStreamProcessModule process = (IStreamProcessModule)SensorHub.getInstance().getModuleRegistry().loadModule(processCfg);
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        IStreamProcessModule<StreamProcessConfig> process = (IStreamProcessModule)SensorHub.getInstance().getModuleRegistry().loadModule(processCfg);
         process.init(processCfg);
 
         return process;
@@ -199,8 +199,10 @@ public class TestStreamProcess implements IEventListener
         for (StreamingDataSourceConfig dataSrc: dataSources)
             processCfg.dataSources.add(dataSrc);
 
-        IStreamProcessModule<SMLStreamProcessConfig> process = (IStreamProcessModule<SMLStreamProcessConfig>)SensorHub.getInstance().getModuleRegistry().loadModule(processCfg);
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        IStreamProcessModule<SMLStreamProcessConfig> process = (IStreamProcessModule)SensorHub.getInstance().getModuleRegistry().loadModule(processCfg);        
         process.init(processCfg);
+        
         for (IStreamingDataInterface output: process.getAllOutputs().values())
             output.registerListener(this);
 
