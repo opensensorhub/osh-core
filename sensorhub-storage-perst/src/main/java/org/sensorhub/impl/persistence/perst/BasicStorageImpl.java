@@ -241,6 +241,15 @@ public class BasicStorageImpl extends AbstractModule<BasicStorageConfig> impleme
     
     
     @Override
+    public synchronized void updateRecordStore(String name, DataComponent recordStructure)
+    {
+        ((BasicStorageRoot)dbRoot).updateRecordStore(name, recordStructure);
+        if (autoCommit)
+            commit();
+    }
+    
+    
+    @Override
     public synchronized Map<String, ? extends IRecordStoreInfo> getRecordStores()
     {
         return ((BasicStorageRoot)dbRoot).getRecordStores();

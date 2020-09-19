@@ -272,6 +272,22 @@ class BasicStorageRoot extends PersistentResource implements IBasicStorage
     
     
     @Override
+    public synchronized void updateRecordStore(String name, DataComponent recordStructure)
+    {
+        try
+        {
+            exclusiveLock();
+            recordStructure.setName(name);
+            getRecordStore(name).updateRecordStructure(recordStructure);
+        }
+        finally
+        {
+            unlock();
+        }
+    }
+    
+    
+    @Override
     public Map<String, ? extends IRecordStoreInfo> getRecordStores()
     {
         try

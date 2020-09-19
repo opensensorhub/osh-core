@@ -198,8 +198,8 @@ public class GenericStreamStorage extends AbstractModule<StreamStorageConfig> im
         {
             if (!storage.getRecordStores().containsKey(output.getName()))
                 storage.addRecordStore(output.getName(), output.getRecordDescription(), output.getRecommendedEncoding());
-            
-            // TODO check that structure is compatible w/ what's already in storage
+            else
+                storage.updateRecordStore(output.getName(), output.getRecordDescription());
         }
         
         // set current FOI
@@ -302,13 +302,13 @@ public class GenericStreamStorage extends AbstractModule<StreamStorageConfig> im
                         ((IObsStorage)storage).storeFoi(producerID, foi);
                 }
                 
-                // create record store for each output that's not already registered
+                // create or update record store for each output
                 for (IStreamingDataInterface output: getSelectedOutputs(dataSource))
                 {
                     if (!dataStore.getRecordStores().containsKey(output.getName()))
                         dataStore.addRecordStore(output.getName(), output.getRecordDescription(), output.getRecommendedEncoding());
-                    
-                    // TODO check that structure is compatible w/ what's already in storage
+                    else
+                        dataStore.updateRecordStore(output.getName(), output.getRecordDescription());
                 }
             }
         }
@@ -486,6 +486,13 @@ public class GenericStreamStorage extends AbstractModule<StreamStorageConfig> im
         IDataProducerModule<?> dataSource = dataSourceRef.get();
         if (dataSource != null)
             prepareToReceiveEvents(dataSource.getAllOutputs().get(name));
+    }
+
+
+    @Override
+    public void updateRecordStore(String name, DataComponent recordStructure)
+    {
+        throw new UnsupportedOperationException();        
     }
 
 

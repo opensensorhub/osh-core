@@ -40,6 +40,7 @@ import org.sensorhub.api.persistence.IRecordStoreInfo;
 import org.sensorhub.api.persistence.IStorageModule;
 import org.sensorhub.api.persistence.StorageException;
 import org.sensorhub.impl.module.AbstractModule;
+import org.sensorhub.utils.DataComponentChecks;
 import org.vast.util.NumberUtils;
 
 
@@ -148,6 +149,15 @@ public class InMemoryBasicStorage extends AbstractModule<InMemoryStorageConfig> 
     {
         return Collections.unmodifiableMap(dataStores);
     }
+    
+    
+    protected final TimeSeriesImpl getRecordStore(String recordType)
+    {
+        TimeSeriesImpl dataStore = dataStores.get(recordType);
+        if (dataStore == null)
+            throw new IllegalArgumentException("Record type not found in this storage: " + recordType);
+        return dataStore;
+    }
 
 
     @Override
@@ -155,6 +165,13 @@ public class InMemoryBasicStorage extends AbstractModule<InMemoryStorageConfig> 
     {
         TimeSeriesImpl timeSeries = new TimeSeriesImpl(recordStructure.copy(), recommendedEncoding);
         dataStores.put(name, timeSeries);
+    }
+
+
+    @Override
+    public void updateRecordStore(String name, DataComponent recordStructure)
+    {
+        getRecordStore(name).updateRecordStructure(recordStructure);
     }
 
 
@@ -210,55 +227,35 @@ public class InMemoryBasicStorage extends AbstractModule<InMemoryStorageConfig> 
     @Override
     public Iterator<DataBlock> getDataBlockIterator(IDataFilter filter)
     {
-        TimeSeriesImpl dataStore = dataStores.get(filter.getRecordType());
-        if (dataStore == null)
-            return null;
-        
-        return dataStore.getDataBlockIterator(filter);
+        return getRecordStore(filter.getRecordType()).getDataBlockIterator(filter);
     }
 
 
     @Override
     public Iterator<? extends IDataRecord> getRecordIterator(IDataFilter filter)
     {
-        TimeSeriesImpl dataStore = dataStores.get(filter.getRecordType());
-        if (dataStore == null)
-            return null;
-        
-        return dataStore.getRecordIterator(filter);
+        return getRecordStore(filter.getRecordType()).getRecordIterator(filter);
     }
 
 
     @Override
     public int getNumMatchingRecords(IDataFilter filter, long maxCount)
     {
-        TimeSeriesImpl dataStore = dataStores.get(filter.getRecordType());
-        if (dataStore == null)
-            return 0;
-        
-        return dataStore.getNumMatchingRecords(filter);
+        return getRecordStore(filter.getRecordType()).getNumMatchingRecords(filter);
     }
 
 
     @Override
     public int getNumRecords(String recordType)
     {
-        TimeSeriesImpl dataStore = dataStores.get(recordType);
-        if (dataStore == null)
-            return 0;
-        
-        return dataStore.getNumRecords();
+        return getRecordStore(recordType).getNumRecords();
     }
 
     
     @Override
     public double[] getRecordsTimeRange(String recordType)
     {
-        TimeSeriesImpl dataStore = dataStores.get(recordType);
-        if (dataStore == null)
-            return new double[] {Double.NaN, Double.NaN};
-        
-        return dataStore.getDataTimeRange();
+        return getRecordStore(recordType).getDataTimeRange();
     }
     
     
@@ -272,40 +269,28 @@ public class InMemoryBasicStorage extends AbstractModule<InMemoryStorageConfig> 
     @Override
     public void storeRecord(DataKey key, DataBlock data)
     {
-        TimeSeriesImpl dataStore = dataStores.get(key.recordType);
-        if (dataStore != null)
-            dataStore.store(key, data);
+        getRecordStore(key.recordType).store(key, data);
     }
 
 
     @Override
     public void updateRecord(DataKey key, DataBlock data)
     {
-        TimeSeriesImpl dataStore = dataStores.get(key.recordType);
-        if (dataStore != null)
-            dataStore.update(key, data);        
+        getRecordStore(key.recordType).update(key, data);        
     }
 
 
     @Override
     public void removeRecord(DataKey key)
     {
-        TimeSeriesImpl dataStore = dataStores.get(key.recordType);
-        if (dataStore == null)
-            return;
-        
-        dataStore.remove(key);
+        getRecordStore(key.recordType).remove(key);
     }
 
 
     @Override
     public int removeRecords(IDataFilter filter)
     {
-        TimeSeriesImpl dataStore = dataStores.get(filter.getRecordType());
-        if (dataStore == null)
-            return 0;
-        
-        return dataStore.remove(filter);
+        return getRecordStore(filter.getRecordType()).remove(filter);
     }
     
     
@@ -555,6 +540,16 @@ public class InMemoryBasicStorage extends AbstractModule<InMemoryStorageConfig> 
                 return new double[] { Double.NaN, Double.NaN};
             else
                 return new double[] {recordList.firstKey(), recordList.lastKey()};
+        }
+        
+        void updateRecordStructure(DataComponent newDataStruct)
+        {
+            // check that new structure is compatible with previous one
+            if (!DataComponentChecks.checkStructCompatible(recordDescription, newDataStruct))
+                throw new IllegalStateException("New data structure for record store " + getName() + 
+                        " is not compatible with the one already in storage");
+            
+            this.recordDescription = newDataStruct;
         }
     }
 

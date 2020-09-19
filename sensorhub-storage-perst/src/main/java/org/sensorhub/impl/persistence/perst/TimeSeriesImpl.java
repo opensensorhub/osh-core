@@ -31,6 +31,7 @@ import org.sensorhub.api.persistence.IDataFilter;
 import org.sensorhub.api.persistence.IDataRecord;
 import org.sensorhub.api.persistence.IRecordStoreInfo;
 import org.sensorhub.impl.persistence.IteratorWrapper;
+import org.sensorhub.utils.DataComponentChecks;
 
 
 /**
@@ -425,5 +426,17 @@ class TimeSeriesImpl extends Persistent implements IRecordStoreInfo
         }
                 
         return bins;
+    }
+    
+    
+    void updateRecordStructure(DataComponent newDataStruct)
+    {
+        // check that new structure is compatible with previous one
+        if (!DataComponentChecks.checkStructCompatible(recordDescription, newDataStruct))
+            throw new IllegalStateException("New data structure for record store " + getName() + 
+                    " is not compatible with the one already in storage");
+        
+        this.recordDescription = newDataStruct;
+        modify();
     }
 }

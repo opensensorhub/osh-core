@@ -106,6 +106,16 @@ public interface IBasicStorage
      * @param recommendedEncoding recommended encoding for this record type
      */
     public void addRecordStore(String name, DataComponent recordStructure, DataEncoding recommendedEncoding);
+    
+    
+    /**
+     * Updates metadata describing the structure of records in a record store.<br/>
+     * <b>The provided data structure MUST be compatible with the previous one, so only
+     * documentation and semantic level information can be changed</b>
+     * @param name name of record type (should match output name of the data source)
+     * @param recordStructure SWE data component describing the record structure
+     */
+    public void updateRecordStore(String name, DataComponent recordStructure);
         
     
     /**
