@@ -15,7 +15,6 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.processing;
 
 import java.io.File;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayDeque;
@@ -132,8 +131,8 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
             // parse SensorML file
             try
             {
-                InputStream is = toURL(config.sensorMLFile).openStream();
-                processDescription = utils.readProcess(is);
+                URL url = toURL(config.sensorMLFile);
+                processDescription = utils.readProcess(url);
                 smlProcess = (AbstractProcessImpl)processDescription;
                 
                 if (config.processUID != null)
