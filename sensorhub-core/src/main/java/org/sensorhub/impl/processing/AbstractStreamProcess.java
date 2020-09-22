@@ -136,9 +136,23 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
     
     
     @Override
-    public Map<String, DataComponent> getParameters()
+    public Map<String, DataComponent> getParameterDescriptors()
     {
         return Collections.unmodifiableMap(parameters);
+    }
+
+
+    @Override
+    public void updateParameters(Map<String, DataBlock> newParamData)
+    {
+        // default implementation just assigns values to the param descriptor
+        for (Entry<String, DataBlock> paramVal: newParamData.entrySet())
+        {
+            DataComponent param = parameters.get(paramVal.getKey());
+            if (param == null)
+                throw new IllegalArgumentException("Invalid parameter name: " + paramVal.getKey());
+            param.setData(paramVal.getValue());
+        }
     }
     
     
@@ -192,7 +206,7 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
             }
             
             // parameters
-            for (Entry<String, DataComponent> param: getParameters().entrySet())
+            for (Entry<String, DataComponent> param: getParameterDescriptors().entrySet())
             {
                 DataComponent paramDesc = param.getValue();
                 processDescription.addParameter(param.getKey(), paramDesc);

@@ -14,9 +14,6 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.processing;
 
-import java.util.Map;
-import net.opengis.swe.v20.DataComponent;
-
 
 /**
  * <p>
@@ -34,22 +31,12 @@ import net.opengis.swe.v20.DataComponent;
  */
 public interface IOnDemandProcessModule<ConfigType extends ProcessConfig> extends IProcessModule<ConfigType>
 {
-    
-    /**
-     * Gets the list of parameters for this process.<br/>
-     * Default parameter values can be set here but actual values are given to
-     * each process instance using one of the execute methods.
-     * @return map of parameter descriptors
-     */
-    public Map<String, ? extends DataComponent> getParameterDescriptors();
-    
+
     
     /**
      * Retrieves a new instance of this processor configured with default data sources
      * @return new process instance
      */
     public IOnDemandProcessInstance getNewProcessInstance();
-    
-    
     
 }

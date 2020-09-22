@@ -15,9 +15,9 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.api.processing;
 
 import java.util.Map;
-import net.opengis.swe.v20.DataComponent;
 import org.sensorhub.api.common.IEventListener;
 import org.sensorhub.api.data.IDataProducerModule;
+import net.opengis.swe.v20.DataBlock;
 
 
 /**
@@ -38,18 +38,6 @@ public interface IStreamProcessModule<ConfigType extends StreamProcessConfig> ex
 {   
     
     /**
-     * Gets the list of parameters for this process.<br/>
-     * Values should be changed directly inside the objects returned in the map.<br/>
-     * Parameters that can be changed during processing must be marked as 'updatable'
-     * and the new set values are taken into account ASAP by the running process.<br/>
-     * Changing the value during processing of parameters that are not updatable is
-     * either silently ignored or can result in a processing exception.
-     * @return map of parameter descriptors
-     */
-    public Map<String, DataComponent> getParameters();
-    
-    
-    /**
      * Checks if this particular processing module supports pausing
      * @return true if the process can be paused and resumed at any time
      */
@@ -68,4 +56,13 @@ public interface IStreamProcessModule<ConfigType extends StreamProcessConfig> ex
      * Processing may actually resume only when the next event is received.
      */
     public void resume();
+    
+    
+    /**
+     * Updates parameter values of a running process
+     * @param newParamData map of parameter names to the corresponding parameter values.
+     * New values for all or only some of the parameters can be provided.  
+     */
+    public void updateParameters(Map<String, DataBlock> newParamData);
+    
 }

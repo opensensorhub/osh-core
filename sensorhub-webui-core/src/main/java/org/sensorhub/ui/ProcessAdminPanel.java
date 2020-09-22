@@ -17,14 +17,12 @@ package org.sensorhub.ui;
 import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.processing.IStreamProcessModule;
 import org.sensorhub.ui.data.MyBeanItem;
-import org.vast.data.DataRecordImpl;
 import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Component;
 import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.Layout;
 import com.vaadin.ui.Panel;
-import net.opengis.swe.v20.DataComponent;
 
 
 /**
@@ -68,7 +66,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IStreamProcessModule
             }*/
             
             // control params section
-            if (!module.getParameters().isEmpty())
+            if (!module.getParameterDescriptors().isEmpty())
             {
                 // title
                 addComponent(new Spacing());
@@ -98,15 +96,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IStreamProcessModule
             // command inputs
             oldPanel = commandsPanel;
             commandsPanel = newPanel(null);
-            
-            // wrap all parameters into a single datarecord so we can submit them together
-            DataRecordImpl params = new DataRecordImpl();
-            params.setName("Parameters");
-            for (DataComponent param: module.getParameters().values())
-                params.addComponent(param.getName(), param);
-            params.combineDataBlocks();
-            
-            Component sweForm = new SWEControlForm(params);
+            Component sweForm = new SWEControlForm(module);
             ((Layout)commandsPanel.getContent()).addComponent(sweForm);
 
             if (oldPanel != null)

@@ -48,6 +48,16 @@ public interface IProcessModule<ConfigType extends ProcessConfig> extends IModul
     
     
     /**
+     * Gets the list of parameter descriptors<br/>
+     * Parameters that can be changed during processing must be marked as 'updatable'
+     * but changing the values in the descriptor will have no effect on processing.
+     * Instead, values must be changed using the updateParameters() method.
+     * @return map of parameter descriptors
+     */
+    public Map<String, DataComponent> getParameterDescriptors();
+    
+    
+    /**
      * Checks that a given data source is acceptable for this process
      * @param dataSource
      * @return true if data source is acceptable for this process

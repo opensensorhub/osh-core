@@ -28,10 +28,12 @@ import org.sensorhub.api.data.FoiEvent;
 import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.data.IMultiSourceDataProducer;
 import org.sensorhub.api.data.IStreamingDataInterface;
+import org.sensorhub.api.processing.ProcessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.opengis.gml.v32.AbstractFeature;
 import net.opengis.sensorml.v20.AbstractProcess;
+import net.opengis.swe.v20.DataBlock;
 
 
 /**
@@ -49,7 +51,7 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
 {
     private static final Logger log = LoggerFactory.getLogger(SMLMultiStreamProcess.class);
 
-    Map<String, SMLStreamProcessExt> processMap = new ConcurrentSkipListMap<>();
+    Map<String, SMLStreamProcessExt> subProcessMap = new ConcurrentSkipListMap<>();
 
 
     class SMLStreamProcessExt extends SMLStreamProcess
@@ -90,7 +92,7 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
     @Override
     public void stop()
     {
-        for (SMLStreamProcessExt subProcess: processMap.values())
+        for (SMLStreamProcessExt subProcess: subProcessMap.values())
             subProcess.stop();
         super.stop();
     }
@@ -103,14 +105,19 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
         subProcess.connectToEventBus = false;
         subProcess.init(this.config);
 
+        // add entityID to process name
+        subProcess.smlProcess.setName(subProcess.smlProcess.getName() + " - " + entityID);
+        
+        // set parameter values
+        
+        
         // register for data events and forward to corresponding multi source output
         for (final IStreamingDataInterface output: subProcess.getAllOutputs().values())
         {
             SMLMultiSourceOutput muxOutput = (SMLMultiSourceOutput)outputInterfaces.get(output.getName());
             output.registerListener(muxOutput);
         }
-
-        subProcess.smlProcess.setName(subProcess.smlProcess.getName() + " - " + entityID);
+        
         subProcess.start();
         return subProcess;
     }
@@ -126,8 +133,8 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
         {
             IDataProducerModule<?> dataProducer = ((IStreamingDataInterface)e.getSource()).getParentModule();
             String entityID = ((DataEvent) e).getRelatedEntityID();
-            SMLStreamProcessExt smlProcess = processMap.get(entityID);
-
+            SMLStreamProcessExt smlProcess = subProcessMap.get(entityID);
+            
             // create subprocess if no data for this entity has been received yet
             if (smlProcess == null)
             {
@@ -137,7 +144,7 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
                     smlProcess = createSubProcess(entityID);
                     if (dataProducer instanceof IMultiSourceDataProducer)
                         smlProcess.foi = ((IMultiSourceDataProducer)dataProducer).getCurrentFeatureOfInterest(entityID);
-                    processMap.put(entityID, smlProcess);
+                    subProcessMap.put(entityID, smlProcess);
                 }
                 catch (SensorHubException e1)
                 {
@@ -152,11 +159,29 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
             // TODO register Fois
         }
     }
+    
+    
+    @Override
+    protected void process(DataEvent lastEvent) throws ProcessException
+    {
+        // do nothing here and let sub processes do their job
+    }
+
+
+    @Override
+    public void updateParameters(Map<String, DataBlock> newParamData)
+    {
+        super.updateParameters(newParamData);
+        
+        // also update parameters of all sub processes
+        for (SMLStreamProcessExt subProcess: subProcessMap.values())
+            subProcess.updateParameters(newParamData);
+    }
 
 
     protected SMLStreamProcessExt getSubProcess(String entityID)
     {
-        SMLStreamProcessExt subProcess = processMap.get(entityID);
+        SMLStreamProcessExt subProcess = subProcessMap.get(entityID);
         if (subProcess == null)
             throw new IllegalStateException("Invalid entity ID: " + entityID);
         return subProcess;
@@ -166,7 +191,7 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
     @Override
     public Collection<String> getEntityIDs()
     {
-        return Collections.unmodifiableCollection(processMap.keySet());
+        return Collections.unmodifiableCollection(subProcessMap.keySet());
     }
 
 
@@ -203,7 +228,7 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
     @Override
     public Collection<String> getFeaturesOfInterestIDs()
     {
-        Iterator<SMLStreamProcessExt> it = processMap.values().iterator();
+        Iterator<SMLStreamProcessExt> it = subProcessMap.values().iterator();
 
         return new AbstractCollection<String>() {
 
@@ -228,7 +253,7 @@ public class SMLMultiStreamProcess extends SMLStreamProcess implements IMultiSou
             @Override
             public int size()
             {
-                return processMap.size();
+                return subProcessMap.size();
             }
         };
     }

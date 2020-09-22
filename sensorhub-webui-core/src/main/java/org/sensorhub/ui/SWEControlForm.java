@@ -14,9 +14,13 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.ui;
 
+import java.util.HashMap;
+import org.sensorhub.api.processing.IStreamProcessModule;
 import org.sensorhub.api.sensor.ISensorControlInterface;
 import org.sensorhub.api.sensor.SensorException;
 import org.sensorhub.ui.api.UIConstants;
+import org.vast.data.DataRecordImpl;
+import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataChoice;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.DataRecord;
@@ -41,8 +45,8 @@ import com.vaadin.ui.Button.ClickListener;
 public class SWEControlForm extends SWECommonForm
 {
     transient ISensorControlInterface controlInput;
-    transient DataComponent controlSink;
-    transient DataComponent command;    
+    transient IStreamProcessModule<?> process;
+    transient DataComponent command;
     
     
     public SWEControlForm(final ISensorControlInterface controlInput)
@@ -55,12 +59,21 @@ public class SWEControlForm extends SWECommonForm
     }
     
     
-    public SWEControlForm(final DataComponent params)
+    public SWEControlForm(final IStreamProcessModule<?> process)
     {
         this.addSpacing = true;
-        this.controlSink = params;
+        this.process = process;
+        
+        // wrap all parameters into a single datarecord so we can submit them together
+        DataRecordImpl params = new DataRecordImpl();
+        params.setName("Parameters");
+        for (DataComponent param: process.getParameterDescriptors().values())
+            params.addComponent(param.getName(), param);
+        params.combineDataBlocks();
+        
         this.command = params.copy();
-        this.command.setData(params.getData());
+        this.command.setData(params.getData().clone());
+        
         buildForm();
     }
     
@@ -95,7 +108,13 @@ public class SWEControlForm extends SWECommonForm
                     if (controlInput != null)
                         controlInput.execCommand(command.getData());
                     else
-                        controlSink.setData(command.getData());
+                    {
+                        // TODO include only parameters that have actually changed
+                        HashMap<String, DataBlock> newParamData = new HashMap<>();
+                        for (DataComponent param: ((DataRecord)command).getFieldList())
+                            newParamData.put(param.getName(), param.getData());
+                        process.updateParameters(newParamData);
+                    }
                 }
                 catch (SensorException e)
                 {

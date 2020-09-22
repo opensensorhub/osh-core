@@ -23,6 +23,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import net.opengis.OgcPropertyList;
 import net.opengis.swe.v20.AbstractSWEIdentifiable;
+import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataComponent;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.DataEvent;
@@ -162,9 +163,9 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
             }
             
             // advertise process inputs and outputs
-            scanIOList(smlProcess.getInputList(), inputs, false);
-            scanIOList(smlProcess.getParameterList(), parameters, false);
-            scanIOList(smlProcess.getOutputList(), outputs, true);
+            scanIOList(smlProcess.getInputList(), inputs);
+            scanIOList(smlProcess.getParameterList(), parameters);
+            scanIOList(smlProcess.getOutputList(), outputs);
         }
     }
 
@@ -212,7 +213,7 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     }
     
     
-    protected void scanIOList(OgcPropertyList<AbstractSWEIdentifiable> ioList, Map<String, DataComponent> ioMap, boolean isOutput) throws ProcessException
+    protected void scanIOList(OgcPropertyList<AbstractSWEIdentifiable> ioList, Map<String, DataComponent> ioMap) throws ProcessException
     {
         int numSignals = ioList.size();
         for (int i=0; i<numSignals; i++)
@@ -221,9 +222,11 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
             AbstractSWEIdentifiable ioDesc = ioList.get(i);
             DataComponent ioComponent = SMLHelper.getIOComponent(ioDesc);
             ioComponent.setName(ioName);
-            ioMap.put(ioName, isOutput ? ioComponent.copy() : ioComponent);
+            ioMap.put(ioName, ioComponent.copy());
             
-            if (isOutput)
+            if (ioMap == parameters)
+                ioMap.get(ioName).setData(ioComponent.getData().clone());
+            else if (ioMap == outputs)
                 outputInterfaces.put(ioName, new SMLOutputInterface(this, ioComponent));
         }
     }
@@ -275,8 +278,31 @@ public class SMLStreamProcess extends AbstractStreamProcess<SMLStreamProcessConf
     @Override
     protected void process(DataEvent lastEvent) throws ProcessException
     {
-        // run the process asynchronously
-        exec.execute(smlProcess);
-        //smlProcess.run();
+        // run the process asynchronously in thread pool
+        // synchronize on process instance to ensure all parameters are updated at once
+        synchronized (smlProcess)
+        {
+            exec.execute(smlProcess);
+            //smlProcess.run();
+        }
+    }
+
+
+    @Override
+    public void updateParameters(Map<String, DataBlock> newParamData)
+    {
+        synchronized (smlProcess)
+        {
+            for (AbstractSWEIdentifiable param: smlProcess.getParameterList())
+            {
+                DataComponent paramComp = (DataComponent)param;
+                DataBlock newData = newParamData.get(paramComp.getName());
+                if (newData != null)
+                    paramComp.setData(newData);
+            }
+            
+            // call super to assign values to the descriptors
+            super.updateParameters(newParamData);
+        }
     }
 }

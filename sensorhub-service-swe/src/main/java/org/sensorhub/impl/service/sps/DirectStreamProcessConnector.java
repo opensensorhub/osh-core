@@ -15,6 +15,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service.sps;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import org.sensorhub.api.common.Event;
@@ -27,9 +28,7 @@ import org.sensorhub.api.processing.IStreamProcessModule;
 import org.sensorhub.api.service.ServiceException;
 import org.sensorhub.impl.SensorHub;
 import org.sensorhub.utils.MsgUtils;
-import org.vast.data.DataBlockMixed;
 import org.vast.data.DataRecordImpl;
-import org.vast.data.SWEFactory;
 import org.vast.data.ScalarIterator;
 import org.vast.ows.sps.DescribeTaskingResponse;
 import org.vast.ows.sps.SPSOfferingCapabilities;
@@ -37,8 +36,8 @@ import org.vast.ows.swe.SWESOfferingCapabilities;
 import org.vast.swe.SWEConstants;
 import net.opengis.sensorml.v20.AbstractProcess;
 import net.opengis.swe.v20.DataBlock;
-import net.opengis.swe.v20.DataChoice;
 import net.opengis.swe.v20.DataComponent;
+import net.opengis.swe.v20.DataRecord;
 
 
 /**
@@ -56,10 +55,8 @@ public class DirectStreamProcessConnector implements ISPSConnector, IEventListen
     final StreamProcessConnectorConfig config;
     final IStreamProcessModule<?> process;
     final String procedureID;
-    DataRecordImpl allParams;
-    DataChoice commandChoice;
-    String uniqueInterfaceName;
     boolean disableEvents;
+    DataRecord allparams;
     
     
     public DirectStreamProcessConnector(SPSServlet service, StreamProcessConnectorConfig config) throws SensorHubException
@@ -117,20 +114,8 @@ public class DirectStreamProcessConnector implements ISPSConnector, IEventListen
                         
             // tasking parameters description
             DescribeTaskingResponse descTaskingResp = new DescribeTaskingResponse();
-            List<DataComponent> commands = getCommandsForProcess();
-            if (commands.size() == 1)
-            {
-                commandChoice = null;
-                descTaskingResp.setTaskingParameters(commands.get(0).copy());
-                uniqueInterfaceName = commands.get(0).getName();
-            }
-            else
-            {
-                commandChoice = new SWEFactory().newDataChoice();
-                for (DataComponent command: commands)
-                    commandChoice.addItem(command.getName(), command.copy());
-                descTaskingResp.setTaskingParameters(commandChoice);
-            }
+            this.allparams = getCommandsForProcess();
+            descTaskingResp.setTaskingParameters(allparams.copy());
             caps.setParametersDescription(descTaskingResp);
             
             return caps;
@@ -142,14 +127,13 @@ public class DirectStreamProcessConnector implements ISPSConnector, IEventListen
     }
     
     
-    protected List<DataComponent> getCommandsForProcess()
+    protected DataRecord getCommandsForProcess()
     {
-        List<DataComponent> params = new ArrayList<>();
-        this.allParams = new DataRecordImpl();
+        DataRecordImpl allParams = new DataRecordImpl();
         
         // collect process commands descriptions
         // just group all parameters in a single command
-        for (DataComponent param: process.getParameters().values())
+        for (DataComponent param: process.getParameterDescriptors().values())
         {
             // skip hidden commands
             if (config.hiddenParams != null && config.hiddenParams.contains(param.getName()))
@@ -158,13 +142,8 @@ public class DirectStreamProcessConnector implements ISPSConnector, IEventListen
             allParams.addComponent(param.getName(), param);
         }
         
-        if (allParams.getComponentCount() > 0) 
-        {
-            allParams.combineDataBlocks();
-            params.add(allParams);
-        }
-        
-        return params;
+        allParams.combineDataBlocks();
+        return allParams;
     }
     
     
@@ -206,28 +185,17 @@ public class DirectStreamProcessConnector implements ISPSConnector, IEventListen
 
 
     @Override
-    public void sendSubmitData(ITask task, DataBlock data) throws ServiceException
+    public synchronized void sendSubmitData(ITask task, DataBlock data) throws ServiceException
     {
-        checkEnabled();
-        DataComponent param;
-        
         try
         {
-            // figure out which control interface to use
-            if (commandChoice != null)
-            {
-                // select interface depending on choice token
-                int selectedIndex = data.getIntValue(0);
-                param = commandChoice.getComponent(selectedIndex);
-                data = ((DataBlockMixed)data).getUnderlyingObject()[1];
-            }
-            else
-            {
-                param = allParams;
-            }
+            allparams.setData(data);
             
-            // actually send command to selected interface
-            param.setData(data);
+            HashMap<String, DataBlock> newParamData = new HashMap<>();
+            for (DataComponent param: ((DataRecord)allparams).getFieldList())
+                newParamData.put(param.getName(), param.getData());
+            
+            process.updateParameters(newParamData);
         }
         catch (Exception e)
         {
