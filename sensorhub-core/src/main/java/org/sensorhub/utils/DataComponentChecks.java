@@ -44,8 +44,10 @@ public class DataComponentChecks
         
         StringBuilder buf1 = structCompatString(rec1);
         StringBuilder buf2 = structCompatString(rec2);
+        System.out.printf("%s\n%s\n", buf1.toString(), buf2.toString());
         return buf1.toString().equals(buf2.toString());
     }
+    
     
     private static StringBuilder structCompatString(DataComponent root)
     {
@@ -55,12 +57,28 @@ public class DataComponentChecks
         while (it.hasNext())
         {
             DataComponent c = it.next();
-            buf.append(c.getClass().getSimpleName());
+            buf.append(c.getName()).append(':');
+            buf.append(getComponentType(c.getClass()));
             if (c instanceof BlockComponent)
                 buf.append('[').append(c.getComponentCount()).append(']');
             buf.append('|');
         }
         
         return buf;
+    }
+    
+    
+    private static String getComponentType(Class<?> c)
+    {
+        for (Class<?> i: c.getInterfaces())
+        {
+            if (DataComponent.class.isAssignableFrom(i))
+                return i.getSimpleName();
+        }
+        
+        if (c.getSuperclass() != null)
+            return getComponentType(c.getSuperclass());
+        else
+            return null;
     }
 }

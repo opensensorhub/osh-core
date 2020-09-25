@@ -39,10 +39,20 @@ public class TestDataComponentChecks
     
     
     @Test
-    public void testCheckIncompatibleRecords()
+    public void testCheckIncompatibleRecordStructures()
     {
         DataComponent rec1 = geoHelper.newLocationVectorLatLon("test1");
-        DataComponent rec2 = geoHelper.newLocationVectorLLA("test2");        
+        DataComponent rec2 = geoHelper.newLocationVectorLLA("test2");  
+        assertFalse(DataComponentChecks.checkStructCompatible(rec1, rec2));
+    }
+    
+    
+    @Test
+    public void testCheckIncompatibleRecordNames()
+    {
+        DataComponent rec1 = geoHelper.newLocationVectorLatLon("test1");
+        DataComponent rec2 = geoHelper.newLocationVectorLatLon("test2");
+        rec2.getComponent(0).setName("bad_lat");
         assertFalse(DataComponentChecks.checkStructCompatible(rec1, rec2));
     }
     
@@ -71,6 +81,35 @@ public class TestDataComponentChecks
         DataComponent array1 = imgHelper.newRgbImage(10, 20, DataType.FLOAT);
         DataComponent array2 = imgHelper.newRgbImage(10, 30, DataType.FLOAT);
         assertFalse(DataComponentChecks.checkStructCompatible(array1, array2));
+    }
+    
+    
+    @Test
+    public void testCheckCompatibleVarSizeArrays()
+    {
+        String sizeId = "ARRAY_SIZE";        
+        DataComponent rec1 = imgHelper.createRecord()
+                .addField("size", imgHelper.createCount()
+                        .id(sizeId)
+                        .build())
+                .addField("img", imgHelper.createArray()
+                        .withVariableSize(sizeId)
+                        .withElement("sample", imgHelper.createQuantity().build())
+                        .build())
+                .build();
+        
+        sizeId = "ARRAY_SIZE2";        
+        DataComponent rec2 = imgHelper.createRecord()
+                .addField("size", imgHelper.createCount()
+                        .id(sizeId)
+                        .build())
+                .addField("img", imgHelper.createArray()
+                        .withVariableSize(sizeId)
+                        .withElement("sample", imgHelper.createQuantity().build())
+                        .build())
+                .build();
+                                
+        assertTrue(DataComponentChecks.checkStructCompatible(rec1, rec2));
     }
 
 }
