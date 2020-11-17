@@ -76,6 +76,7 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
     protected Map<IStreamingDataInterface, InputData> streamSources;
     protected AbstractProcess processDescription;
     protected long lastUpdatedSensorDescription = Long.MIN_VALUE;
+    protected Object sensorDescLock = new Object();
     protected boolean paused = false;
     protected int errorCount = 0;
     
@@ -165,36 +166,39 @@ public abstract class AbstractStreamProcess<ConfigType extends StreamProcessConf
     @Override
     public AbstractProcess getCurrentDescription()
     {
-        if (processDescription == null)
+        synchronized (sensorDescLock)
         {
-            processDescription = new SMLFactory().newSimpleProcess();
-            
-            // default IDs
-            processDescription.setId(DEFAULT_ID);
-            processDescription.setUniqueIdentifier(getLocalID());
-            
-            // name
-            processDescription.setName(getName());
-            
-            // inputs
-            for (Entry<String, DataComponent> input: getInputDescriptors().entrySet())
+            if (processDescription == null)
             {
-                DataComponent inputDesc = input.getValue();
-                processDescription.addInput(input.getKey(), inputDesc);
-            }
+                processDescription = new SMLFactory().newSimpleProcess();
             
-            // outputs
-            for (Entry<String, DataComponent> output: getOutputDescriptors().entrySet())
-            {
-                DataComponent outputDesc = output.getValue();
-                processDescription.addOutput(output.getKey(), outputDesc);
-            }
+                // default IDs
+                processDescription.setId(DEFAULT_ID);
+                processDescription.setUniqueIdentifier(getLocalID());
             
-            // parameters
-            for (Entry<String, DataComponent> param: getParameters().entrySet())
-            {
-                DataComponent paramDesc = param.getValue();
-                processDescription.addParameter(param.getKey(), paramDesc);
+                // name
+                processDescription.setName(getName());
+            
+                // inputs
+                for (Entry<String, DataComponent> input: getInputDescriptors().entrySet())
+                {
+                    DataComponent inputDesc = input.getValue();
+                    processDescription.addInput(input.getKey(), inputDesc);
+                }
+            
+                // outputs
+                for (Entry<String, DataComponent> output: getOutputDescriptors().entrySet())
+                {
+                    DataComponent outputDesc = output.getValue();
+                    processDescription.addOutput(output.getKey(), outputDesc);
+                }
+            
+                // parameters
+                for (Entry<String, DataComponent> param: getParameters().entrySet())
+                {
+                    DataComponent paramDesc = param.getValue();
+                    processDescription.addParameter(param.getKey(), paramDesc);
+                }
             }
         }
         
