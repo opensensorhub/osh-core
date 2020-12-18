@@ -22,7 +22,7 @@ OpenSensorHub is licensed under the [Mozilla Public License version 2.0](http://
 
 Refer to the [Documentation Site](http://docs.opensensorhub.org/) for instructions on how to install and use OSH, as well as get the latest news.
 
-You can also go to this [Demo Page](http://opensensorhub.github.io/osh-js/Demos-old/) to see OSH in action with a few example sensor streams (Video, GPS, orientation, weather, etc.) visualized within simple javascript clients.
+You can also go to this [Demo Page](http://opensensorhub.github.io/osh-js/latest/showcase/) to see OSH in action with a few example sensor streams (Video, GPS, orientation, weather, etc.) visualized within simple javascript clients.
 
 This other [Technical Page](http://sensiasoft.net:8181/demo.html) contains example SWE service calls for you to see the standard compliant XML and data that OSH generates.
 
