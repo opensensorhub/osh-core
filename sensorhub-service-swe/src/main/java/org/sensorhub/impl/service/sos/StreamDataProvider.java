@@ -171,7 +171,7 @@ public class StreamDataProvider implements ISOSDataProvider, IEventListener
                 else // if no FOIs were specified, send data for all
                 {
                     int queueSize = DEFAULT_QUEUE_SIZE * ((IMultiSourceDataInterface) outputInterface).getEntityIDs().size();
-                    eventQueue = new LinkedBlockingQueue<>(queueSize);
+                    eventQueue = new LinkedBlockingQueue<>(Math.max(queueSize, 1));
 
                     Map<String, DataBlock> data = ((IMultiSourceDataInterface) outputInterface).getLatestRecords();
                     for (Entry<String, DataBlock> rec : data.entrySet())
