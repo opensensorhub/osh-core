@@ -153,6 +153,9 @@ public class StreamWithStorageProviderFactory extends StorageDataProviderFactory
     @Override
     public boolean checkQueryTime(TimeExtent requestTime)
     {
+        if (requestTime.isBaseAtNow() && streamSourceConfig.latestRecordSource != DataSource.STREAM)
+            return true;
+        
         return (producer.isStarted() && altProvider.checkQueryTime(requestTime)) ||
                 super.checkQueryTime(requestTime);
     }
