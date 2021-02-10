@@ -44,7 +44,7 @@ public class DataComponentChecks
         
         StringBuilder buf1 = structCompatString(rec1);
         StringBuilder buf2 = structCompatString(rec2);
-        System.out.printf("%s\n%s\n", buf1.toString(), buf2.toString());
+        //System.out.printf("%s\n%s\n", buf1.toString(), buf2.toString());
         return buf1.toString().equals(buf2.toString());
     }
     
