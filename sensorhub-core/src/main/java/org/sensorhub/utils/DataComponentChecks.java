@@ -16,7 +16,7 @@ package org.sensorhub.utils;
 
 import org.vast.data.DataIterator;
 import org.vast.util.Asserts;
-import net.opengis.swe.v20.BlockComponent;
+import net.opengis.swe.v20.DataArray;
 import net.opengis.swe.v20.DataComponent;
 
 
@@ -59,8 +59,14 @@ public class DataComponentChecks
             DataComponent c = it.next();
             buf.append(c.getName()).append(':');
             buf.append(getComponentType(c.getClass()));
-            if (c instanceof BlockComponent)
-                buf.append('[').append(c.getComponentCount()).append(']');
+            if (c instanceof DataArray)
+            {
+                boolean varSize = ((DataArray) c).isVariableSize();
+                if (varSize)
+                    buf.append("[?]");
+                else
+                    buf.append('[').append(c.getComponentCount()).append(']');
+            }
             buf.append('|');
         }
         
