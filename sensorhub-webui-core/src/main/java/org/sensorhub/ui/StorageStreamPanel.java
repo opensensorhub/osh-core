@@ -29,6 +29,8 @@ import org.sensorhub.api.persistence.IRecordStoreInfo;
 import org.sensorhub.ui.api.UIConstants;
 import org.sensorhub.ui.chartjs.Chart;
 import org.sensorhub.ui.chartjs.Chart.SliderChangeListener;
+import org.vast.data.DataValue;
+import org.vast.swe.SWEDataTypeUtils;
 import org.vast.swe.ScalarIndexer;
 import org.vast.util.DateTimeFormat;
 import com.google.common.collect.Sets;
@@ -77,6 +79,7 @@ public class StorageStreamPanel extends Panel
     static final int SECONDS_PER_HOUR = 3600;
     static final int SECONDS_PER_DAY = 3600*24;
     
+    transient SWEDataTypeUtils sweUtils = new SWEDataTypeUtils();
     Chart detailChart;
     Chart navigatorChart;
     Table table;
@@ -471,7 +474,7 @@ public class StorageStreamPanel extends Panel
                     {
                         if (value == null)
                             return "";
-                        return dateFormat.formatIso(Double.parseDouble(value), 0);
+                        return sweUtils.getDoubleOrTimeAsString(Double.parseDouble(value), true);
                     }
                     
                     @Override
