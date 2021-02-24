@@ -21,6 +21,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import org.sensorhub.api.comm.ICommProvider;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.impl.module.AbstractModule;
@@ -72,12 +74,23 @@ public class TCPCommProvider extends AbstractModule<TCPCommProviderConfig> imple
         try
         {
             InetAddress addr = InetAddress.getByName(config.remoteHost);
-            SocketAddress endpoint = new InetSocketAddress(addr, config.remotePort);
-                
-            socket = new Socket();
-            socket.connect(endpoint, 1000);
-            is = socket.getInputStream();
-            os = socket.getOutputStream();
+            
+            if (config.enableTLS)
+            {
+                SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
+                socket = factory.createSocket(addr, config.remotePort);
+                ((SSLSocket)socket).startHandshake();
+                is = socket.getInputStream();
+                os = socket.getOutputStream();
+            }
+            else
+            {
+                SocketAddress endpoint = new InetSocketAddress(addr, config.remotePort);
+                socket = new Socket();
+                socket.connect(endpoint, 1000);
+                is = socket.getInputStream();
+                os = socket.getOutputStream();
+            }
         }
         catch (IOException e)
         {
@@ -103,6 +116,6 @@ public class TCPCommProvider extends AbstractModule<TCPCommProviderConfig> imple
 
     @Override
     public void cleanup() throws SensorHubException
-    {        
+    {
     }
 }
