@@ -280,11 +280,7 @@ public class BasicSecurityConfigForm extends GenericConfigForm
                                     
                 if (selectedId != null)
                 {
-                    Item selectedItem = table.getItem(selectedId);
-                    IPermission perm = (IPermission)selectedItem.getItemProperty(PROP_PERMISSION).getValue();
-                    String permPath = perm.getFullName();
-                    if (perm.hasChildren())
-                        permPath += "/*";
+                    String permPath = getPermissionPath(selectedId);
                     
                     if (action == ALLOW_ACTION)
                     {                            
@@ -383,7 +379,25 @@ public class BasicSecurityConfigForm extends GenericConfigForm
             for (Object childId: new ArrayList<Object>(children))
                 removeItemsRecursively(childId);
         }
+        
+        // remove permission from config
+        String permPath = getPermissionPath(itemId);
+        roleConfig.allow.remove(permPath);
+        roleConfig.deny.remove(permPath);
+        
+        // also remove it from table
         permissionTable.removeItem(itemId);
+    }
+    
+    
+    private String getPermissionPath(Object itemId)
+    {
+        Item item = permissionTable.getItem(itemId);
+        IPermission perm = (IPermission)item.getItemProperty(PROP_PERMISSION).getValue();
+        String permPath = perm.getFullName();
+        if (perm.hasChildren())
+            permPath += "/*";
+        return permPath;
     }
     
     
