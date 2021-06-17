@@ -6,7 +6,7 @@ dependencies {
   compile project(':ogc-services-sos')
   compile project(':ogc-services-sps')
   compile 'xml-apis:xml-apis:1.4.01'
-  compile 'org.eclipse.jetty.websocket:websocket-server:9.4.19.v20190610'
+  compile 'org.eclipse.jetty.websocket:websocket-server:9.4.42.v20210604'
     
   testCompile project(path: ':sensorhub-core', configuration: 'testArtifacts')
   testCompile project(':sensorhub-storage-perst')
