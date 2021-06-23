@@ -71,8 +71,8 @@ osgi {
       
       // patch manifest directly in jar file
       Path jarFilePath = archivePath.toPath();
-      FileSystems.newFileSystem(jarFilePath, null).withCloseable { fs ->
-          def manifest = fs.getPath(manifestEntry);          
+      FileSystems.newFileSystem(jarFilePath, getClass().getClassLoader()).withCloseable { fs ->
+          def manifest = fs.getPath(manifestEntry);
           def newManifest = manifest.text.replaceAll("osgi.extender[\\s\\S]*?,", '')
           newManifestFile.text = newManifest
           manifest.text = newManifest
