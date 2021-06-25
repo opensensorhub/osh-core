@@ -165,7 +165,7 @@ public class ObsWebSocketOut implements WebSocketListener
     @Override
     public void onWebSocketError(Throwable e)
     {
-        log.error(WebSocketUtils.INTERNAL_ERROR_MSG, e);
+        log.error(WebSocketUtils.PROTOCOL_ERROR_MSG, e);
     }
     
     

@@ -24,10 +24,10 @@ public class WebSocketUtils
     public static final String CONNECT_MSG = "Websocket session {} opened (from ip={}, user={})";
     public static final String CLOSE_BY_CLIENT_MSG = "Websocket session {} closed by client (status={}, reason={})";
     public static final String CLOSE_BY_SERVER_MSG = "Websocket session {} closed by server (status={}, reason={})";
-    public static final String INTERNAL_ERROR_MSG = "Websocket protocol error";
+    public static final String PROTOCOL_ERROR_MSG = "Websocket protocol error";
     public static final String SEND_ERROR_MSG = "Error while sending websocket stream";
     public static final String REQUEST_ERROR_MSG = "Invalid websocket request";
-    public static final String RECEIVE_ERROR_MSG = "Error while processing websocket request";
+    public static final String INTERNAL_ERROR_MSG = "Internal error while processing websocket request";
     public static final String PARSE_ERROR_MSG = "Error while parsing websocket packet";
     public static final String INPUT_NOT_SUPPORTED = "Incoming data is not supported";
     public static final String TEXT_NOT_SUPPORTED = "Incoming text data is not supported";

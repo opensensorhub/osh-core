@@ -86,7 +86,7 @@ public class TestStreamProcess implements IEventListener
         //new SMLUtils(SMLUtils.V2_0).writeProcess(System.out, process.getCurrentDescription(), true);
         for (IStreamingDataInterface output: process.getOutputs().values())
             output.registerListener(this);
-        ((FakeSensor)registry.getModuleById(FAKE_SENSOR1_ID)).startSendingData();
+        ((FakeSensor)registry.getModuleById(FAKE_SENSOR1_ID)).startSendingData(100);
                 
         long t0 = System.currentTimeMillis();
         synchronized (this) 

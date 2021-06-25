@@ -96,7 +96,7 @@ public class SOSWebSocketOut implements WebSocketListener, Runnable
     @Override
     public void onWebSocketError(Throwable e)
     {
-        log.error(WebSocketUtils.INTERNAL_ERROR_MSG, e);
+        log.error(WebSocketUtils.PROTOCOL_ERROR_MSG, e);
     }
     
     
@@ -131,21 +131,20 @@ public class SOSWebSocketOut implements WebSocketListener, Runnable
         }
         catch (OWSException e)
         {
-            if (!OWSUtils.isClientDisconnectError(e))
-            {
-                log.debug(WebSocketUtils.REQUEST_ERROR_MSG, e);
-                if (session != null)
-                    WebSocketUtils.closeSession(session, StatusCode.BAD_PAYLOAD, e.getMessage(), log);
-            }
+            // this is a client error so log only in debug
+            if (log.isDebugEnabled())
+                log.error(WebSocketUtils.REQUEST_ERROR_MSG, e);
+            
+            if (!OWSUtils.isClientDisconnectError(e) && session != null)
+                WebSocketUtils.closeSession(session, StatusCode.BAD_PAYLOAD, e.getMessage(), log);
         }
         catch (Exception e)
         {
-            if (!OWSUtils.isClientDisconnectError(e))
-            {
-                log.error(WebSocketUtils.RECEIVE_ERROR_MSG, e);
-                if (session != null)
-                    WebSocketUtils.closeSession(session, StatusCode.SERVER_ERROR, e.getMessage(), log);
-            }
+            // internal error so always log it
+            log.error(WebSocketUtils.INTERNAL_ERROR_MSG, e);
+            
+            if (!OWSUtils.isClientDisconnectError(e) && session != null)
+                WebSocketUtils.closeSession(session, StatusCode.SERVER_ERROR, e.getMessage(), log);
         }
     }
 }
