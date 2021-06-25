@@ -16,17 +16,17 @@ dependencies {
   implementation project(':sensorhub-service-swe')
   embeddedImpl project(':sensorhub-webui-widgetset')
   embeddedImpl 'com.vaadin:vaadin-server:' + vaadinVersion
-  embeddedImpl 'com.vaadin:vaadin-push:' + vaadinVersion  
+  embeddedImpl 'com.vaadin:vaadin-push:' + vaadinVersion
   compileOnly 'com.vaadin:vaadin-client:' + vaadinVersion
   embeddedImpl 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
   embeddedImpl 'com.vaadin:vaadin-compatibility-server:' + vaadinVersion
   compileOnly 'com.vaadin:vaadin-compatibility-client:' + vaadinVersion
   embeddedImpl 'com.vaadin:vaadin-compatibility-client-compiled:' + vaadinVersion
   embeddedImpl 'com.vaadin:vaadin-themes:' + vaadinVersion
-  
+
   compileOnly 'org.osgi:org.osgi.core:5.0.0'
   compileOnly 'org.osgi:org.osgi.compendium:5.0.0'
-  compileOnly 'org.apache.felix:org.apache.felix.bundlerepository:2.0.10'
+  embeddedImpl 'org.apache.felix:org.apache.felix.bundlerepository:2.0.10'
 
   testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
 }
@@ -36,7 +36,13 @@ osgi {
   manifest {
     attributes('Bundle-Vendor': 'Sensia Software LLC')
     attributes('Bundle-Activator': 'org.sensorhub.ui.Activator')
-    
+
+    // ignore some errors
+    attributes('-fixupmessages': '''
+      Classes found in the wrong directory: \\{META-INF/versions/,
+      Input file does not exist: objenesis
+    ''')
+
     // remove unused packages from imports
     attributes('Import-Package': '''
       !java.*,!org.w3c.dom.*,!org.xml.sax.*,!com.sun.*,
@@ -47,6 +53,8 @@ osgi {
       !org.mortbay.*,!org.osgi.service.*,!org.testng.*,!weblogic.*,      
       !javax.annotation.*,!javax.enterprise.*,!javax.inject.*,!javax.jnlp.*,!javax.naming.*,
       !javax.net.*,!javax.portlet.*,!javax.sql.*,!javax.validation.*,!javax.websocket.*,!javax.xml.*,
+      !com.google.dexmaker.*,!dalvik.system.*,!javax.security.auth.x500.*,!org.apache.felix.service.command.*,
+      !org.apache.felix.shell.*,!org.apache.tools.ant.*,!org.easymock.asm.util.*,!org.junit.*,
       org.osgi.service.repository;resolution:=optional,
       *''')
     //!javax.(?!servlet).*
