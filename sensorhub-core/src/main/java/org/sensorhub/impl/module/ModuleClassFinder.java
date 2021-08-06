@@ -15,6 +15,7 @@ Copyright (C) 2012-2021 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.module;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.osgi.framework.Bundle;
@@ -49,15 +50,14 @@ public class ModuleClassFinder
     {
         this.osgiContext = osgiContext;
     }
-    
-    
+
     public Class<?> findClass(String className) throws ClassNotFoundException
     {
 
         if (osgiContext != null)
         {
             try {
-                if(className.equalsIgnoreCase("org.sensorhub.impl.sensor.avl.MultipleFilesProvider")) {
+                if(className.equalsIgnoreCase("org.sensorhub.impl.sensor.videocam.ptz.PtzConfig")) {
                     System.err.println("Looking for " + className);
                 }
                 var moduleRefs = osgiContext.getServiceReferences(IModuleProvider.class, null);
@@ -72,20 +72,11 @@ public class ModuleClassFinder
                     if (className.equals(implClass.getCanonicalName()))
                         return implClass;
 
+                    // try to find if the current module class loader can load this class/subclass
                     try {
-                        // try to find if the current module class loader can load this class/subclass
-                        Iterator<?> classIterator = list(implClass.getClassLoader());
-                        String compatibleClass;
-                        while (classIterator.hasNext()) {
-                            compatibleClass = classIterator.next().toString();
-                            if((className).equalsIgnoreCase(compatibleClass)) {
-                                return Class.forName(className, true, implClass.getClassLoader());
-                            }
-                        }
-                    } catch (NoSuchFieldException e) {
-                        e.printStackTrace();
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
+                        return Class.forName(className, true, implClass.getClassLoader());
+                    } catch (Exception ex) {
+                        //continue;
                     }
                 }
             }
@@ -95,29 +86,6 @@ public class ModuleClassFinder
         }
 
         return Class.forName(className);
-    }
-
-    /**
-     * Returns the list of classes that a class loader can load
-     * @param CL
-     * @return
-     * @throws NoSuchFieldException
-     * @throws SecurityException
-     * @throws IllegalArgumentException
-     * @throws IllegalAccessException
-     */
-    private static Iterator<?> list(ClassLoader CL)
-            throws NoSuchFieldException, SecurityException,
-            IllegalArgumentException, IllegalAccessException {
-        Class<?> CL_class = CL.getClass();
-        while (CL_class != java.lang.ClassLoader.class) {
-            CL_class = CL_class.getSuperclass();
-        }
-        java.lang.reflect.Field ClassLoader_classes_field = CL_class.getDeclaredField("classes");
-        ClassLoader_classes_field.setAccessible(true);
-        Vector<?> classes = (Vector<?>) ClassLoader_classes_field.get(CL);
-        // remove prefix class
-        return classes.stream().map(className -> className.toString().substring(6)).collect(Collectors.toList()).iterator();
     }
 
     public Collection<IModuleProvider> getInstalledModuleTypes(Class<?> moduleClass)
