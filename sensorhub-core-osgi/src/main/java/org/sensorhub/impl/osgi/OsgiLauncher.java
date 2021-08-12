@@ -40,7 +40,6 @@ public class OsgiLauncher
 
     static final String BUNDLE_FOLDER = "bundles";
     BundleContext systemCtx;
-    private List<Bundle> bundles = new ArrayList<>();
 
     public OsgiLauncher() throws Exception
     {
@@ -82,9 +81,9 @@ public class OsgiLauncher
         Bundle bundle;
 
         // install all bundles
-        bundles.add(systemCtx.installBundle("reference:file:./sensorhub-core/build/libs/sensorhub-core-2.0.0-bundle.jar"));
-        bundles.add(systemCtx.installBundle("reference:file:./sensorhub-service-swe/build/libs/sensorhub-service-swe-2.0.0-bundle.jar"));
-        bundles.add(systemCtx.installBundle("reference:file:./sensorhub-webui-core/build/libs/sensorhub-webui-core-2.0.0-bundle.jar"));
+        systemCtx.installBundle("reference:file:./sensorhub-core/build/libs/sensorhub-core-2.0.0-bundle.jar").start();;
+        systemCtx.installBundle("reference:file:./sensorhub-service-swe/build/libs/sensorhub-service-swe-2.0.0-bundle.jar").start();;
+        systemCtx.installBundle("reference:file:./sensorhub-webui-core/build/libs/sensorhub-webui-core-2.0.0-bundle.jar").start();
 
         // autostart everything in bundles folder
         File dir = new File(BUNDLE_FOLDER);
@@ -112,15 +111,6 @@ public class OsgiLauncher
     }
 
     public void startHub() throws InvalidSyntaxException {
-        for(Bundle b: bundles) {
-            try {
-                b.start();
-                LOGGER.info("[SUCESS] "+b.getLocation());
-            }catch (Exception ex) {
-                LOGGER.error("[ERROR] "+b.getLocation());
-                ex.printStackTrace();
-            }
-        }
         // start sensor hub
 //        var ref = coreBundle.getBundleContext().getServiceReferences(Runnable.class, "(type=ISensorHub)").stream().findFirst().get();
         var ref = systemCtx.getBundle().getBundleContext().getServiceReferences(Runnable.class, "(type=ISensorHub)").stream().findFirst().get();
@@ -179,10 +169,22 @@ public class OsgiLauncher
     }
 
     public void installBundles(List<Path> paths) {
+        final List<Bundle> bundles = new ArrayList<>();
+
         for(Path path : paths) {
             try {
                 bundles.add(systemCtx.installBundle("reference:file:"+path.toFile().getAbsolutePath()));
             } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        for(Bundle b: bundles) {
+            try {
+                b.start();
+                LOGGER.info("[SUCESS] "+b.getLocation());
+            }catch (Exception ex) {
+                LOGGER.error("[ERROR] "+b.getLocation());
                 ex.printStackTrace();
             }
         }
@@ -206,8 +208,8 @@ public class OsgiLauncher
     {
         // create bundles directory
         new File(BUNDLE_FOLDER).mkdir();
-
-        System.getProperties().setProperty("osh.config", "/run/media/nevro/9014351c-ebf9-45fb-8661-65ce5562215f/PROGS/OSH/github/osh-core/sensorhub-core-test/src/main/resources/config_empty_sost.json");
+        URL url = OsgiLauncher.class.getClassLoader().getResource("config_empty_sost.json");
+        System.getProperties().setProperty("osh.config", url.getFile());
         OsgiLauncher osgiLauncher = new OsgiLauncher();
 
         String[] bundles  = {
@@ -273,8 +275,8 @@ public class OsgiLauncher
         };
 
 
-        osgiLauncher.installBundles(Arrays.stream(bundles).sequential().map(Paths::get).collect(Collectors.toList()));
-//        osgiLauncher.installFromRepository("http://localhost:3333/osgi.xml");
+//        osgiLauncher.installBundles(Arrays.stream(bundles).sequential().map(Paths::get).collect(Collectors.toList()));
+        osgiLauncher.installFromRepository("http://localhost:3333/osgi.xml");
         osgiLauncher.startHub();
     }
 }
