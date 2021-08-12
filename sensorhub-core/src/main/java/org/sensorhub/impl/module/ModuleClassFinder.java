@@ -76,7 +76,7 @@ public class ModuleClassFinder
                     try {
                         return Class.forName(className, true, implClass.getClassLoader());
                     } catch (Exception ex) {
-                        //continue;
+                        continue;
                     }
                 }
             }

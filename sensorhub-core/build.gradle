@@ -21,6 +21,8 @@ osgi {
     attributes('Bundle-Vendor': 'Sensia Software LLC')
     attributes('Bundle-Activator': 'org.sensorhub.impl.Activator')
     attributes('-exportcontents': '''
+      org.sensorhub.api,
+      org.sensorhub.impl,
        org.sensorhub.*,
        org.vast.*,
        net.opengis.*,
