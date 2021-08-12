@@ -57,9 +57,6 @@ public class ModuleClassFinder
         if (osgiContext != null)
         {
             try {
-                if(className.equalsIgnoreCase("org.sensorhub.impl.sensor.videocam.ptz.PtzConfig")) {
-                    System.err.println("Looking for " + className);
-                }
                 var moduleRefs = osgiContext.getServiceReferences(IModuleProvider.class, null);
                 for (var ref: moduleRefs) {
                     var m = osgiContext.getService(ref);
