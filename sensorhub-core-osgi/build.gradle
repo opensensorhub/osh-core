@@ -3,7 +3,9 @@ ext.details = 'OSGi Framework Launcher to load OSH bundles'
 
 dependencies {
   implementation 'org.apache.felix:org.apache.felix.framework:7.0.0'
+  implementation 'org.apache.felix:org.apache.felix.bundlerepository:2.0.10'
   testImplementation 'commons-io:commons-io:1.3.2'
+  api 'ch.qos.logback:logback-classic:1.2.3'
 }
 
 tasks.osgi.enabled = false

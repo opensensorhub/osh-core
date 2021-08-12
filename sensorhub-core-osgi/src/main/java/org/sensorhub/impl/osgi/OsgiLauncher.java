@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.felix.bundlerepository.*;
 import org.apache.felix.bundlerepository.impl.RepositoryAdminImpl;
@@ -133,24 +134,30 @@ public class OsgiLauncher
         return  systemCtx.installBundle("reference:file:" + path.toString());
     }
 
-    protected void installFromRepository(String remoteLocation) throws Exception {
-        RepositoryAdmin repositoryAdmin = new RepositoryAdminImpl(systemCtx, null);
-        repositoryAdmin.addRepository( new URL(remoteLocation));
+    protected void installFromRepository(String remoteLocation)  {
+        try {
+            RepositoryAdmin repositoryAdmin = new RepositoryAdminImpl(systemCtx, null);
+            repositoryAdmin.addRepository(new URL(remoteLocation));
 
-        Resolver resolver = repositoryAdmin.resolver();
-        boolean resolved = resolver.resolve();
-        Resource[] resources = repositoryAdmin.discoverResources("(|(presentationname=*)(symbolicname=*))");
+            Resolver resolver = repositoryAdmin.resolver();
+            Resource[] resources = repositoryAdmin.discoverResources("(|(presentationname=*)(symbolicname=*))");
 
-        resolver.deploy(Resolver.NO_OPTIONAL_RESOURCES);
-
-        if (resolved) {
-            resolver.deploy(Resolver.NO_OPTIONAL_RESOURCES);
-        } else {
-            Reason[] reqs = resolver.getUnsatisfiedRequirements();
-            for (int i = 0; i < reqs.length; i++) {
-                LOGGER.warn("Unable to resolve: " + reqs[i]);
+            for (Resource r : resources) {
+                resolver.add(r);
             }
+            if (resolver.resolve()) {
+                resolver.deploy(Resolver.START);
+            } else {
+                Reason[] reqs = resolver.getUnsatisfiedRequirements();
+                for (int i = 0; i < reqs.length; i++) {
+                    LOGGER.warn("Unable to resolve {}",reqs[i].getResource().toString());
+                }
+            }
+        }catch (Exception ex) {
+            ex.printStackTrace();
         }
+//        System.err.println(resources[0].getURI());
+
     }
 
     public RepositoryAdmin getRepositoryAdmin() {
@@ -200,7 +207,7 @@ public class OsgiLauncher
         // create bundles directory
         new File(BUNDLE_FOLDER).mkdir();
 
-        System.getProperties().setProperty("osh.config", "/run/media/nevro/9014351c-ebf9-45fb-8661-65ce5562215f/OSH/github/osh-core/sensorhub-core-test/src/main/resources/config_empty_sost.json");
+        System.getProperties().setProperty("osh.config", "/run/media/nevro/9014351c-ebf9-45fb-8661-65ce5562215f/PROGS/OSH/github/osh-core/sensorhub-core-test/src/main/resources/config_empty_sost.json");
         OsgiLauncher osgiLauncher = new OsgiLauncher();
 
         String[] bundles  = {
@@ -258,13 +265,16 @@ public class OsgiLauncher
                 "../osh-addons/./persistence/sensorhub-storage-es/build/libs/sensorhub-storage-es-1.0.0-SNAPSHOT-bundle.jar",
                 "../osh-addons/./persistence/sensorhub-storage-h2/build/libs/sensorhub-storage-h2-2.0.0-bundle.jar",
                 "../osh-addons/./sensors/social/sensorhub-driver-twitter/build/libs/sensorhub-driver-twitter-0.0.1-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-storm/build/libs/sensorhub-driver-storm-0.4.0-bundle.jar"
+                "../osh-addons/./sensors/weather/sensorhub-driver-storm/build/libs/sensorhub-driver-storm-0.4.0-bundle.jar",
+                "../osh-addons/./processing/sensorhub-process-utils/build/libs/sensorhub-process-utils-1.0.0-bundle.jar",
+                "../osh-addons/./processing/sensorhub-process-ffmpeg/build/libs/sensorhub-process-ffmpeg-4.2.2-bundle.jar",
+                "../osh-addons/./processing/sensorhub-process-opencv/build/libs/sensorhub-process-opencv-4.5.1-bundle.jar",
+                "../osh-addons/./persistence/sensorhub-storage-perst/build/libs/sensorhub-storage-perst-2.0.0-bundle.jar"
         };
 
 
-//        osgiLauncher.installBundles(Arrays.stream(bundles).sequential().map(Paths::get).collect(Collectors.toList()));
-
-        osgiLauncher.installFromRepository("http://localhost:5000/index.xml");
+        osgiLauncher.installBundles(Arrays.stream(bundles).sequential().map(Paths::get).collect(Collectors.toList()));
+//        osgiLauncher.installFromRepository("http://localhost:3333/osgi.xml");
         osgiLauncher.startHub();
     }
 }
