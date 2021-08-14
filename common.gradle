@@ -24,7 +24,6 @@ allprojects  {
 
 subprojects {
   apply plugin: 'java'
-  apply plugin: 'osgi'
   apply plugin: 'eclipse'
   apply plugin: 'maven-publish'
   
@@ -79,6 +78,16 @@ subprojects {
     }
   }
   
+  // patch for missing 'instruction' method following deprecation of gradle plugin
+  jar {
+    manifest {
+      ext.instruction = { name, value ->
+        def attrMap = [(name): value]
+        attributes attrMap
+      }
+    }
+  }
+  
   // configure packaging in separate task
   task jarConfig {
     doLast {    
@@ -93,34 +102,12 @@ subprojects {
         // OSGi manifest info
         manifest {
           // main info
-          symbolicName project.group + '.' + project.name
+          attributes 'Bundle-SymbolicName': project.group + '.' + project.name
+          attributes 'Bundle-Version': project.version
           if (project.description != null)
             attributes 'Bundle-Name': project.description
           if (project.details != null)
             attributes 'Bundle-Description': project.details
-            
-          // add embedded jars to OSGi classpath
-          def classpath = '.'
-          project.configurations.embedded.each {
-            classpath += ',lib/' + it.name
-          }
-          attributes 'Bundle-ClassPath': classpath
-          
-          // native libs location
-          def resourcesFolder = new File(projectDir, '/src/main/resources')
-          def nativeFolder = new File(resourcesFolder, '/lib/native')
-          if (nativeFolder.exists()) {
-            def nativePaths = ''
-            fileTree(dir: nativeFolder).files.each {
-              def path = resourcesFolder.toPath().relativize(it.toPath())
-              def osname = path.getName(2)
-              def proc = path.getName(3)
-              nativePaths += 'osname=' + osname + '; '
-              nativePaths += 'processor=' + proc + '; '
-              nativePaths += path.toString() + ', '
-            }
-            attributes 'Bundle-NativeCode': nativePaths
-          }
           
           // bundle dependencies
           def oshDeps = ''
