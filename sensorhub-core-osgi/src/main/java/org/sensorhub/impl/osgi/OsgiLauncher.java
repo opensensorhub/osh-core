@@ -41,8 +41,12 @@ public class OsgiLauncher
     static final String BUNDLE_FOLDER = "bundles";
     BundleContext systemCtx;
 
-    public OsgiLauncher() throws Exception
-    {
+    public OsgiLauncher() throws Exception {
+        this(BUNDLE_FOLDER);
+    }
+    public OsgiLauncher(String baseBundleFolder) throws Exception {
+        String baseBundlePath = new File(baseBundleFolder).getAbsolutePath();
+
         var frameworkFactory = ServiceLoader.load(FrameworkFactory.class).iterator().next();
         var config = new HashMap<String,String>();
 
@@ -78,34 +82,30 @@ public class OsgiLauncher
 
         framework.start();
         systemCtx = framework.getBundleContext();
-        Bundle bundle;
-
-        // install all bundles
-        systemCtx.installBundle("reference:file:./sensorhub-core/build/libs/sensorhub-core-2.0.0-bundle.jar").start();;
-        systemCtx.installBundle("reference:file:./sensorhub-service-swe/build/libs/sensorhub-service-swe-2.0.0-bundle.jar").start();;
-        systemCtx.installBundle("reference:file:./sensorhub-webui-core/build/libs/sensorhub-webui-core-2.0.0-bundle.jar").start();
 
         // autostart everything in bundles folder
-        File dir = new File(BUNDLE_FOLDER);
+        File dir = new File(baseBundlePath);
 
-        File[] bundleJarFiles = dir.listFiles(new FilenameFilter() {
-            public boolean accept(File dir, String name) {
-                return name.endsWith(".jar");
-            }
-        });
-        for (var f: bundleJarFiles)
-            newBundle(f.toPath());
+        // list files from the base directory and install bundle
+        File[] bundleJarFiles = dir.listFiles((dir1, name) -> name.endsWith(".jar"));
+
+        // we have to install all bundles before starting them
+        List<Bundle> installedBundles = new ArrayList<>();
+        for (var f: bundleJarFiles) {
+            installedBundles.add(systemCtx.installBundle("reference:file:" + f.toPath()));
+        }
+
+        for (var f: installedBundles) {
+            f.start();
+        }
 
         // watch bundle folder
-        try
-        {
-            var watcher = new DirectoryWatcher(Paths.get(BUNDLE_FOLDER), StandardWatchEventKinds.ENTRY_CREATE);
+        try {
+            var watcher = new DirectoryWatcher(Paths.get(baseBundleFolder), StandardWatchEventKinds.ENTRY_CREATE);
             var watcherThread = new Thread(watcher);
             watcher.addListener(this::newBundle);
             watcherThread.start();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -146,8 +146,6 @@ public class OsgiLauncher
         }catch (Exception ex) {
             ex.printStackTrace();
         }
-//        System.err.println(resources[0].getURI());
-
     }
 
     public RepositoryAdmin getRepositoryAdmin() {
@@ -190,15 +188,11 @@ public class OsgiLauncher
         }
     }
 
-    public void newBundle(Path path)
-    {
-        try
-        {
+    public void newBundle(Path path) {
+        try {
             var bundle = systemCtx.installBundle("reference:file:" + path.toString());
             bundle.start();
-        }
-        catch (BundleException e)
-        {
+        } catch (BundleException e) {
             e.printStackTrace();
         }
     }
@@ -212,71 +206,75 @@ public class OsgiLauncher
         System.getProperties().setProperty("osh.config", url.getFile());
         OsgiLauncher osgiLauncher = new OsgiLauncher();
 
+        String baseDir = "..";
+
         String[] bundles  = {
-                "../osh-addons/./sensors/weather/sensorhub-utils-grid/build/libs/sensorhub-utils-grid-0.3.3-bundle.jar",
-                "../osh-addons/./comm/sensorhub-comm-dio/build/libs/sensorhub-comm-dio-2.0.0-bundle.jar",
-                "../osh-addons/./comm/sensorhub-comm-ip-zeroconf/build/libs/sensorhub-comm-ip-zeroconf-2.0.0-bundle.jar",
-                "../osh-addons/./comm/sensorhub-comm-rxtx/build/libs/sensorhub-comm-rxtx-2.0.0-bundle.jar",
-                "../osh-addons/./services/sensorhub-service-commrelay/build/libs/sensorhub-service-commrelay-1.0.0-bundle.jar",
-                "../osh-addons/./processing/sensorhub-process-basicmath/build/libs/sensorhub-process-basicmath-1.0.0-bundle.jar",
-                "../osh-addons/./processing/sensorhub-process-vecmath/build/libs/sensorhub-process-vecmath-1.0.0-bundle.jar",
-                "../osh-addons/./processing/sensorhub-process-geoloc/build/libs/sensorhub-process-geoloc-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-metar/build/libs/sensorhub-driver-metar-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-meteobridge/build/libs/sensorhub-driver-meteobridge-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-httpweather/build/libs/sensorhub-driver-httpweather-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-uahweather/build/libs/sensorhub-driver-uahweather-0.1.0-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-vaisala/build/libs/sensorhub-driver-vaisala-1.0.0-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/hydro/sensorhub-driver-intellisense/build/libs/sensorhub-driver-intellisense-0.1.0-bundle.jar",
-                "../osh-addons/./sensors/hydro/sensorhub-storage-usgswater/build/libs/sensorhub-storage-usgswater-0.1.0-bundle.jar",
-                "../osh-addons/./sensors/simulated/sensorhub-driver-simulatedcbrn/build/libs/sensorhub-driver-simulatedcbrn-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/simulated/sensorhub-driver-plume/build/libs/sensorhub-driver-plume-1.0-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/simulated/sensorhub-driver-fakeweather/build/libs/sensorhub-driver-fakeweather-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/simulated/sensorhub-driver-simweatherstation/build/libs/sensorhub-driver-simweatherstation-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/simulated/sensorhub-driver-fakecam/build/libs/sensorhub-driver-fakecam-0.1-bundle.jar",
-                "../osh-addons/./sensors/simulated/sensorhub-driver-fakegps/build/libs/sensorhub-driver-fakegps-1.0.1-bundle.jar",
-                "../osh-addons/./sensors/aviation/sensorhub-driver-navdb/build/libs/sensorhub-driver-navdb-0.5-bundle.jar",
-                "../osh-addons/./sensors/health/sensorhub-driver-angelsensor/build/libs/sensorhub-driver-angelsensor-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-videocam/build/libs/sensorhub-driver-videocam-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-rtpcam/build/libs/sensorhub-driver-rtpcam-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-dahua/build/libs/sensorhub-driver-dahua-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-foscam/build/libs/sensorhub-driver-foscam-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-virb-xe/build/libs/sensorhub-driver-virb-xe-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-axis/build/libs/sensorhub-driver-axis-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-v4l/build/libs/sensorhub-driver-v4l-1.0.0-bundle.jar",
-                "../osh-addons/./comm/sensorhub-comm-ble/build/libs/sensorhub-comm-ble-2.0.0-bundle.jar",
-                "../osh-addons/./comm/sensorhub-comm-ble-dbus/build/libs/sensorhub-comm-ble-dbus-2.0.0-bundle.jar",
-                "../osh-addons/./sensors/positioning/sensorhub-driver-ahrs/build/libs/sensorhub-driver-ahrs-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/positioning/sensorhub-driver-bno055/build/libs/sensorhub-driver-bno055-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/positioning/sensorhub-driver-mti/build/libs/sensorhub-driver-mti-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/positioning/sensorhub-driver-gps-nmea/build/libs/sensorhub-driver-gps-nmea-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/positioning/sensorhub-driver-vectornav/build/libs/sensorhub-driver-vectornav-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/positioning/sensorhub-driver-trek1000/build/libs/sensorhub-driver-trek1000-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/avl/sensorhub-driver-avl-911/build/libs/sensorhub-driver-avl-911-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/cbrne/sensorhub-driver-gamma/build/libs/sensorhub-driver-gamma-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/robotics/sensorhub-driver-mavlink/build/libs/sensorhub-driver-mavlink-1.0.1-bundle.jar",
-                "../osh-addons/./sensors/robotics/sensorhub-driver-pwm-servos/build/libs/sensorhub-driver-pwm-servos-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/smarthome/sensorhub-driver-domoticz/build/libs/sensorhub-driver-domoticz-0.1.0-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/others/sensorhub-driver-intelipod/build/libs/sensorhub-driver-intelipod-1.0.0-bundle.jar",
-                "../osh-addons/./sensors/health/sensorhub-driver-angelsensor/build/libs/sensorhub-driver-angelsensor-0.1-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-nexrad/build/libs/sensorhub-driver-nexrad-1.0.0-SNAPSHOT-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-onvif/build/libs/sensorhub-driver-onvif-0.0.1-bundle.jar",
-                "../osh-addons/./security/sensorhub-security-gxoauth/build/libs/sensorhub-security-gxoauth-0.9.0-bundle.jar",
-                "../osh-addons/./security/sensorhub-security-oauth/build/libs/sensorhub-security-oauth-0.9.0-bundle.jar",
-                "../osh-addons/./sensors/video/sensorhub-driver-kinect/build/libs/sensorhub-driver-kinect-1.0.0-bundle.jar",
-                "../osh-addons/./persistence/sensorhub-storage-compat/build/libs/sensorhub-storage-compat-2.0.0-bundle.jar",
-                "../osh-addons/./persistence/sensorhub-storage-es/build/libs/sensorhub-storage-es-1.0.0-SNAPSHOT-bundle.jar",
-                "../osh-addons/./persistence/sensorhub-storage-h2/build/libs/sensorhub-storage-h2-2.0.0-bundle.jar",
-                "../osh-addons/./sensors/social/sensorhub-driver-twitter/build/libs/sensorhub-driver-twitter-0.0.1-bundle.jar",
-                "../osh-addons/./sensors/weather/sensorhub-driver-storm/build/libs/sensorhub-driver-storm-0.4.0-bundle.jar",
-                "../osh-addons/./processing/sensorhub-process-utils/build/libs/sensorhub-process-utils-1.0.0-bundle.jar",
-                "../osh-addons/./processing/sensorhub-process-ffmpeg/build/libs/sensorhub-process-ffmpeg-4.2.2-bundle.jar",
-                "../osh-addons/./processing/sensorhub-process-opencv/build/libs/sensorhub-process-opencv-4.5.1-bundle.jar",
-                "../osh-addons/./persistence/sensorhub-storage-perst/build/libs/sensorhub-storage-perst-2.0.0-bundle.jar"
+                baseDir   + "/osh-addons/services/sensorhub-service-video/build/libs/sensorhub-service-video-1.2.0-bundle.jar",
+//                baseDir + "/osh-addons/comm/sensorhub-comm-mqtt/build/libs/sensorhub-comm-mqtt-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-utils-grid/build/libs/sensorhub-utils-grid-0.3.3-bundle.jar",
+//                baseDir + "/osh-addons/comm/sensorhub-comm-dio/build/libs/sensorhub-comm-dio-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/comm/sensorhub-comm-ip-zeroconf/build/libs/sensorhub-comm-ip-zeroconf-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/comm/sensorhub-comm-rxtx/build/libs/sensorhub-comm-rxtx-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/services/sensorhub-service-commrelay/build/libs/sensorhub-service-commrelay-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/processing/sensorhub-process-basicmath/build/libs/sensorhub-process-basicmath-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/processing/sensorhub-process-vecmath/build/libs/sensorhub-process-vecmath-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/processing/sensorhub-process-geoloc/build/libs/sensorhub-process-geoloc-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-metar/build/libs/sensorhub-driver-metar-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-meteobridge/build/libs/sensorhub-driver-meteobridge-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-httpweather/build/libs/sensorhub-driver-httpweather-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-uahweather/build/libs/sensorhub-driver-uahweather-0.1.0-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-vaisala/build/libs/sensorhub-driver-vaisala-1.0.0-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/hydro/sensorhub-driver-intellisense/build/libs/sensorhub-driver-intellisense-0.1.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/hydro/sensorhub-storage-usgswater/build/libs/sensorhub-storage-usgswater-0.1.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/simulated/sensorhub-driver-simulatedcbrn/build/libs/sensorhub-driver-simulatedcbrn-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/simulated/sensorhub-driver-plume/build/libs/sensorhub-driver-plume-1.0-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/simulated/sensorhub-driver-fakeweather/build/libs/sensorhub-driver-fakeweather-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/simulated/sensorhub-driver-simweatherstation/build/libs/sensorhub-driver-simweatherstation-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/simulated/sensorhub-driver-fakecam/build/libs/sensorhub-driver-fakecam-0.1-bundle.jar",
+//                baseDir + "/osh-addons/sensors/simulated/sensorhub-driver-fakegps/build/libs/sensorhub-driver-fakegps-1.0.1-bundle.jar",
+//                baseDir + "/osh-addons/sensors/aviation/sensorhub-driver-navdb/build/libs/sensorhub-driver-navdb-0.5-bundle.jar",
+//                baseDir + "/osh-addons/sensors/health/sensorhub-driver-angelsensor/build/libs/sensorhub-driver-angelsensor-0.1-SNAPSHOT-bundle.jar",
+                baseDir + "/osh-addons/sensors/video/sensorhub-driver-videocam/build/libs/sensorhub-driver-videocam-1.0.0-bundle.jar",
+                baseDir + "/osh-addons/sensors/video/sensorhub-driver-rtpcam/build/libs/sensorhub-driver-rtpcam-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/video/sensorhub-driver-dahua/build/libs/sensorhub-driver-dahua-1.0.0-bundle.jar",
+                baseDir + "/osh-addons/sensors/video/sensorhub-driver-foscam/build/libs/sensorhub-driver-foscam-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/video/sensorhub-driver-virb-xe/build/libs/sensorhub-driver-virb-xe-1.0.0-bundle.jar",
+                baseDir + "/osh-addons/sensors/video/sensorhub-driver-axis/build/libs/sensorhub-driver-axis-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/video/sensorhub-driver-v4l/build/libs/sensorhub-driver-v4l-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/comm/sensorhub-comm-ble/build/libs/sensorhub-comm-ble-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/comm/sensorhub-comm-ble-dbus/build/libs/sensorhub-comm-ble-dbus-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/positioning/sensorhub-driver-ahrs/build/libs/sensorhub-driver-ahrs-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/positioning/sensorhub-driver-bno055/build/libs/sensorhub-driver-bno055-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/positioning/sensorhub-driver-mti/build/libs/sensorhub-driver-mti-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/positioning/sensorhub-driver-gps-nmea/build/libs/sensorhub-driver-gps-nmea-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/positioning/sensorhub-driver-vectornav/build/libs/sensorhub-driver-vectornav-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/positioning/sensorhub-driver-trek1000/build/libs/sensorhub-driver-trek1000-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/avl/sensorhub-driver-avl-911/build/libs/sensorhub-driver-avl-911-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/cbrne/sensorhub-driver-gamma/build/libs/sensorhub-driver-gamma-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/robotics/sensorhub-driver-mavlink/build/libs/sensorhub-driver-mavlink-1.0.1-bundle.jar",
+//                baseDir + "/osh-addons/sensors/robotics/sensorhub-driver-pwm-servos/build/libs/sensorhub-driver-pwm-servos-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/smarthome/sensorhub-driver-domoticz/build/libs/sensorhub-driver-domoticz-0.1.0-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/others/sensorhub-driver-intelipod/build/libs/sensorhub-driver-intelipod-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/health/sensorhub-driver-angelsensor/build/libs/sensorhub-driver-angelsensor-0.1-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-nexrad/build/libs/sensorhub-driver-nexrad-1.0.0-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/sensors/video/sensorhub-driver-onvif/build/libs/sensorhub-driver-onvif-0.0.1-bundle.jar",
+//                baseDir + "/osh-addons/security/sensorhub-security-gxoauth/build/libs/sensorhub-security-gxoauth-0.9.0-bundle.jar",
+//                baseDir + "/osh-addons/security/sensorhub-security-oauth/build/libs/sensorhub-security-oauth-0.9.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/video/sensorhub-driver-kinect/build/libs/sensorhub-driver-kinect-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/persistence/sensorhub-storage-compat/build/libs/sensorhub-storage-compat-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/persistence/sensorhub-storage-es/build/libs/sensorhub-storage-es-1.0.0-SNAPSHOT-bundle.jar",
+//                baseDir + "/osh-addons/persistence/sensorhub-storage-h2/build/libs/sensorhub-storage-h2-2.0.0-bundle.jar",
+//                baseDir + "/osh-addons/sensors/social/sensorhub-driver-twitter/build/libs/sensorhub-driver-twitter-0.0.1-bundle.jar",
+//                baseDir + "/osh-addons/sensors/weather/sensorhub-driver-storm/build/libs/sensorhub-driver-storm-0.4.0-bundle.jar",
+//                baseDir + "/osh-addons/processing/sensorhub-process-utils/build/libs/sensorhub-process-utils-1.0.0-bundle.jar",
+//                baseDir + "/osh-addons/processing/sensorhub-process-ffmpeg/build/libs/sensorhub-process-ffmpeg-4.2.2-bundle.jar",
+//                baseDir + "/osh-addons/processing/sensorhub-process-opencv/build/libs/sensorhub-process-opencv-4.5.1-bundle.jar",
+//                baseDir + "/osh-addons/persistence/sensorhub-storage-perst/build/libs/sensorhub-storage-perst-2.0.0-bundle.jar"
         };
 
 
-//        osgiLauncher.installBundles(Arrays.stream(bundles).sequential().map(Paths::get).collect(Collectors.toList()));
-        osgiLauncher.installFromRepository("http://localhost:3333/osgi.xml");
+        osgiLauncher.installBundles(Arrays.stream(bundles).sequential().map(Paths::get).collect(Collectors.toList()));
+//        osgiLauncher.installFromRepository("http://localhost:3333/osgi.xml");
         osgiLauncher.startHub();
     }
 }
