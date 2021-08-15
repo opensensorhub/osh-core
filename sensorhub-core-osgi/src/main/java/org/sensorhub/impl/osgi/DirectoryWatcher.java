@@ -1,18 +1,20 @@
 /***************************** BEGIN LICENSE BLOCK ***************************
 
-The contents of this file are subject to the Mozilla Public License, v. 2.0.
-If a copy of the MPL was not distributed with this file, You can obtain one
-at http://mozilla.org/MPL/2.0/.
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
 
-Software distributed under the License is distributed on an "AS IS" basis,
-WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-for the specific language governing rights and limitations under the License.
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
 
-Copyright (C) 2018 Delta Air Lines, Inc. All Rights Reserved.
-
-******************************* END LICENSE BLOCK ***************************/
+ Copyright (C) 2018 Delta Air Lines, Inc. All Rights Reserved.
+ ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.impl.osgi;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -33,70 +35,66 @@ import java.util.function.Consumer;
  *
  * @author Tony Cook
  */
-public class DirectoryWatcher implements Runnable
-{
-	List<Consumer<Path>> listeners = new ArrayList<>();
-	WatchService watcher;
-	Path path;
+public class DirectoryWatcher implements Runnable {
+    protected static final Logger LOGGER = LoggerFactory.getLogger(DirectoryWatcher.class);
 
-	public DirectoryWatcher(Path path, Kind<?> ... eventKinds) throws IOException {
-		watcher = path.getFileSystem().newWatchService();
-		path.register(watcher, eventKinds);
-		this.path = path;
-	}
+    List<Consumer<DirectoryEvent>> listeners = new ArrayList<>();
+    WatchService watcher;
+    Path path;
 
-	public boolean addListener(Consumer<Path> f) {
-		return listeners.add(f);
-	}
+    public DirectoryWatcher(Path path, Kind<?>... eventKinds) throws IOException {
+        watcher = path.getFileSystem().newWatchService();
+        path.register(watcher, eventKinds);
+        this.path = path;
+    }
 
-	public boolean removeListener(Consumer<Path> f) {
-		return listeners.remove(f);
-	}
+    public boolean addListener(Consumer<DirectoryEvent> f) {
+        return listeners.add(f);
+    }
 
-	@Override
-	public void run()  {
-	    Thread.currentThread().setName("DirWatcher");
-	    WatchKey watchKey = null;
-	    
-		while (!Thread.currentThread().isInterrupted()) {
-			try
-            {
+    public boolean removeListener(Consumer<DirectoryEvent> f) {
+        return listeners.remove(f);
+    }
+
+    @Override
+    public void run() {
+        Thread.currentThread().setName("DirWatcher");
+        WatchKey watchKey = null;
+
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
                 try {
-                	watchKey = watcher.take();
+                    watchKey = watcher.take();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     continue;
                 }
-                
+
                 List<WatchEvent<?>> events = watchKey.pollEvents();
                 for (WatchEvent<?> event : events) {
-//				    System.out.println(event.kind() + " : " + event.context());
-                	WatchEvent.Kind<?> kind = event.kind();
+                    WatchEvent.Kind<?> kind = event.kind();
 
-                	@SuppressWarnings("unchecked")
-                	WatchEvent<Path> ev = (WatchEvent<Path>) event;
-                	Path filename = ev.context();
+                    @SuppressWarnings("unchecked")
+                    WatchEvent<Path> ev = (WatchEvent<Path>) event;
+                    Path filename = ev.context();
 
-//                	System.out.println(kind.name() + ": " + filename);
-
+                    DirectoryEvent directoryEvent = new DirectoryEvent();
+                    directoryEvent.path = Paths.get(path.toString(), filename.toString()).toAbsolutePath();
+                    directoryEvent.fileName = filename.toString();
+                    directoryEvent.kind = kind;
 //				    if (kind == StandardWatchEventKinds.ENTRY_CREATE ) {
-                		for(var l: listeners) {
-                			l.accept(Paths.get(path.toString(), filename.toString()));                			
-                		}
+                    for (var l : listeners) {
+                        l.accept(directoryEvent);
+                    }
 //				    }			
-                } 
-            }
-            catch (Throwable e)
-            {
-                System.err.println("Error while processing watch events");
-                e.printStackTrace();                
-            }
-			finally
-			{
+                }
+            } catch (Throwable e) {
+                LOGGER.error("Error while processing watch events");
+                e.printStackTrace();
+            } finally {
                 if (watchKey != null)
                     watchKey.reset();
-			}
-		}
-	}
-
+            }
+        }
+    }
 }

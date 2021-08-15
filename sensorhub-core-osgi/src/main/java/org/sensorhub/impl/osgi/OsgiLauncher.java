@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.apache.felix.bundlerepository.*;
@@ -40,6 +41,7 @@ public class OsgiLauncher
 
     static final String BUNDLE_FOLDER = "bundles";
     BundleContext systemCtx;
+    private Map<String, Bundle> osgiBundles = new ConcurrentHashMap<>();
 
     public OsgiLauncher() throws Exception {
         this(BUNDLE_FOLDER);
@@ -70,12 +72,9 @@ public class OsgiLauncher
 
         // register shutdown hook for a clean stop
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try
-            {
+            try {
                 framework.stop();
-            }
-            catch (BundleException e)
-            {
+            } catch (BundleException e) {
                 e.printStackTrace();
             }
         }));
@@ -90,20 +89,22 @@ public class OsgiLauncher
         File[] bundleJarFiles = dir.listFiles((dir1, name) -> name.endsWith(".jar"));
 
         // we have to install all bundles before starting them
-        List<Bundle> installedBundles = new ArrayList<>();
         for (var f: bundleJarFiles) {
-            installedBundles.add(systemCtx.installBundle("reference:file:" + f.toPath()));
+            osgiBundles.put(f.getPath(), systemCtx.installBundle("reference:file:" + f.toPath()));
         }
 
-        for (var f: installedBundles) {
-            f.start();
+        for (var entry : osgiBundles.keySet()) {
+            osgiBundles.get(entry).start();
         }
 
         // watch bundle folder
         try {
-            var watcher = new DirectoryWatcher(Paths.get(baseBundleFolder), StandardWatchEventKinds.ENTRY_CREATE);
+            var watcher = new DirectoryWatcher(Paths.get(baseBundleFolder),
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_DELETE
+                    );
             var watcherThread = new Thread(watcher);
-            watcher.addListener(this::newBundle);
+            watcher.addListener(this::updateBundle);
             watcherThread.start();
         } catch (IOException e) {
             e.printStackTrace();
@@ -118,10 +119,6 @@ public class OsgiLauncher
         var hub = systemCtx.getService(ref);
         hub.run();
         LOGGER.info("Hub have been started successfully");
-    }
-
-    protected Bundle installBundle(Path path) throws BundleException {
-        return  systemCtx.installBundle("reference:file:" + path.toString());
     }
 
     protected void installFromRepository(String remoteLocation)  {
@@ -148,24 +145,6 @@ public class OsgiLauncher
         }
     }
 
-    public RepositoryAdmin getRepositoryAdmin() {
-        RepositoryAdmin repositoryAdmin= null;
-        // Get all Services implement RepositoryAdmin interface
-        try {
-            ServiceReference<?>[] references = systemCtx.getAllServiceReferences(RepositoryAdmin.class.getName(), null);
-            for (ServiceReference<?> ref : references) {
-                repositoryAdmin = (RepositoryAdmin) systemCtx.getService(ref);
-                return repositoryAdmin;
-            }
-            return null;
-        } catch (InvalidSyntaxException e) {
-            LOGGER.warn("Cannot load RepositoryAdmin on AddonSearchImpl.");
-            return null;
-        } finally {
-            return repositoryAdmin;
-        }
-    }
-
     public void installBundles(List<Path> paths) {
         final List<Bundle> bundles = new ArrayList<>();
 
@@ -188,10 +167,22 @@ public class OsgiLauncher
         }
     }
 
-    public void newBundle(Path path) {
+    public void updateBundle(DirectoryEvent directoryEvent) {
         try {
-            var bundle = systemCtx.installBundle("reference:file:" + path.toString());
-            bundle.start();
+            String key = directoryEvent.path.toString();
+            if(directoryEvent.kind == StandardWatchEventKinds.ENTRY_CREATE){
+                var bundle = systemCtx.installBundle("reference:file:" + key);
+                bundle.start();
+                osgiBundles.put(key,bundle);
+            } else if(directoryEvent.kind == StandardWatchEventKinds.ENTRY_DELETE) {
+                if(!osgiBundles.containsKey(key)) {
+                    LOGGER.warn("The osgi context does not contain {}",key);
+                } else {
+                    Bundle bundle = osgiBundles.remove(key);
+                    bundle.uninstall();
+                    LOGGER.info("Uninstall bundle {}",bundle);
+                }
+            }
         } catch (BundleException e) {
             e.printStackTrace();
         }
