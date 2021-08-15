@@ -17,8 +17,8 @@ dependencies {
 task compileWidgetset(type: JavaExec) {
   def inputSource = sourceSets.main.resources.srcDirs
   def outputFolder = "$projectDir/src/main/resources/VAADIN/widgetsets"
-  inputs.dir(inputSource)
-  outputs.file(outputFolder)
+  inputs.files(inputSource)
+  outputs.dir(outputFolder)
   
   main 'com.vaadin.tools.WidgetsetCompiler'
   classpath inputSource

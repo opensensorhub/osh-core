@@ -23,7 +23,7 @@ allprojects  {
 
 
 subprojects {
-  apply plugin: 'java'
+  apply plugin: 'java-library'
   apply plugin: 'eclipse'
   apply plugin: 'maven-publish'
   
@@ -177,9 +177,9 @@ subprojects {
 
 
 // distribution zip files
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'distribution'
-targetCompatibility = 1.7
+targetCompatibility = 1.8
 tasks.jar.enabled = false
 afterEvaluate { // disable all distTar tasks
   tasks.each {
