@@ -78,16 +78,6 @@ subprojects {
     }
   }
   
-  // patch for missing 'instruction' method following deprecation of gradle plugin
-  jar {
-    manifest {
-      ext.instruction = { name, value ->
-        def attrMap = [(name): value]
-        attributes attrMap
-      }
-    }
-  }
-  
   // configure packaging in separate task
   task jarConfig {
     doLast {    
