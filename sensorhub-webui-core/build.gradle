@@ -4,27 +4,27 @@ ext.details = 'Web based admin user interface for OSH'
 rootProject.allprojects {
   ext.vaadinVersion = '7.7.17'
   repositories {
-    maven { url "http://maven.vaadin.com/vaadin-addons" }
+    maven { url "https://maven.vaadin.com/vaadin-addons" }
   }
 }
 
 dependencies {
-  compile project(':sensorhub-core')
-  compile project(':sensorhub-service-swe')
-  compile project(':sensorhub-webui-widgetset')
-  compile 'com.vaadin:vaadin-server:' + vaadinVersion
-  compile 'com.vaadin:vaadin-push:' + vaadinVersion
-  compile 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
-  compile 'com.vaadin:vaadin-themes:' + vaadinVersion
+  api project(':sensorhub-core')
+  api project(':sensorhub-service-swe')
+  implementation project(':sensorhub-webui-widgetset')
+  implementation 'com.vaadin:vaadin-server:' + vaadinVersion
+  implementation 'com.vaadin:vaadin-push:' + vaadinVersion
+  implementation 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
+  implementation 'com.vaadin:vaadin-themes:' + vaadinVersion
     
-  testCompile project(path: ':sensorhub-core', configuration: 'testArtifacts')
+  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
 }
 
 // add info to OSGI manifest
 jar {
   manifest {
-    instruction 'Bundle-Vendor', 'Sensia Software LLC'
-    instruction 'Bundle-Activator', 'org.sensorhub.ui.Activator'
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.ui.Activator'
   }
 }
 

@@ -12,13 +12,13 @@ allprojects  {
 // dependencies for inclusion in distribution
 dependencies {
   project.subprojects.each {
-    p -> compile p
+    p -> implementation p
   }
 }
 
 distributions {
   main {
-    baseName = 'osh-core'
+    distributionBaseName = 'osh-core'
     contents {
       into('lib') {
         from project.configurations.compileClasspath

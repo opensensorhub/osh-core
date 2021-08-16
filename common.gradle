@@ -57,15 +57,15 @@ subprojects {
   // add embedded config for embedding jars in bundle
   configurations {
     embedded
-    compile {
+    implementation {
       extendsFrom embedded
     }
   }
 
   // default test dependencies
   dependencies {
-    testCompile 'junit:junit:4.11'
-    testCompile 'xmlunit:xmlunit:1.6'
+    testImplementation 'junit:junit:4.11'
+    testImplementation 'xmlunit:xmlunit:1.6'
   }
 
   // print test names
@@ -111,7 +111,7 @@ subprojects {
           
           // bundle dependencies
           def oshDeps = ''
-          project.configurations.runtime.each {
+          project.configurations.runtimeClasspath.each {
             if (it.name.startsWith('sensorhub'))
               oshDeps += it.name + ','
           }

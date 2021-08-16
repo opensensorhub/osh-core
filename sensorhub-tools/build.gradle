@@ -2,15 +2,15 @@ description = 'OSH CLI Admin Tools'
 ext.details = 'Command-line administration tools for OSH'
 
 dependencies {
-  compile project(':sensorhub-core')
-  compile project(':sensorhub-storage-perst')
+  implementation project(':sensorhub-core')
+  implementation project(':sensorhub-storage-perst')
 }
 
 // add info to OSGI manifest
 jar {
   manifest {
-    instruction 'Bundle-Vendor', 'Sensia Software LLC'
-    instruction 'Bundle-Activator', 'org.sensorhub.tools.Activator'
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.tools.Activator'
   }
 }
 

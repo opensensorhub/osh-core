@@ -2,15 +2,15 @@ description = 'OSH Vaadin WidgetSet'
 
 configurations {
   vaadin {
-    extendsFrom compile
+    extendsFrom compileOnly
   }
 }
 
 dependencies {
-  compile 'com.vaadin:vaadin-shared:' + vaadinVersion
-  compile 'com.vaadin:vaadin-server:' + vaadinVersion
-  compile 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
-  compile 'com.vaadin:vaadin-themes:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-shared:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-server:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-themes:' + vaadinVersion
   vaadin 'com.vaadin:vaadin-client-compiler:' + vaadinVersion 
 }
 

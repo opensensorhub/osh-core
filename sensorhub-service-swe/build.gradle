@@ -2,15 +2,15 @@ description = 'OSH SWE Services'
 ext.details = 'Implementation of OGC SWE standard interfaces as OSH services and virtual sensors'
 
 dependencies {
-  compile project(':sensorhub-core')
-  compile project(':ogc-services-sos')
-  compile project(':ogc-services-sps')
-  compile 'xml-apis:xml-apis:1.4.01'
-  compile 'org.eclipse.jetty.websocket:websocket-server:9.4.42.v20210604'
+  api project(':sensorhub-core')
+  api project(':ogc-services-sos')
+  api project(':ogc-services-sps')
+  api 'xml-apis:xml-apis:1.4.01'
+  api 'org.eclipse.jetty.websocket:websocket-server:9.4.42.v20210604'
     
-  testCompile project(path: ':sensorhub-core', configuration: 'testArtifacts')
-  testCompile project(':sensorhub-storage-perst')
-  testCompile 'commons-io:commons-io:1.3.2'
+  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
+  testImplementation project(':sensorhub-storage-perst')
+  testImplementation 'commons-io:commons-io:1.3.2'
     
   configurations {
     runtime {
@@ -23,8 +23,8 @@ dependencies {
 // add info to OSGI manifest
 jar {
   manifest {
-    instruction 'Bundle-Vendor', 'Sensia Software LLC'
-    instruction 'Bundle-Activator', 'org.sensorhub.impl.service.sos.Activator'
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.impl.service.sos.Activator'
   }
 }
 

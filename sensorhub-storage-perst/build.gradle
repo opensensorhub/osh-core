@@ -9,16 +9,17 @@ rootProject.allprojects {
 }
 
 dependencies {
-  compile project(':sensorhub-core')
+  api project(':sensorhub-core')
   embedded 'org.garret:perst-fixed:4.36'
-  testCompile project(path: ':sensorhub-core', configuration: 'testArtifacts')
+  
+  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
 }
 
 // add info to OSGI manifest
 jar {
   manifest {
-    instruction 'Bundle-Vendor', 'Sensia Software LLC'
-    instruction 'Bundle-Activator', 'org.sensorhub.impl.persistence.perst.Activator'
+    attributes 'Bundle-Vendor': 'Sensia Software LLC'
+    attributes 'Bundle-Activator': 'org.sensorhub.impl.persistence.perst.Activator'
   }
 }
 
