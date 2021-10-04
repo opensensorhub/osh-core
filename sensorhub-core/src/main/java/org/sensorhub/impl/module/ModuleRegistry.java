@@ -556,7 +556,7 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
         try
         {
             // start module in separate thread
-            asyncExec.submit(() -> {
+            Runnable startRunnable = () -> {
                 
                 // set current thread classloader to the module classloader
                 // needed to use proper classloader when booting using OSGi
@@ -586,7 +586,36 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
                 }
                 
                 Thread.currentThread().setContextClassLoader(prevCl);
-            });
+            };
+            
+            // if waitFor condition is set, register a future to start later
+            var config = module.getConfiguration();
+            if (!config.startupOrder.waitForModuleInit.isEmpty() || !config.startupOrder.waitForModuleStart.isEmpty())
+            {
+                log.info("{} waiting for init of {}", MsgUtils.moduleString(module), config.startupOrder.waitForModuleInit);
+                log.info("{} waiting for start of {}", MsgUtils.moduleString(module), config.startupOrder.waitForModuleStart);
+                
+                waitForModule(m -> {
+                    for (var moduleId: config.startupOrder.waitForModuleInit)
+                    {
+                        var neededM = getLoadedModuleById(moduleId);
+                        if (neededM == null || neededM.getCurrentState() != ModuleState.INITIALIZED)
+                            return false;
+                    }
+                    
+                    for (var moduleId: config.startupOrder.waitForModuleStart)
+                    {
+                        var neededM = getLoadedModuleById(moduleId);
+                        if (neededM == null || neededM.getCurrentState() != ModuleState.STARTED)
+                            return false;
+                    }
+                    
+                    return true;
+                })
+                .thenRun(startRunnable);
+            }
+            else
+                asyncExec.submit(startRunnable);
         }
         catch (RejectedExecutionException e)
         {
@@ -1228,10 +1257,7 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
             {
                 var f = it.next();
                 if (f.predicate.test(e.getModule()))
-                {
-                    it.remove();
                     ((WaitFuture<IModule<?>>)f).complete(e.getModule());
-                }
             }
         }
     }
@@ -1261,8 +1287,14 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
     }
     
     
-    @SuppressWarnings("unchecked")
     public <T> CompletableFuture<T> waitForModule(final Predicate<IModule<?>> predicate)
+    {
+        return waitForModule(predicate, DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+    
+    
+    @SuppressWarnings("unchecked")
+    public <T> CompletableFuture<T> waitForModule(final Predicate<IModule<?>> predicate, long timeOut, TimeUnit timeUnit)
     {
         Asserts.checkNotNull(predicate, Predicate.class);
         
@@ -1270,6 +1302,7 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
         {
             var future = new WaitFuture<T>(predicate);
             
+            // check predicate synchronously first
             var modules = getLoadedModules();
             for (var m: modules)
             {
@@ -1279,9 +1312,34 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
                     return future;
                 }
             }
-                
-            waitForModuleFutures.add(future);            
-            return future;
+            
+            // otherwise add future to list
+            waitForModuleFutures.add(future);
+            
+            // also ensure future will fail and be removed from list if condition is
+            // not reached before timeout
+            return future
+                .whenComplete((m, e) -> {
+                    waitForModuleFutures.remove(future);
+                })
+                .orTimeout(timeOut, timeUnit);
+        }
+    }
+    
+    
+    public void waitForAllModulesLoaded()
+    {
+        synchronized (loadedModules)
+        {
+            try
+            {
+                while (!allModulesLoaded)
+                    loadedModules.wait();
+            }
+            catch (InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
+            }
         }
     }
     

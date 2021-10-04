@@ -14,6 +14,8 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.module;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.sensorhub.api.config.DisplayInfo;
 import org.sensorhub.utils.ConfigCloner;
 import com.google.gson.annotations.SerializedName;
@@ -29,6 +31,18 @@ import com.google.gson.annotations.SerializedName;
  */
 public class ModuleConfig implements Cloneable
 {   
+    
+    public static class DependenciesConfig
+    {
+        
+        @DisplayInfo(desc="IDs of modules that have to be initialized before this module can be started")
+        public List<String> waitForModuleInit = new ArrayList<>();
+        
+        
+        @DisplayInfo(desc="IDs of modules that have to be started before this module can be started")
+        public List<String> waitForModuleStart = new ArrayList<>();
+    }
+    
     
     /**
      * Unique ID of the module. It must be unique within the SensorHub instance
@@ -56,8 +70,12 @@ public class ModuleConfig implements Cloneable
     @DisplayInfo(label="Auto Start", desc="Set to automatically start the module when it is loaded")
     @SerializedName(value="autoStart", alternate={"enabled"})
     public boolean autoStart = false;
-
-
+    
+    
+    @DisplayInfo(desc="Configuration for module start order")
+    public final DependenciesConfig startupOrder = new DependenciesConfig();
+    
+    
     @Override
     public ModuleConfig clone()
     {
