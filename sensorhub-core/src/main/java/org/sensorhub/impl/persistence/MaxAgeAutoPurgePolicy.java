@@ -54,13 +54,12 @@ public class MaxAgeAutoPurgePolicy implements IStorageAutoPurgePolicy
             
             if (beginTime < endTime - config.maxRecordAge)
             {
-                final double[] obsoleteTimeRange = new double[] {beginTime, endTime - config.maxRecordAge};
+                final double[] obsoleteTimeRange = new double[] {0, endTime - config.maxRecordAge};
                 
                 if (log.isInfoEnabled())
                 {
-                    log.info("Purging {} data for period {}/{}",
+                    log.info("Purging {} data until {}",
                              streamInfo.getName(),
-                             df.formatIso(obsoleteTimeRange[0], 0),
                              df.formatIso(obsoleteTimeRange[1], 0));
                 }
 
@@ -71,7 +70,7 @@ public class MaxAgeAutoPurgePolicy implements IStorageAutoPurgePolicy
                     public double[] getTimeStampRange()
                     {
                         return obsoleteTimeRange;
-                    }                    
+                    }
                 });
                 
                 log.info("{} records deleted", numDeletedRecords);
