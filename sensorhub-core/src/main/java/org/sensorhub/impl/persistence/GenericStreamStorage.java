@@ -129,7 +129,7 @@ public class GenericStreamStorage extends AbstractModule<StreamStorageConfig> im
                 }
             };
             
-            autoPurgeTimer.schedule(task, 0, (long)(config.autoPurgeConfig.purgePeriod*1000)); 
+            autoPurgeTimer.schedule(task, 1000, (long)(config.autoPurgeConfig.purgePeriod*1000)); 
         }
         
         // retrieve reference to data source
@@ -220,7 +220,8 @@ public class GenericStreamStorage extends AbstractModule<StreamStorageConfig> im
         // make sure data source info can be read back
         storage.commit();
         
-        setState(ModuleState.STARTED);
+        // set started state now
+        super.setState(ModuleState.STARTED);
         clearStatus();
     }
     
@@ -767,9 +768,8 @@ public class GenericStreamStorage extends AbstractModule<StreamStorageConfig> im
     @Override
     protected void setState(ModuleState newState)
     {
-        // switch to started only if we already have data in storage
-        // otherwise we have to wait for data source to start
-        if (newState == ModuleState.STARTED && storage.getLatestDataSourceDescription() == null)
+        // switch to started only when connected data producer
+        if (newState == ModuleState.STARTED)
             return;
             
         super.setState(newState);
