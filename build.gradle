@@ -21,7 +21,7 @@ distributions {
     distributionBaseName = 'osh-core'
     contents {
       into('lib') {
-        from project.configurations.compileClasspath
+        from project.configurations.runtimeClasspath
       } 
     }
   }
