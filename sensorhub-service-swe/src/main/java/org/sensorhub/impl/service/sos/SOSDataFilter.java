@@ -24,7 +24,9 @@
 package org.sensorhub.impl.service.sos;
 
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+import javax.xml.namespace.QName;
 import org.vast.ows.fes.FESRequestUtils;
 import org.vast.util.Asserts;
 import org.vast.util.Bbox;
@@ -49,6 +51,7 @@ public class SOSDataFilter
     Set<String> observables = new LinkedHashSet<>();
     Set<String> foiIds = new LinkedHashSet<>();
     TimeExtent timeRange = new TimeExtent(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+    Map<QName, Object> extensions;
     Polygon roi;
     
     double replaySpeedFactor = Double.NaN;
@@ -62,7 +65,7 @@ public class SOSDataFilter
     }
     
     
-    public SOSDataFilter(Set<String> observables, TimeExtent timeRange, Set<String> foiIds, BinarySpatialOp spatialFilter)
+    public SOSDataFilter(Set<String> observables, TimeExtent timeRange, Set<String> foiIds, BinarySpatialOp spatialFilter, Map<QName, Object> extensions)
     {
         this(observables);
         
@@ -84,6 +87,8 @@ public class SOSDataFilter
                new Coordinate(bbox.getMinX(), bbox.getMinY())
             });
         }
+        
+        this.extensions = extensions;
     }
     
 
@@ -138,5 +143,17 @@ public class SOSDataFilter
     public void setMaxObsCount(long maxObsCount)
     {
         this.maxObsCount = maxObsCount;
+    }
+
+
+    public Map<QName, Object> getExtensions()
+    {
+        return extensions;
+    }
+
+
+    public void setExtensions(Map<QName, Object> extensions)
+    {
+        this.extensions = extensions;
     }
 }

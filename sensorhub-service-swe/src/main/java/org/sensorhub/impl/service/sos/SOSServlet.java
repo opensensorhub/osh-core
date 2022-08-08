@@ -951,7 +951,7 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
                 }
                 
                 // setup data provider
-                SOSDataFilter filter = new SOSDataFilter(selectedObservables, request.getTime(), request.getFoiIDs(), request.getSpatialFilter());
+                SOSDataFilter filter = new SOSDataFilter(selectedObservables, request.getTime(), request.getFoiIDs(), request.getSpatialFilter(), request.getExtensions());
                 filter.setMaxObsCount(config.maxObsCount);
                 dataProvider = getDataProvider(offering, filter);
                 
@@ -1106,7 +1106,7 @@ public class SOSServlet extends org.vast.ows.sos.SOSServlet
         boolean isWs = isWebSocketRequest(request);        
         
         // setup data filter (including extensions)
-        SOSDataFilter filter = new SOSDataFilter(request.getObservables(), request.getTime(), request.getFoiIDs(), request.getSpatialFilter());
+        SOSDataFilter filter = new SOSDataFilter(request.getObservables(), request.getTime(), request.getFoiIDs(), request.getSpatialFilter(), request.getExtensions());
         filter.setMaxObsCount(config.maxRecordCount);
         if (request.getExtensions().containsKey(EXT_REPLAY))
         {
