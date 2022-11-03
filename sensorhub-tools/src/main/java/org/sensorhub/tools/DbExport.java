@@ -147,6 +147,7 @@ public class DbExport
                         else
                             dos.writeUTF(rec.getKey().producerID);
                         recordWriter.write(rec.getData());
+                        recordWriter.flush();
                         if (recordEncoding instanceof TextEncoding)
                             dos.write('\n');
                         dos.flush();
