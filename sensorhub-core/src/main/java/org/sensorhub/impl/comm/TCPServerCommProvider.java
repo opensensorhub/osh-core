@@ -83,7 +83,7 @@ public class TCPServerCommProvider extends AbstractModule<TCPServerCommProviderC
                 serverThread.interrupt();
             }
         } catch (IOException e) {
-            log.error("TCPServerCommProvider error: " + e.getMessage());
+            throw new SensorHubException("Error stopping TCPServerCommProvider: " + e.getMessage(), e);
         }
     }
 
