@@ -51,7 +51,7 @@ public abstract class RestApiServlet extends HttpServlet
 {
     static final String LOG_REQUEST_MSG = "{} {}{} (from ip={}, user={})";
     static final String INTERNAL_ERROR_MSG = "Internal server error";
-    static final String INTERNAL_ERROR_LOG_MSG = INTERNAL_ERROR_MSG + " while processing request " + LOG_REQUEST_MSG;
+    static final String ERROR_LOG_MSG = "{} while processing request " + LOG_REQUEST_MSG;
     static final String ACCESS_DENIED_ERROR_MSG = "Permission denied";
     static final String JSON_CONTENT_TYPE = "application/json";
 
@@ -379,18 +379,24 @@ public abstract class RestApiServlet extends HttpServlet
     protected void logRequest(HttpServletRequest req)
     {
         if (log.isInfoEnabled())
-            logRequestInfo(req, null);
+            logRequestInfo(req, null, null);
     }
     
     
     protected void logError(HttpServletRequest req, Throwable e)
     {
-        if (log.isErrorEnabled())
-            logRequestInfo(req, e);
+        logError(req, null, e);
     }
     
     
-    protected void logRequestInfo(HttpServletRequest req, Throwable error)
+    protected void logError(HttpServletRequest req, String error_prefix, Throwable e)
+    {
+        if (log.isErrorEnabled())
+            logRequestInfo(req, error_prefix, e);
+    }
+    
+    
+    protected void logRequestInfo(HttpServletRequest req, String error_prefix, Throwable error)
     {
         String method = req.getMethod();
         String url = req.getRequestURI();
@@ -416,7 +422,7 @@ public abstract class RestApiServlet extends HttpServlet
             query = "?" + req.getQueryString();
         
         if (error != null)
-            log.error(INTERNAL_ERROR_LOG_MSG, method, url, query, ip, user, error);
+            log.error(ERROR_LOG_MSG, error_prefix, method, url, query, ip, user, error);
         else
             log.info(LOG_REQUEST_MSG, method, url, query, ip, user);
     }
@@ -459,8 +465,8 @@ public abstract class RestApiServlet extends HttpServlet
     
     protected void handleInvalidRequestException(HttpServletRequest req, HttpServletResponse resp, InvalidRequestException e)
     {
-        log.debug("Invalid request ({}): {}", e.getErrorCode(), e.getMessage());
-        
+        logError(req, String.format("Invalid request (%s)", e.getErrorCode()), e);
+
         switch (e.getErrorCode())
         {
             case UNSUPPORTED_OPERATION:
