@@ -42,7 +42,13 @@ public class ServiceErrors
     
     public static InvalidRequestException invalidPayload(String msg)
     {
-        return new InvalidRequestException(ErrorCode.BAD_PAYLOAD, msg);
+        return invalidPayload(msg, null);
+    }
+    
+    
+    public static InvalidRequestException invalidPayload(String msg, Throwable cause)
+    {
+        return new InvalidRequestException(ErrorCode.BAD_PAYLOAD, msg, cause);
     }
     
     
