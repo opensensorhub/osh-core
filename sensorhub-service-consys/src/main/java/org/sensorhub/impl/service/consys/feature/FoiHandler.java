@@ -7,9 +7,9 @@ at http://mozilla.org/MPL/2.0/.
 Software distributed under the License is distributed on an "AS IS" basis,
 WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
 for the specific language governing rights and limitations under the License.
- 
+
 Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
- 
+
 ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.impl.service.consys.feature;
@@ -38,12 +38,12 @@ import org.vast.ogc.gml.IFeature;
 
 public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiFilter.Builder, IFoiStore>
 {
-    public static final String[] NAMES = { "featuresOfInterest", "fois" };
-    
+    public static final String[] NAMES = { "samplingFeatures", "featuresOfInterest", "fois" };
+
     final IObsSystemDatabase db;
     final SystemDatabaseTransactionHandler transactionHandler;
-    
-    
+
+
     public FoiHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
         super(db.getFoiStore(), db.getFoiIdEncoder(), db.getIdEncoders(), permissions);
@@ -56,7 +56,7 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
     protected ResourceBinding<FeatureKey, IFeature> getBinding(RequestContext ctx, boolean forReading) throws IOException
     {
         var format = ctx.getFormat();
-        
+
         if (format.equals(ResourceFormat.AUTO) && ctx.isBrowserHtmlRequest())
             return new FoiBindingHtml(ctx, idEncoders, db, true);
         else if (format.isOneOf(ResourceFormat.AUTO, ResourceFormat.JSON, ResourceFormat.GEOJSON))
@@ -69,8 +69,8 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
         else
             throw ServiceErrors.unsupportedFormat(format);
     }
-    
-    
+
+
     @Override
     protected boolean isValidID(BigId internalID)
     {
@@ -82,7 +82,7 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
     protected void buildFilter(ResourceRef parent, Map<String, String[]> queryParams, FoiFilter.Builder builder) throws InvalidRequestException
     {
         super.buildFilter(parent, queryParams, builder);
-        
+
         if (parent.internalID != null)
         {
             builder.withParents()
@@ -96,7 +96,7 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
             var ids = parseResourceIds("parentId", queryParams, idEncoders.getFoiIdEncoder());
             if (ids != null && !ids.isEmpty())
                 builder.withParents().withInternalIDs(ids).done();
-            
+
             // parent UID
             var uids = parseMultiValuesArg("parentUid", queryParams);
             if (uids != null && !uids.isEmpty())
@@ -110,8 +110,8 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
     {
         super.validate(resource);
     }
-    
-    
+
+
     @Override
     protected FeatureKey addEntry(final RequestContext ctx, final IFeature foi) throws DataStoreException
     {
@@ -120,14 +120,14 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
             var sysHandler = transactionHandler.getSystemHandler(ctx.getParentID());
             return sysHandler.addFoi(foi);
         }
-        
+
         return transactionHandler.addFoi(BigId.NONE, foi);
     }
-    
-    
+
+
     @Override
     protected boolean updateEntry(final RequestContext ctx, final FeatureKey key, final IFeature f) throws DataStoreException
-    {        
+    {
         //return dataStore.put(key, f) != null;
         return transactionHandler.updateFoi(key.getInternalID(), f);
     }
