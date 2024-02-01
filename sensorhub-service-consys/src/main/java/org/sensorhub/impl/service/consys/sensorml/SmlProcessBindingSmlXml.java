@@ -74,7 +74,25 @@ public class SmlProcessBindingSmlXml<V extends ISmlFeature<?>> extends ResourceB
             if (!xmlReader.hasNext())
                 return null;
             
-            xmlReader.nextTag();
+            try
+            {
+                xmlReader.nextTag();
+            }
+            catch (XMLStreamException e)
+            {
+                // If the xmlReader is not advanced to END_OF_DOCUMENT
+                // before calling nextTag(), hasNext() above will still
+                // return true and nextTag() will fail. The best
+                // heuristic of this situation we have is to catch the
+                // exception and call hasNext. If so, that just means
+                // there was nothing (except maybe whitespace and
+                // comments) after the previous document, and that is
+                // not an exception.
+                if (!xmlReader.hasNext())
+                    return null;
+
+                throw e;
+            }
             var sml = smlBindings.readDescribedObject(xmlReader);
             
             if (sml instanceof Deployment)
