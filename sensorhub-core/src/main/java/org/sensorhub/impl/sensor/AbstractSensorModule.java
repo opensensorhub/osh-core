@@ -93,6 +93,8 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
     public static final String DEFAULT_XMLID_PREFIX = "SENSOR_";
     protected static final String LOCATION_OUTPUT_ID = "SENSOR_LOCATION";
     protected static final String LOCATION_OUTPUT_NAME = "sensorLocation";
+    protected static final String ORIENTATION_OUTPUT_ID = "SENSOR_ORIENTATION";
+    protected static final String ORIENTATION_OUTPUT_NAME = "sensorOrientation";
 
     protected static final String UUID_URI_PREFIX = "urn:uuid:";
     protected static final String STATE_UNIQUE_ID = "UniqueID";
@@ -105,6 +107,7 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
     
     protected ISystemGroupDriver<?> parentSystem;
     protected DefaultLocationOutput locationOutput;
+    protected DefaultOrientationOutput orientationOutput;
     protected AbstractProcess sensorDescription = new PhysicalSystemImpl();
     protected volatile long lastUpdatedSensorDescription = Long.MIN_VALUE;
     protected final Object sensorDescLock = new Object();
@@ -123,6 +126,7 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
         this.uniqueID = null;
         this.xmlID = null;
         this.locationOutput = null;
+        this.orientationOutput = null;
         this.sensorDescription = new PhysicalSystemImpl();
         removeAllOutputs();
         removeAllControlInputs();
@@ -139,6 +143,7 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
      * provided in the driver configuration</li>
      * <li>If location is provided in config, a generic feature interest
      * and a location output</li>
+     * <li>If orientation is provided in config, a generic orientation output</li>
      * </ul>
      * In most cases, derived classes overriding this method must call it
      * using the super keyword.
@@ -147,7 +152,7 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
     protected void afterInit() throws SensorHubException
     {
         // generate random unique ID in case sensor driver hasn't generate one
-        // if a random UUID has already been generated it will be restored by
+        // if a random UUID has already been generated, it will be restored by
         // loadState() method that is called after init()
         if (this.uniqueID == null)
         {
@@ -190,17 +195,45 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
                 foiMap.put(sf.getUniqueIdentifier(), sf);
             }
         }
+
+        // add orientation output and foi if an orientation is set in config
+        if (config.getOrientation() != null)
+        {
+            EulerOrientation loc = config.getOrientation();
+
+            if (orientationOutput == null)
+                addOrientationOutput(Double.NaN);
+
+            if (foiMap.isEmpty())
+            {
+                // add
+                SamplingPoint sf = new SamplingPoint();
+                sf.setId("FOI_" + xmlID);
+                sf.setUniqueIdentifier(uniqueID + ":foi");
+                if (config.name != null)
+                    sf.setName(config.name);
+                sf.setDescription("Sampling point for " + config.name);
+                sf.setHostedProcedureUID(uniqueID);
+                Point point = new GMLFactory(true).newPoint();
+                point.setSrsName(SWEConstants.REF_FRAME_4979);
+                point.setSrsDimension(3);
+                point.setPos(new double[] {loc.heading, loc.pitch, loc.roll});
+                sf.setShape(point);
+                foiMap.put(sf.getUniqueIdentifier(), sf);
+            }
+        }
         
         super.afterInit();
     }
     
     
     /**
-     * This methods does the following:
+     * This method does the following:
      * <ul>
      * <li>Register the driver with the system registry if the driver is
      * connected to a hub (i.e. setParentHub() has been called)</li>
      * <li>Send a location data event if a location output has been created</li>
+     * <li>Send an orientation data event if an orientation output has been created</li>
      * </ul>
      * In most cases, derived classes overriding this method must call it
      * using the super keyword.
@@ -230,6 +263,11 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
         var loc = config.getLocation();
         if (locationOutput != null && loc != null)
             locationOutput.updateLocation(System.currentTimeMillis()/1000., loc.lon, loc.lat, loc.alt, false);
+
+        // Send new orientation event
+        var orient = config.getOrientation();
+        if (orientationOutput != null && orient != null)
+            orientationOutput.updateOrientation(System.currentTimeMillis()/1000., orient.heading, orient.pitch, orient.roll, false);
     }
     
     
@@ -305,6 +343,24 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
                 // TODO deal with other CRS than 4979
                 locationOutput = new DefaultLocationOutputLLA(this, getLocalFrameID(), updatePeriod);
                 addOutput(locationOutput, true);
+            }
+        }
+    }
+
+
+    /**
+     * Helper method to add an orientation output so that all sensors can update their orientation
+     * in a consistent manner.
+     * @param updatePeriod estimated orientation update period or NaN if sensor is mostly static
+     */
+    protected void addOrientationOutput(double updatePeriod)
+    {
+        synchronized(obsOutputs)
+        {
+            if (orientationOutput == null)
+            {
+                orientationOutput = new DefaultOrientationOutputEuler(this, getLocalFrameID(), updatePeriod);
+                addOutput(orientationOutput, true);
             }
         }
     }
