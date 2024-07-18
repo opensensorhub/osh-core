@@ -283,12 +283,7 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
             systemStateDb.getCommandStreamStore().removeEntries(csFilter);
             var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
 
-            /*
-            Replaces the driver's transaction handler.
-
-            There is already logic to replace the event handler if the driver handler is old, so
-            this simply replaces the SystemDriverTransactionHandler with one that uses the IObsSystemDatabase passed in this method.
-             */
+            // Replace driver's transaction handler so that new IObsSystemDatabase handles driver
             register(getDriverHandler(uid).driver);
 
             if (count > 0)
