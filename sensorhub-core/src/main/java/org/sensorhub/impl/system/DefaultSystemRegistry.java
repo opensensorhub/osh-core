@@ -263,7 +263,7 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
         // only insert mapping if not already registered by another database
         if (obsSystemDatabases.putIfAbsent(uid, db) != null)
             throw new IllegalStateException("System " + uid + " is already handled by another database");
-        
+
         // remove all entries from default state DB since it's now handled by another DB
         if (systemStateDb != null)
         {
@@ -282,7 +282,15 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
             systemStateDb.getDataStreamStore().removeEntries(dsFilter);
             systemStateDb.getCommandStreamStore().removeEntries(csFilter);
             var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
-            
+
+            /*
+            Replaces the driver's transaction handler.
+
+            There is already logic to replace the event handler if the driver handler is old, so
+            this simply replaces the SystemDriverTransactionHandler with one that uses the IObsSystemDatabase passed in this method.
+             */
+            register(getDriverHandler(uid).driver);
+
             if (count > 0)
                 log.info("Database #{} now handles system {}. Removing all records from state DB", db.getDatabaseNum(), uid);
         }
