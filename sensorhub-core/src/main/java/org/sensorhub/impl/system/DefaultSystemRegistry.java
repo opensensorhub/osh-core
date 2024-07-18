@@ -263,7 +263,6 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
         // only insert mapping if not already registered by another database
         if (obsSystemDatabases.putIfAbsent(uid, db) != null)
             throw new IllegalStateException("System " + uid + " is already handled by another database");
-
         // remove all entries from default state DB since it's now handled by another DB
         if (systemStateDb != null)
         {
