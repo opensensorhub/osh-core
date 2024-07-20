@@ -106,10 +106,24 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
         var module = (IDataProducerModule<?>)loadModule(member.config);
         if (module == null)
             throw new SensorHubException("Error loading module");
-        
+
+        //member.config = module.getConfiguration();
         config.subsystems.add(member);
         subsystems.add(module);
         return module;
+    }
+
+    public void updateSubsystemConfig(String id, ModuleConfig config) throws SensorHubException {
+        Asserts.checkNotNull(id, "id");
+
+        // Find member and update config
+        var configIterator = this.config.subsystems.iterator();
+        while(configIterator.hasNext()) {
+            var memberConfig = configIterator.next();
+            if(id.equals(memberConfig.config.id)) {
+                memberConfig.config = config;
+            }
+        }
     }
     
     

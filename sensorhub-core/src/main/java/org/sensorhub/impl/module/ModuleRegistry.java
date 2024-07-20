@@ -51,6 +51,9 @@ import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.module.ModuleEvent.Type;
 import org.sensorhub.api.system.ISystemDriver;
+import org.sensorhub.impl.processing.AbstractProcessModule;
+import org.sensorhub.impl.sensor.AbstractSensorModule;
+import org.sensorhub.impl.sensor.SensorSystem;
 import org.sensorhub.utils.Async;
 import org.sensorhub.utils.FileUtils;
 import org.sensorhub.utils.MsgUtils;
@@ -841,6 +844,20 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
             asyncExec.submit(() -> {
                 try
                 {
+                    if (module instanceof AbstractSensorModule) {
+                        var parent = ((AbstractSensorModule<?>)module).getParentSystem();
+                        if(parent instanceof SensorSystem) {
+                            ((SensorSystem) parent).updateSubsystemConfig(module.getConfiguration().id, config);
+                        }
+                    }
+
+                    if (module instanceof AbstractProcessModule) {
+                        var parent = ((AbstractProcessModule<?>)module).getParentSystem();
+                        if(parent instanceof SensorSystem) {
+                            ((SensorSystem) parent).updateSubsystemConfig(module.getConfiguration().id, config);
+                        }
+                    }
+
                     module.updateConfig(config);
                 }
                 catch (Exception e)
