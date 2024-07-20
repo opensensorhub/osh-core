@@ -74,12 +74,14 @@ public class ModuleInstanceSelectionPopup extends Window
                     var subModules = ((SensorSystem) module).getMembers();
                     for(IDataProducerModule<?> member : subModules.values())
                     {
-                        Object memberID = table.addItem(new Object[] {
-                                member.getName(),
-                                member.getLocalID()}, null);
-                        moduleMap.put(memberID, member);
-                        table.setParent(memberID, id);
-                        table.setChildrenAllowed(memberID, false);
+                        if(moduleType.isAssignableFrom(member.getClass())) {
+                            Object memberID = table.addItem(new Object[]{
+                                    member.getName(),
+                                    member.getLocalID()}, null);
+                            moduleMap.put(memberID, member);
+                            table.setParent(memberID, id);
+                            table.setChildrenAllowed(memberID, false);
+                        }
                     }
                 }
                 else
