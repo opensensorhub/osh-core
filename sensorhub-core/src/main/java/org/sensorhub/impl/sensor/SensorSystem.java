@@ -80,22 +80,32 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
             }
         }
         
-        // load and init all subsystem modules
-        subsystems.clear();
-        for (SystemMember member: config.subsystems)
+        // init all subsystem modules
+        for(var module : subsystems)
         {
-            var module = (IDataProducerModule<?>)loadModule(member.config);
             if (module != null)
             {
                 try
                 {
-                    subsystems.add(module);
                     module.init();
                 }
                 catch (Exception e)
                 {
                     getLogger().error("Cannot initialize system component {}", MsgUtils.moduleString(config), e);
                 }
+            }
+        }
+    }
+
+    public void loadSubsystems() {
+        // Load all subsystem modules
+        subsystems.clear();
+        for (SystemMember member: config.subsystems)
+        {
+            var module = (IDataProducerModule<?>)loadModule(member.config);
+            if (module != null)
+            {
+                subsystems.add(module);
             }
         }
     }

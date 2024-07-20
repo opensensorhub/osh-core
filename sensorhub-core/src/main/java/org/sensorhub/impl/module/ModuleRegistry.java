@@ -51,9 +51,11 @@ import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.module.ModuleEvent.Type;
 import org.sensorhub.api.system.ISystemDriver;
+import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.impl.processing.AbstractProcessModule;
 import org.sensorhub.impl.sensor.AbstractSensorModule;
 import org.sensorhub.impl.sensor.SensorSystem;
+import org.sensorhub.impl.sensor.SensorSystemConfig;
 import org.sensorhub.utils.Async;
 import org.sensorhub.utils.FileUtils;
 import org.sensorhub.utils.MsgUtils;
@@ -155,8 +157,12 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
         {
             if (module instanceof IDatabase || module instanceof IDataStore)
                 dataStores.add(module);
-            else
+            else {
+                // Load submodules of sensor system
+                if(module instanceof SensorSystem)
+                    ((SensorSystem) module).loadSubsystems();
                 otherModules.add(module);
+            }
         }
         
         // First start all datastore modules to ensure they are registered
