@@ -422,7 +422,43 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
     
     protected Field<Object> makeSystemSelectField(Field<Object> field)
     {
-        return null;
+        return new FieldWrapper<Object>(field) {
+            @Override
+            protected Component initContent()
+            {
+                HorizontalLayout layout = new HorizontalLayout();
+                layout.setSpacing(true);
+
+                // inner field
+                innerField.setReadOnly(true);
+                layout.addComponent(innerField);
+                layout.setComponentAlignment(innerField, Alignment.MIDDLE_LEFT);
+                final Field<Object> wrapper = this;
+
+                // select system button
+                Button selectBtn = new Button(FontAwesome.SEARCH);
+                selectBtn.setDescription("Lookup System");
+                selectBtn.addStyleName(STYLE_QUIET);
+                layout.addComponent(selectBtn);
+                layout.setComponentAlignment(selectBtn, Alignment.MIDDLE_LEFT);
+                selectBtn.addClickListener(new ClickListener() {
+                    @Override
+                    public void buttonClick(ClickEvent event)
+                    {
+                        // show popup to select among systems registered in federated database
+                        SystemSelectionPopup popup = new SystemSelectionPopup(800, (selected) -> {
+                            innerField.setReadOnly(false);
+                            wrapper.setValue(selected);
+                            innerField.setReadOnly(true);
+                        }, getParentHub().getDatabaseRegistry().getFederatedDatabase());
+                        popup.setModal(true);
+                        getUI().addWindow(popup);
+                    }
+                });
+
+                return layout;
+            }
+        };
     }
     
     
