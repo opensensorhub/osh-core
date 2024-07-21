@@ -14,21 +14,18 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.ui;
 
+import java.util.HashMap;
+import java.util.Map;
+import org.sensorhub.api.common.SensorHubException;
+import org.sensorhub.api.module.IModule;
+import org.sensorhub.ui.api.UIConstants;
 import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Button;
+import com.vaadin.v7.ui.Table;
 import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.Window;
 import com.vaadin.ui.Button.ClickEvent;
-import com.vaadin.v7.ui.TreeTable;
-import org.sensorhub.api.common.SensorHubException;
-import org.sensorhub.api.data.IDataProducerModule;
-import org.sensorhub.api.module.IModule;
-import org.sensorhub.impl.sensor.SensorSystem;
-import org.sensorhub.ui.api.UIConstants;
-
-import java.util.HashMap;
-import java.util.Map;
 
 
 @SuppressWarnings("serial")
@@ -49,7 +46,7 @@ public class ModuleInstanceSelectionPopup extends Window
         layout.setSpacing(true);
         
         // generate table with module list
-        final TreeTable table = new TreeTable();
+        final Table table = new Table();
         table.setSizeFull();
         table.setSelectable(true);
         table.setColumnReorderingAllowed(true);        
@@ -69,26 +66,6 @@ public class ModuleInstanceSelectionPopup extends Window
                         module.getName(),
                         module.getLocalID()}, null);
                 moduleMap.put(id, module);
-                if(module instanceof SensorSystem)
-                {
-                    var subModules = ((SensorSystem) module).getMembers();
-                    for(IDataProducerModule<?> member : subModules.values())
-                    {
-                        if(moduleType.isAssignableFrom(member.getClass()))
-                        {
-                            Object memberID = table.addItem(new Object[]{
-                                    member.getName(),
-                                    member.getLocalID()}, null);
-                            moduleMap.put(memberID, member);
-                            table.setParent(memberID, id);
-                            table.setChildrenAllowed(memberID, false);
-                        }
-                    }
-                }
-                else
-                {
-                    table.setChildrenAllowed(id, false);
-                }
             }
         }
         layout.addComponent(table);
