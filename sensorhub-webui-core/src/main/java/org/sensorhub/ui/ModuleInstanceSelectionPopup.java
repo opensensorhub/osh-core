@@ -74,7 +74,8 @@ public class ModuleInstanceSelectionPopup extends Window
                     var subModules = ((SensorSystem) module).getMembers();
                     for(IDataProducerModule<?> member : subModules.values())
                     {
-                        if(moduleType.isAssignableFrom(member.getClass())) {
+                        if(moduleType.isAssignableFrom(member.getClass()))
+                        {
                             Object memberID = table.addItem(new Object[]{
                                     member.getName(),
                                     member.getLocalID()}, null);
