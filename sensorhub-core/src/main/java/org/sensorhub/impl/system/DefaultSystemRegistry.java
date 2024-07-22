@@ -280,7 +280,11 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
                 .build();
 
             // Replace driver's transaction handler so that new IObsSystemDatabase handles driver
-            systemStateDb.getSystemDescStore().selectEntries(procFilter).forEach(desc ->
+            var systemFilter = new SystemFilter.Builder()
+                .withUniqueIDs(uid)
+                .includeMembers(true)
+                .build();
+            systemStateDb.getSystemDescStore().selectEntries(systemFilter).forEach(desc ->
                     register(getDriverHandler(desc.getValue().getUniqueIdentifier()).driver));
             
             systemStateDb.getDataStreamStore().removeEntries(dsFilter);
