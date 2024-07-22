@@ -278,13 +278,14 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
             var csFilter = new CommandStreamFilter.Builder()
                 .withSystems(procFilter)
                 .build();
+
+            // Replace driver's transaction handler so that new IObsSystemDatabase handles driver
+            systemStateDb.getSystemDescStore().selectEntries(procFilter).forEach(desc ->
+                    register(getDriverHandler(desc.getValue().getUniqueIdentifier()).driver));
             
             systemStateDb.getDataStreamStore().removeEntries(dsFilter);
             systemStateDb.getCommandStreamStore().removeEntries(csFilter);
             var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
-
-            // Replace driver's transaction handler so that new IObsSystemDatabase handles driver
-            register(getDriverHandler(uid).driver);
 
             if (count > 0)
                 log.info("Database #{} now handles system {}. Removing all records from state DB", db.getDatabaseNum(), uid);
