@@ -157,12 +157,8 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
         {
             if (module instanceof IDatabase || module instanceof IDataStore)
                 dataStores.add(module);
-            else {
-                // Load submodules of sensor system
-                if(module instanceof SensorSystem)
-                    ((SensorSystem) module).loadSubsystems();
+            else
                 otherModules.add(module);
-            }
         }
         
         // First start all datastore modules to ensure they are registered
