@@ -14,48 +14,23 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.module;
 
-import java.io.File;
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
+import com.google.common.collect.Sets;
 import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.ISensorHubConfig;
-import org.sensorhub.api.event.Event;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.database.DatabaseConfig;
 import org.sensorhub.api.database.IDatabase;
 import org.sensorhub.api.datastore.IDataStore;
+import org.sensorhub.api.event.Event;
 import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.event.IEventPublisher;
-import org.sensorhub.api.module.IModule;
-import org.sensorhub.api.module.IModuleConfigRepository;
-import org.sensorhub.api.module.IModuleManager;
-import org.sensorhub.api.module.IModuleProvider;
-import org.sensorhub.api.module.IModuleStateManager;
-import org.sensorhub.api.module.ModuleConfig;
-import org.sensorhub.api.module.ModuleEvent;
+import org.sensorhub.api.module.*;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.module.ModuleEvent.Type;
 import org.sensorhub.api.system.ISystemDriver;
-import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.impl.processing.AbstractProcessModule;
 import org.sensorhub.impl.sensor.AbstractSensorModule;
 import org.sensorhub.impl.sensor.SensorSystem;
-import org.sensorhub.impl.sensor.SensorSystemConfig;
 import org.sensorhub.utils.Async;
 import org.sensorhub.utils.FileUtils;
 import org.sensorhub.utils.MsgUtils;
@@ -63,7 +38,12 @@ import org.sensorhub.utils.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vast.util.Asserts;
-import com.google.common.collect.Sets;
+
+import java.io.File;
+import java.lang.ref.WeakReference;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Predicate;
 
 
 /**
