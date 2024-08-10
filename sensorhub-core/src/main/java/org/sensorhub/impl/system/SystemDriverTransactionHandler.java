@@ -100,8 +100,7 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
         {
             for (var member: ((ISystemGroupDriver<?>)driver).getMembers().values())
             {
-                if (!(member instanceof IModule<?>)) // don't register submodules as they'll register themselves
-                    doRegisterMember(member, driver.getCurrentDescription().getValidTime());
+                doRegisterMember(member, driver.getCurrentDescription().getValidTime());
             }
         }
 

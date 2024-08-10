@@ -51,6 +51,7 @@ import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.module.ModuleEvent.Type;
 import org.sensorhub.api.system.ISystemDriver;
+import org.sensorhub.impl.sensor.SensorSystem;
 import org.sensorhub.utils.Async;
 import org.sensorhub.utils.FileUtils;
 import org.sensorhub.utils.MsgUtils;
@@ -841,6 +842,17 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
             asyncExec.submit(() -> {
                 try
                 {
+                    // If module has a parent system, we want to update the subsystem config of that module in the sensor system
+                    if(module instanceof ISystemDriver && ((ISystemDriver)module).getParentSystem() instanceof SensorSystem) {
+                        var parentConfig = ((SensorSystem) ((ISystemDriver) module).getParentSystem()).getConfiguration();
+
+                        // Find member and update config
+                        for (org.sensorhub.impl.sensor.SensorSystemConfig.SystemMember memberConfig : parentConfig.subsystems) {
+                            if (module.getConfiguration().id.equals(memberConfig.config.id)) {
+                                memberConfig.config = config;
+                            }
+                        }
+                    }
                     module.updateConfig(config);
                 }
                 catch (Exception e)
