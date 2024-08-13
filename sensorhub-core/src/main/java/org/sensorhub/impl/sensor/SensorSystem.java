@@ -57,8 +57,8 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     private static final String URN_PREFIX = "urn:";
     
     Collection<IDataProducerModule<?>> subsystems = new ArrayList<>();
-    
-    
+
+
     @Override
     protected void doInit() throws SensorHubException
     {
@@ -80,16 +80,13 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
             }
         }
         
-        // load and init all subsystem modules
-        subsystems.clear();
-        for (SystemMember member: config.subsystems)
+        // Init all subsystem modules
+        for (var module: subsystems)
         {
-            var module = (IDataProducerModule<?>)loadModule(member.config);
             if (module != null)
             {
                 try
                 {
-                    subsystems.add(module);
                     module.init();
                 }
                 catch (Exception e)
@@ -172,9 +169,17 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     protected void handleEvent(Event e)
     {
         if (e instanceof ModuleEvent)
+        {
             eventHandler.publish(e);
+            if(((ModuleEvent) e).getType() == ModuleEvent.Type.CONFIG_CHANGED)
+            {
+                var moduleConfig = ((ModuleEvent)e).getModule().getConfiguration();
+                for(SystemMember member : config.subsystems)
+                    if(moduleConfig.id.equals(member.config.id))
+                        member.config = moduleConfig;
+            }
+        }
     }
-
 
     @Override
     protected void updateSensorDescription()
@@ -242,6 +247,19 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
         return true;
     }
 
+    @Override
+    public void setConfiguration(SensorSystemConfig config) {
+        super.setConfiguration(config);
+
+        // Load all subsystem modules from config
+        subsystems.clear();
+        for (SystemMember member : config.subsystems) {
+            var module = (IDataProducerModule<?>) loadModule(member.config);
+            if (module != null) {
+                subsystems.add(module);
+            }
+        }
+    }
 
     @Override
     public synchronized void loadState(IModuleStateManager loader) throws SensorHubException
