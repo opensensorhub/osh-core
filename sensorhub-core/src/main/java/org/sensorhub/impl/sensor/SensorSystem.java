@@ -58,20 +58,7 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     
     Collection<IDataProducerModule<?>> subsystems = new ArrayList<>();
 
-    public SensorSystem() {
-        super();
-        // Load all subsystem modules
-        subsystems.clear();
-        if(config != null) {
-            for (SystemMember member : config.subsystems) {
-                var module = (IDataProducerModule<?>) loadModule(member.config);
-                if (module != null) {
-                    subsystems.add(module);
-                }
-            }
-        }
-    }
-    
+
     @Override
     protected void doInit() throws SensorHubException
     {
