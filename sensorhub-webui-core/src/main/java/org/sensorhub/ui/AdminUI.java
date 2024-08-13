@@ -201,7 +201,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         Component header = buildHeader();
         leftPane.addComponent(header);
         leftPane.setExpandRatio(header, 0);
-        
+
         // toolbar
         Component toolbar = buildToolbar();
         leftPane.addComponent(toolbar);
@@ -306,7 +306,6 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         }
     }
     
-    
     protected Component buildHeader()
     {
         HorizontalLayout header = new HorizontalLayout();
@@ -328,7 +327,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         header.addComponent(title);
         header.setExpandRatio(title, 1);
         header.setComponentAlignment(title, Alignment.MIDDLE_LEFT);
-        
+
         // about icon
         Button about = new Button();
         about.addStyleName(STYLE_QUIET);
@@ -356,6 +355,12 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                                                " target=\"_blank\">Mozilla Public License v2.0</a>", ContentMode.HTML));
                 content.addComponent(new Label("<b>Version:</b> " + (version != null ? version: "?"), ContentMode.HTML));
                 content.addComponent(new Label("<b>Build Number:</b> " + (buildNumber != null ? buildNumber: "?"), ContentMode.HTML));
+
+                // If the config has a friendly node name
+                if (adminModule.getConfiguration().deploymentName != null && !adminModule.getConfiguration().deploymentName.isEmpty()) {
+
+                    content.addComponent(new Label("<b>Deployment Name:</b> " + adminModule.getConfiguration().deploymentName, ContentMode.HTML));
+                }
                 popup.setContent(content);
                 addWindow(popup);
             }

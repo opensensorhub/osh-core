@@ -34,7 +34,9 @@ public class AdminUIConfig extends ModuleConfig
     
     
     public List<CustomUIConfig> customForms = new ArrayList<CustomUIConfig>();
-    
+
+    @DisplayInfo(desc="A human readable friendly identifier for the deployment")
+    public String deploymentName = null;
     
     public AdminUIConfig()
     {
