@@ -196,31 +196,11 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
             }
         }
 
-        // add orientation output and foi if an orientation is set in config
+        // add orientation output if an orientation is set in config
         if (config.getOrientation() != null)
         {
-            EulerOrientation loc = config.getOrientation();
-
             if (orientationOutput == null)
                 addOrientationOutput(Double.NaN);
-
-            if (foiMap.isEmpty())
-            {
-                // add
-                SamplingPoint sf = new SamplingPoint();
-                sf.setId("FOI_" + xmlID);
-                sf.setUniqueIdentifier(uniqueID + ":foi");
-                if (config.name != null)
-                    sf.setName(config.name);
-                sf.setDescription("Sampling point for " + config.name);
-                sf.setHostedProcedureUID(uniqueID);
-                Point point = new GMLFactory(true).newPoint();
-                point.setSrsName(SWEConstants.REF_FRAME_4979);
-                point.setSrsDimension(3);
-                point.setPos(new double[] {loc.heading, loc.pitch, loc.roll});
-                sf.setShape(point);
-                foiMap.put(sf.getUniqueIdentifier(), sf);
-            }
         }
         
         super.afterInit();
