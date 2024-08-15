@@ -175,8 +175,13 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
             {
                 var moduleConfig = ((ModuleEvent)e).getModule().getConfiguration();
                 for(SystemMember member : config.subsystems)
+                {
                     if(moduleConfig.id.equals(member.config.id))
+                    {
                         member.config = moduleConfig;
+                        break;
+                    }
+                }
             }
         }
     }
