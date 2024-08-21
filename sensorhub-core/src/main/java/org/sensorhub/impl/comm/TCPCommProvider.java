@@ -70,32 +70,32 @@ public class TCPCommProvider extends AbstractModule<TCPCommProviderConfig> imple
     protected void doStart() throws SensorHubException
     {        
         TCPConfig config = this.config.protocol;
-        
-        try
-        {
-            InetAddress addr = InetAddress.getByName(config.remoteHost);
-            
-            if (config.enableTLS)
-            {
-                SSLSocketFactory factory = (SSLSocketFactory)SSLSocketFactory.getDefault();
-                socket = factory.createSocket(addr, config.remotePort);
-                ((SSLSocket)socket).startHandshake();
-                is = socket.getInputStream();
-                os = socket.getOutputStream();
+
+        int count = 0;
+        int retryAttempts = this.config.connection.reconnectAttempts;
+        while(true) {
+            try {
+                InetAddress addr = InetAddress.getByName(config.remoteHost);
+
+                if (config.enableTLS) {
+                    SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+                    socket = factory.createSocket(addr, config.remotePort);
+                    ((SSLSocket) socket).startHandshake();
+                    is = socket.getInputStream();
+                    os = socket.getOutputStream();
+                } else {
+                    SocketAddress endpoint = new InetSocketAddress(addr, config.remotePort);
+                    socket = new Socket();
+                    socket.connect(endpoint, this.config.connection.connectTimeout);
+                    is = socket.getInputStream();
+                    os = socket.getOutputStream();
+                    break;
+                }
+            } catch (IOException e) {
+                if(++count >= retryAttempts)
+                    throw new SensorHubException("Cannot connect to remote host "
+                        + config.remoteHost + ":" + config.remotePort + " via TCP", e);
             }
-            else
-            {
-                SocketAddress endpoint = new InetSocketAddress(addr, config.remotePort);
-                socket = new Socket();
-                socket.connect(endpoint, 1000);
-                is = socket.getInputStream();
-                os = socket.getOutputStream();
-            }
-        }
-        catch (IOException e)
-        {
-            throw new SensorHubException("Cannot connect to remote host "
-                                         + config.remoteHost + ":" + config.remotePort + " via TCP", e);
         }
     }
 
