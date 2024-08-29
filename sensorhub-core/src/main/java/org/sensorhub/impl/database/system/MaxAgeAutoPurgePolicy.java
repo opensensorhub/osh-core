@@ -25,6 +25,7 @@ import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.slf4j.Logger;
 import org.vast.util.DateTimeFormat;
@@ -52,17 +53,19 @@ public class MaxAgeAutoPurgePolicy implements IObsSystemDbAutoPurgePolicy
     
     
     @Override
-    public void trimStorage(IObsSystemDatabase db, Logger log)
+    public void trimStorage(IObsSystemDatabase db, Logger log, Collection<String> systemUIDs)
     {
         // remove all systems, datastreams, commandstreams and fois whose validity time period
         // ended before (now - max age)        
         var oldestRecordTime = Instant.now().minusSeconds((long)config.maxRecordAge);
-        
+
         long numProcRemoved = db.getSystemDescStore().removeEntries(new SystemFilter.Builder()
             .withValidTime(new TemporalFilter.Builder()
                 .withOperator(RangeOp.CONTAINS)
                 .withRange(Instant.MIN, oldestRecordTime)
                 .build())
+            .withUniqueIDs(systemUIDs)
+            .includeMembers(true)
             .build());
         
         long numFoisRemoved = db.getFoiStore().removeEntries(new FoiFilter.Builder()
@@ -70,6 +73,8 @@ public class MaxAgeAutoPurgePolicy implements IObsSystemDbAutoPurgePolicy
                 .withOperator(RangeOp.CONTAINS)
                 .withRange(Instant.MIN, oldestRecordTime)
                 .build())
+            .withUniqueIDs(systemUIDs)
+            .includeMembers(true)
             .build());
         
         long numDsRemoved = db.getDataStreamStore().removeEntries(new DataStreamFilter.Builder()
@@ -77,6 +82,10 @@ public class MaxAgeAutoPurgePolicy implements IObsSystemDbAutoPurgePolicy
                 .withOperator(RangeOp.CONTAINS)
                 .withRange(Instant.MIN, oldestRecordTime)
                 .build())
+            .withSystems(new SystemFilter.Builder()
+                    .withUniqueIDs(systemUIDs)
+                    .includeMembers(true)
+                    .build())
             .build());
         
         long numCsRemoved = db.getCommandStreamStore().removeEntries(new CommandStreamFilter.Builder()
@@ -84,15 +93,22 @@ public class MaxAgeAutoPurgePolicy implements IObsSystemDbAutoPurgePolicy
                 .withOperator(RangeOp.CONTAINS)
                 .withRange(Instant.MIN, oldestRecordTime)
                 .build())
+            .withSystems(new SystemFilter.Builder()
+                    .withUniqueIDs(systemUIDs)
+                    .includeMembers(true)
+                    .build())
             .build());
         
         // for each remaining datastream, remove all obs with a timestamp older than
         // the latest result time minus the max age
         long numObsRemoved = 0;
-        var allDataStreams = db.getDataStreamStore().selectEntries(db.getDataStreamStore().selectAllFilter()).iterator();
-        while (allDataStreams.hasNext())
+        var dataStreams = db.getDataStreamStore()
+                .selectEntries(new DataStreamFilter.Builder()
+                .withSystems(new SystemFilter.Builder()
+                        .withUniqueIDs(systemUIDs).includeMembers(true).build()).build()).iterator();
+        while (dataStreams.hasNext())
         {
-            var dsEntry = allDataStreams.next();
+            var dsEntry = dataStreams.next();
             var dsID = dsEntry.getKey().getInternalID();
             var resultTimeRange = dsEntry.getValue().getResultTimeRange();
             
@@ -109,10 +125,13 @@ public class MaxAgeAutoPurgePolicy implements IObsSystemDbAutoPurgePolicy
         // for each remaining command stream, remove all commands and status with a timestamp older than
         // the latest issue time minus the max age
         long numCmdRemoved = 0;
-        var allCmdStreams = db.getCommandStreamStore().selectEntries(db.getCommandStreamStore().selectAllFilter()).iterator();
-        while (allCmdStreams.hasNext())
+        var cmdStreams = db.getCommandStreamStore().selectEntries(
+                new CommandStreamFilter.Builder()
+                        .withSystems(new SystemFilter.Builder()
+                                .withUniqueIDs(systemUIDs).includeMembers(true).build()).build()).iterator();
+        while (cmdStreams.hasNext())
         {
-            var dsEntry = allCmdStreams.next();
+            var dsEntry = cmdStreams.next();
             var dsID = dsEntry.getKey().getInternalID();
             var issueTimeRange = dsEntry.getValue().getIssueTimeRange();
             

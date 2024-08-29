@@ -17,6 +17,8 @@ package org.sensorhub.impl.database.system;
 import org.sensorhub.api.config.DisplayInfo;
 import org.sensorhub.api.database.IObsSystemDbAutoPurgePolicy;
 
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * <p>
@@ -36,6 +38,10 @@ public abstract class HistoricalObsAutoPurgeConfig
     @DisplayInfo(label="Purge Execution Period", desc="Execution period of the purge policy (in seconds)")
     public double purgePeriod = 3600.0;
 
-    
+    @DisplayInfo.Required
+    @DisplayInfo.FieldType(DisplayInfo.FieldType.Type.SYSTEM_UID)
+    @DisplayInfo(label="System UIDs", desc="Unique IDs of system drivers to purge")
+    public List<String> systemUIDs = new ArrayList<>(List.of("*"));
+
     public abstract IObsSystemDbAutoPurgePolicy getPolicy();
 }

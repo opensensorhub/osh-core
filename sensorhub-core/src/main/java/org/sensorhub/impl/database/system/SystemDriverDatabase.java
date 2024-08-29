@@ -84,13 +84,14 @@ public class SystemDriverDatabase extends AbstractModule<SystemDriverDatabaseCon
         // start auto-purge timer thread if policy is specified and enabled
         if (config.autoPurgeConfig != null && config.autoPurgeConfig.enabled)
         {
+            var uids = Collections.unmodifiableCollection(config.autoPurgeConfig.systemUIDs);
             final IObsSystemDbAutoPurgePolicy policy = config.autoPurgeConfig.getPolicy();
             autoPurgeTimer = new Timer();
             TimerTask task = new TimerTask() {
                 public void run()
                 {
                     if (!db.isReadOnly())
-                        policy.trimStorage(db, logger);
+                        policy.trimStorage(db, logger, uids);
                 }
             };
             

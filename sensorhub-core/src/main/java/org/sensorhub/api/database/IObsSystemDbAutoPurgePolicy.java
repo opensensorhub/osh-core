@@ -16,6 +16,7 @@ package org.sensorhub.api.database;
 
 import org.slf4j.Logger;
 
+import java.util.Collection;
 
 /**
  * <p>
@@ -35,6 +36,7 @@ public interface IObsSystemDbAutoPurgePolicy
      * for this aging policy
      * @param db
      * @param log
+     * @param systemUIDs
      */
-    public void trimStorage(IObsSystemDatabase db, Logger log); 
+    public void trimStorage(IObsSystemDatabase db, Logger log, Collection<String> systemUIDs);
 }
