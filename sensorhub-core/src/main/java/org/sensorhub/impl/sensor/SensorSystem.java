@@ -309,14 +309,14 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     public Map<String, ? extends IDataProducerModule<?>> getMembers()
     {
         return subsystems != null ?
-            subsystems.stream().collect(ImmutableMap.toImmutableMap(this::getMemberName, e -> e)) :
+            subsystems.stream().collect(ImmutableMap.toImmutableMap(this::getMemberId, e -> e)) :
             Collections.emptyMap();
     }
     
     
-    protected String getMemberName(IModule<?> member)
+    protected String getMemberId(IModule<?> member)
     {
-        return member.getName().toLowerCase().replaceAll("\\s+", "_");
+        return member.getLocalID();
     }
 
 }
