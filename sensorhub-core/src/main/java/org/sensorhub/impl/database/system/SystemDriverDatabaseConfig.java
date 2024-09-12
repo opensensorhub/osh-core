@@ -14,6 +14,8 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.database.system;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import org.sensorhub.api.config.DisplayInfo;
@@ -46,7 +48,7 @@ public class SystemDriverDatabaseConfig extends DatabaseConfig
     
     
     @DisplayInfo(label="Automatic Purge Policy", desc="Policy for automatically purging historical data")
-    public HistoricalObsAutoPurgeConfig autoPurgeConfig;
+    public List<HistoricalObsAutoPurgeConfig> autoPurgeConfig = new ArrayList<>();
     
 
     @DisplayInfo(desc="Minimum period between database commits (in ms)")
