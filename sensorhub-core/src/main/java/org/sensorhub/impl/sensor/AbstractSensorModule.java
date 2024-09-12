@@ -209,11 +209,14 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
     protected void beforeStart() throws SensorHubException
     {
         super.beforeStart();
-        
+
+        if(getParentSystem() != null && !getParentSystem().isEnabled())
+            throw new SensorException("Parent system must be started");
+
         // register sensor with registry if attached to a hub and we have no parent
         try
         {
-            if (hasParentHub() && getParentHub().getSystemDriverRegistry() != null)
+            if (hasParentHub() && getParentHub().getSystemDriverRegistry() != null && (getParentSystem() == null || getParentSystem().isEnabled()))
                 getParentHub().getSystemDriverRegistry().register(this).get(); // for now, block here until init is also async
         }
         catch (InterruptedException e)

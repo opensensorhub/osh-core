@@ -199,21 +199,25 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
 
 
     @Override
-    protected void doStart() throws SensorHubException
-    {
-        for (var member: subsystems)
-        {
-            try
+    protected void setState(ModuleState newState) {
+        super.setState(newState);
+
+        // Ensure that autoStart starts modules after Sensor System is enabled
+        if (newState == ModuleState.STARTED) {
+            for (var member: subsystems)
             {
-                if (member.getConfiguration().autoStart)
+                try
                 {
-                    member.waitForState(ModuleState.INITIALIZED, 10000);
-                    member.start();
+                    if (member.getConfiguration().autoStart)
+                    {
+                        member.waitForState(ModuleState.INITIALIZED, 10000);
+                        member.start();
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                reportError("Cannot start subsystem " + MsgUtils.moduleString(member), e);
+                catch (Exception e)
+                {
+                    reportError("Cannot start subsystem " + MsgUtils.moduleString(member), e);
+                }
             }
         }
     }
