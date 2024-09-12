@@ -73,8 +73,8 @@ public class TCPCommProvider extends AbstractModule<TCPCommProviderConfig> imple
 
         int count = 0;
         int retryAttempts = this.config.connection.reconnectAttempts;
-        boolean isRetrying = retryAttempts >= 0;
-        while(isRetrying) {
+//        boolean isRetrying = retryAttempts >= 0;
+        while(true) {
             try {
                 InetAddress addr = InetAddress.getByName(config.remoteHost);
 
@@ -90,7 +90,7 @@ public class TCPCommProvider extends AbstractModule<TCPCommProviderConfig> imple
                     socket.connect(endpoint, this.config.connection.connectTimeout);
                     is = socket.getInputStream();
                     os = socket.getOutputStream();
-                    isRetrying = false;
+//                    isRetrying = false;
                     break;
                 }
             } catch (IOException e) {
