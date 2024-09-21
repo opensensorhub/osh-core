@@ -17,6 +17,8 @@ package org.sensorhub.impl.service.consys.deployment;
 import static j2html.TagCreator.div;
 import static j2html.TagCreator.iff;
 import java.io.IOException;
+
+import j2html.tags.DomContent;
 import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.feature.FeatureKey;
@@ -75,12 +77,13 @@ public class DeploymentBindingHtml extends SmlFeatureBindingHtml<IDeploymentWith
     protected DivTag getLinks(String resourceUrl, FeatureKey key, IDeploymentWithDesc f)
     {
         var deplId = idEncoders.getDeploymentIdEncoder().encodeID(key.getInternalID());
-        
-        return div(
-            iff(assocs.getParentLink(deplId, ResourceFormat.HTML),
-                link -> getLinkButton("Parent Deployment", link.getHref())),
-            iff(assocs.getSubdeploymentsLink(deplId, ResourceFormat.HTML),
-                link -> getLinkButton("Subdeployments", link.getHref()))
+
+        DivTag div = div(
+                (DomContent) iff(assocs.getParentLink(deplId, ResourceFormat.HTML),
+                        link -> getLinkButton("Parent Deployment", link.getHref())),
+                (DomContent) iff(assocs.getSubdeploymentsLink(deplId, ResourceFormat.HTML),
+                        link -> getLinkButton("Subdeployments", link.getHref()))
         );
+        return div;
     }
 }

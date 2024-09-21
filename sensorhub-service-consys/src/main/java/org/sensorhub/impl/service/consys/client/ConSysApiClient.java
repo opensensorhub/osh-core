@@ -46,6 +46,7 @@ import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
+import org.sensorhub.impl.service.consys.obs.ObsBindingOmJson;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
@@ -205,7 +206,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new DataStreamBindingJson(ctx, null, false, Collections.emptyMap());
+            var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap());
             binding.serializeCreate(datastream);
             
             return sendPostRequest(
@@ -233,7 +234,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new DataStreamBindingJson(ctx, null, false, Collections.emptyMap()) {
+            var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap()) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
@@ -274,7 +275,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new CommandStreamBindingJson(ctx, null, false);
+            var binding = new CommandStreamBindingJson(ctx, null, null, false);
             binding.serializeCreate(cmdstream);
             
             return sendPostRequest(
@@ -302,7 +303,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new CommandStreamBindingJson(ctx, null, false) {
+            var binding = new CommandStreamBindingJson(ctx, null, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
@@ -336,9 +337,25 @@ public class ConSysApiClient
     /* Observations */
     /*--------------*/
     
-    public CompletableFuture<String> pushObs(String datastreamId, IObsData cmd)
+    public CompletableFuture<String> pushObs(String datastreamId, IObsData obs)
     {
-        return null;
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new ObsBindingOmJson(ctx, null, false, null);
+            binding.serializeCreate(obs);
+
+            return sendPostRequest(
+                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + datastreamId),
+                    ResourceFormat.JSON,
+                    buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
     }
     
     
