@@ -1,5 +1,7 @@
 package org.sensorhub.impl.service.consys.client;
 
+import org.checkerframework.checker.units.qual.C;
+import org.sensorhub.api.client.ClientException;
 import org.sensorhub.api.client.IClientModule;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.SensorHubException;
@@ -10,6 +12,7 @@ import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
+import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.module.RobustConnection;
@@ -35,16 +38,19 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     Map<String, SystemRegInfo> registeredSystems;
     NavigableMap<String, StreamInfo> dataStreams;
 
-    class SystemRegInfo
+    static class SystemRegInfo
     {
+        private String systemID;
+        private BigId internalID;
         private Flow.Subscription subscription;
         private ISystemWithDesc system;
     }
 
-    class StreamInfo
+    static class StreamInfo
     {
         private String dataStreamID;
         private String topicID;
+        private BigId internalID;
         private String sysUID;
         private String outputName;
         private Flow.Subscription subscription;
@@ -107,39 +113,18 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             reportError("Unable to establish connection to Connected Systems endpoint", e);
         }
 
-        dataBaseView.getSystemDescStore().select(dataBaseView.getSystemDescStore().selectAllFilter())
-                .forEach((system) -> {
-                    String newSys = null;
-                    try {
-                        newSys = client.addSystem(system).get();
-                        String finalNewSys = newSys;
-
-                        dataBaseView.getDataStreamStore().select(new DataStreamFilter.Builder().withSystems(new SystemFilter.Builder().withUniqueIDs(system.getUniqueIdentifier()).build()).build())
-                                .forEach((datastream) -> {
-                                    try {
-                                        String newDs = client.addDataStream(finalNewSys, datastream).get();
-                                        System.out.println("Added datastream " + datastream.getOutputName() + ". Now pushing observations...");
-                                        if(dataBaseView.getObservationStore() == null) {
-                                            System.out.println("Observation store does not exist, continuing");
-                                            return;
-                                        }
-                                        dataBaseView.getObservationStore().select(
-                                                new ObsFilter.Builder().withDataStreams(
-                                                        new DataStreamFilter.Builder().withOutputNames(datastream.getOutputName())
-                                                                .build())
-                                                        .build())
-                                                .forEach((obs) -> {
-                                                    client.pushObs(newDs, obs, dataBaseView.getObservationStore());
-                                                });
-                                    } catch (InterruptedException | ExecutionException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                    System.out.println(newSys);
+        dataBaseView.getSystemDescStore().selectEntries(
+                new SystemFilter.Builder()
+                        .withNoParent()
+                        .build())
+                .forEach((entry) -> {
+                    var systemRegInfo = registerSystem(entry.getKey().getInternalID(), entry.getValue());
+                    checkSubSystems(systemRegInfo);
+                    registerSystemDataStreams(systemRegInfo);
                 });
+
+        for (var stream : dataStreams.values())
+            startStream(stream);
 
         // TODO: Check if system exists
         // TODO: Ensure connection can be made
@@ -151,22 +136,132 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         // TODO: Push observations from datastreams
     }
 
+    @Override
+    protected void doStop() throws SensorHubException {
+        super.doStop();
+
+        for(var stream : dataStreams.values())
+            stopStream(stream);
+    }
+
+    protected void checkSubSystems(SystemRegInfo parentSystemRegInfo)
+    {
+        dataBaseView.getSystemDescStore().selectEntries(
+                        new SystemFilter.Builder()
+                                .withParents(parentSystemRegInfo.internalID)
+                                .build())
+                .forEach((entry) -> {
+                    var systemRegInfo = registerSubSystem(entry.getKey().getInternalID(), parentSystemRegInfo, entry.getValue());
+                    registerSystemDataStreams(systemRegInfo);
+                });
+    }
+
+    protected SystemRegInfo registerSystem(BigId systemInternalID, ISystemWithDesc system)
+    {
+        try {
+            String systemID = client.addSystem(system).get();
+
+            SystemRegInfo systemRegInfo = new SystemRegInfo();
+            systemRegInfo.systemID = systemID;
+            systemRegInfo.internalID = systemInternalID;
+            systemRegInfo.system = system;
+            return systemRegInfo;
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected SystemRegInfo registerSubSystem(BigId systemInternalID, SystemRegInfo parentSystem, ISystemWithDesc system)
+    {
+        try {
+            var getParent = client.getSystemById(parentSystem.systemID, ResourceFormat.JSON);
+            if(getParent == null)
+                throw new ClientException("Could not retrieve parent system " + parentSystem.systemID);
+            String systemID = client.addSubSystem(parentSystem.systemID, system).get();
+
+            SystemRegInfo systemRegInfo = new SystemRegInfo();
+            systemRegInfo.systemID = systemID;
+            systemRegInfo.internalID = systemInternalID;
+            systemRegInfo.system = system;
+            return systemRegInfo;
+        } catch (InterruptedException | ExecutionException | ClientException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     protected void registerSystemDataStreams(SystemRegInfo system)
     {
-        dataBaseView.getDataStreamStore().select(
+        dataBaseView.getDataStreamStore().selectEntries(
                 new DataStreamFilter.Builder()
                         .withSystems(new SystemFilter.Builder()
                             .withUniqueIDs(system.system.getUniqueIdentifier())
                                 .build())
                         .build())
-                .forEach((dataStream) -> {
-//                    var streamInfo = registerDataStream(dataStream);
-//                    dataStreams.put("", streamInfo);
+                .forEach((entry) -> {
+                    var streamInfo = registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue());
+                    dataStreams.put(streamInfo.dataStreamID, streamInfo);
                 });
     }
 
-    protected void registerDataStream(IDataStreamInfo dataStream)
+    protected StreamInfo registerDataStream(BigId dsId, String systemID, IDataStreamInfo dataStream)
     {
+        var dsTopicId = EventUtils.getDataStreamDataTopicID(dataStream);
+
+        StreamInfo streamInfo = new StreamInfo();
+        try {
+            streamInfo.dataStreamID = client.addDataStream(systemID, dataStream).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        streamInfo.topicID = dsTopicId;
+        streamInfo.outputName = dataStream.getOutputName();
+        streamInfo.sysUID = dataStream.getSystemID().getUniqueID();
+        streamInfo.internalID = dsId;
+
+        return streamInfo;
+    }
+
+    protected void startStream(StreamInfo streamInfo) throws ClientException
+    {
+        try
+        {
+            if(streamInfo.subscription != null)
+                return;
+
+            getParentHub().getEventBus().newSubscription(ObsEvent.class)
+                    .withTopicID(streamInfo.topicID)
+                    .withEventType(ObsEvent.class)
+                    .subscribe(e -> handleEvent(e, streamInfo))
+                    .thenAccept(subscription -> {
+                        streamInfo.subscription = subscription;
+                        subscription.request(Long.MAX_VALUE);
+
+                        // Push latest observation
+                        this.dataBaseView.getObservationStore().select(new ObsFilter.Builder()
+                                .withDataStreams(streamInfo.internalID)
+                                .withLatestResult()
+                                .build())
+                            .forEach(obs ->
+                                client.pushObs(streamInfo.dataStreamID, obs, this.dataBaseView.getObservationStore()));
+
+                        getLogger().info("Starting Connected Systems data push for stream {} with UID {} to Connected Systems endpoint {}",
+                                streamInfo.dataStreamID, streamInfo.sysUID, apiEndpointUrl);
+                    });
+        } catch (Exception e)
+        {
+            throw new ClientException("Error starting data push for stream " + streamInfo.topicID, e);
+        }
+    }
+
+    protected void stopStream(StreamInfo streamInfo) throws ClientException
+    {
+        if(streamInfo.subscription != null)
+        {
+            streamInfo.subscription.cancel();
+            streamInfo.subscription = null;
+        }
+
 
     }
 

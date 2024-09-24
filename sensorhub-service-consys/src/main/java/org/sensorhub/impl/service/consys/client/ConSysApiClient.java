@@ -70,6 +70,7 @@ public class ConSysApiClient
     static final String DATASTREAMS_COLLECTION = "datastreams";
     static final String CONTROLS_COLLECTION = "controls";
     static final String OBSERVATIONS_COLLECTION = "observations";
+    static final String SUBSYSTEMS_COLLECTION = "subsystems";
     static final String SF_COLLECTION = "fois";
     
     HttpClient http;
@@ -146,6 +147,27 @@ public class ConSysApiClient
                 endpoint.resolve(SYSTEMS_COLLECTION),
                 ResourceFormat.SML_JSON,
                 buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+
+    public CompletableFuture<String> addSubSystem(String systemID, ISystemWithDesc system)
+    {
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new SystemBindingSmlJson(ctx, null, false);
+            binding.serialize(null, system, false);
+
+            return sendPostRequest(
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemID + "/" + SUBSYSTEMS_COLLECTION),
+                    ResourceFormat.SML_JSON,
+                    buffer);
         }
         catch (IOException e)
         {
