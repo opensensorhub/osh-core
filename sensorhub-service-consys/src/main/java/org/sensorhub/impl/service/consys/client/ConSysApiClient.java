@@ -43,6 +43,7 @@ import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
+import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
@@ -68,6 +69,7 @@ public class ConSysApiClient
     static final String SYSTEMS_COLLECTION = "systems";
     static final String DATASTREAMS_COLLECTION = "datastreams";
     static final String CONTROLS_COLLECTION = "controls";
+    static final String OBSERVATIONS_COLLECTION = "observations";
     static final String SF_COLLECTION = "fois";
     
     HttpClient http;
@@ -337,18 +339,18 @@ public class ConSysApiClient
     /* Observations */
     /*--------------*/
     
-    public CompletableFuture<String> pushObs(String datastreamId, IObsData obs)
+    public CompletableFuture<String> pushObs(String datastreamId, IObsData obs, IObsStore obsStore)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
 
-            var binding = new ObsBindingOmJson(ctx, null, false, null);
+            var binding = new ObsBindingOmJson(ctx, null, false, obsStore);
             binding.serializeCreate(obs);
 
             return sendPostRequest(
-                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + datastreamId),
+                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + datastreamId + "/" + OBSERVATIONS_COLLECTION),
                     ResourceFormat.JSON,
                     buffer);
         }
