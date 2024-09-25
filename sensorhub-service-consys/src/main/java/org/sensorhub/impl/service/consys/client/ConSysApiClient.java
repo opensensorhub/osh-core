@@ -70,7 +70,7 @@ public class ConSysApiClient
     static final String DATASTREAMS_COLLECTION = "datastreams";
     static final String CONTROLS_COLLECTION = "controls";
     static final String OBSERVATIONS_COLLECTION = "observations";
-    static final String SUBSYSTEMS_COLLECTION = "subsystems";
+    static final String SUBSYSTEMS_COLLECTION = "members";
     static final String SF_COLLECTION = "fois";
     
     HttpClient http;
