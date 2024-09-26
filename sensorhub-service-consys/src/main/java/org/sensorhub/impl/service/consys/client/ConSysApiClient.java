@@ -14,16 +14,8 @@ Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.client;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringReader;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.io.*;
+import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse.BodyHandler;
@@ -31,14 +23,15 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpResponse.BodySubscriber;
 import java.net.http.HttpResponse.BodySubscribers;
 import java.net.http.HttpResponse.ResponseInfo;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
@@ -70,7 +63,7 @@ public class ConSysApiClient
     static final String DATASTREAMS_COLLECTION = "datastreams";
     static final String CONTROLS_COLLECTION = "controls";
     static final String OBSERVATIONS_COLLECTION = "observations";
-    static final String SUBSYSTEMS_COLLECTION = "members";
+    static final String SUBSYSTEMS_COLLECTION = "subsystems";
     static final String SF_COLLECTION = "fois";
     
     HttpClient http;
@@ -114,22 +107,30 @@ public class ConSysApiClient
         });
     }
     
-    
-    public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format)
-    {
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?uid=" + uid), format, body -> {
-            try
-            {
+    // TODO Needs to parse top feature from FeatureCollection, instead of trying to parse FeatureCollection as ISystemWithDesc
+    public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format) throws ExecutionException, InterruptedException {
+        var searchUID = sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?uid=" + uid), format, body -> {
+            try {
                 var ctx = new RequestContext(body);
-                var binding = new SystemBindingGeoJson(ctx, null, null, true);
-                return binding.deserialize();
-            }
-            catch (IOException e)
-            {
+
+                JsonObject bodyJson = JsonParser.parseReader(new InputStreamReader(ctx.getInputStream())).getAsJsonObject();
+                JsonArray features = bodyJson.getAsJsonArray("items");
+
+                if(features != null && !features.isEmpty()) {
+                    JsonObject firstFeature = features.get(0).getAsJsonObject();
+                    String featureID = firstFeature.get("id").getAsString();
+
+                    return featureID;
+                } else {
+                    throw new ResourceParseException("No Features Found");
+                }
+            } catch (IOException e) {
                 e.printStackTrace();
                 throw new CompletionException(e);
             }
         });
+        var id = searchUID.get();
+        return getSystemById(id, format);
     }
     
     

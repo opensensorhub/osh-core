@@ -108,10 +108,14 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void doStart() throws SensorHubException {
         // Check if endpoint is available
         try{
-            client.sendGetRequest(URI.create(apiEndpointUrl), ResourceFormat.JSON, null);
+            HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+            urlConnection.connect();
+            assert urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK;
         } catch (Exception e) {
-            reportError("Unable to establish connection to Connected Systems endpoint", e);
+            throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
         }
+
+        reportStatus("Connection to " + apiEndpointUrl + " was made successfully");
 
         dataBaseView.getSystemDescStore().selectEntries(
                 new SystemFilter.Builder()
@@ -126,14 +130,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         for (var stream : dataStreams.values())
             startStream(stream);
 
-        // TODO: Check if system exists
-        // TODO: Ensure connection can be made
+        // TODO: Subscribe to system registry for system events
 
-        // TODO: Subscribe to system registry
-
-        // TODO: Register systems/subsystems to destination SensorHub
-        // TODO: Register datastreams to destination
-        // TODO: Push observations from datastreams
+        // TODO: Include option to push using persistent HTTP connection
     }
 
     @Override
@@ -147,13 +146,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void checkSubSystems(SystemRegInfo parentSystemRegInfo)
     {
         dataBaseView.getSystemDescStore().selectEntries(
-                        new SystemFilter.Builder()
-                                .withParents(parentSystemRegInfo.internalID)
-                                .build())
-                .forEach((entry) -> {
-                    var systemRegInfo = registerSubSystem(entry.getKey().getInternalID(), parentSystemRegInfo, entry.getValue());
-                    registerSystemDataStreams(systemRegInfo);
-                });
+                new SystemFilter.Builder()
+                        .withParents(parentSystemRegInfo.internalID)
+                        .build())
+        .forEach((entry) -> {
+            var systemRegInfo = registerSubSystem(entry.getKey().getInternalID(), parentSystemRegInfo, entry.getValue());
+            registerSystemDataStreams(systemRegInfo);
+        });
     }
 
     protected SystemRegInfo registerSystem(BigId systemInternalID, ISystemWithDesc system)
@@ -175,9 +174,18 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         try {
             var getParent = client.getSystemById(parentSystem.systemID, ResourceFormat.JSON);
-            if(getParent == null)
+            var parent = getParent.get();
+            if(parent == null)
                 throw new ClientException("Could not retrieve parent system " + parentSystem.systemID);
-            String systemID = client.addSubSystem(parentSystem.systemID, system).get();
+
+            var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
+            var oldSys = uidRequest.get();
+
+            String systemID ;
+            if(oldSys.getId() != null)
+                systemID = oldSys.getId();
+            else
+                systemID = client.addSubSystem(parentSystem.systemID, system).get();
 
             SystemRegInfo systemRegInfo = new SystemRegInfo();
             systemRegInfo.systemID = systemID;
@@ -222,7 +230,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         return streamInfo;
     }
 
-    protected void startStream(StreamInfo streamInfo) throws ClientException
+    protected synchronized void startStream(StreamInfo streamInfo) throws ClientException
     {
         try
         {
