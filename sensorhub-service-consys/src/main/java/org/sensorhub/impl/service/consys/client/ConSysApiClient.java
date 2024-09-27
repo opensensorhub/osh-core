@@ -122,7 +122,7 @@ public class ConSysApiClient
 
                     return featureID;
                 } else {
-                    throw new ResourceParseException("No Features Found");
+                    return "";
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -130,6 +130,8 @@ public class ConSysApiClient
             }
         });
         var id = searchUID.get();
+        if (Objects.equals(id, ""))
+            return null;
         return getSystemById(id, format);
     }
     

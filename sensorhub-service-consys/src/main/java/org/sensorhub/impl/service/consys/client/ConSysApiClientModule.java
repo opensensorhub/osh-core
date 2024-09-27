@@ -179,12 +179,11 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 throw new ClientException("Could not retrieve parent system " + parentSystem.systemID);
 
             var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
-            var oldSys = uidRequest.get();
-
             String systemID ;
-            if(oldSys.getId() != null)
+            if(uidRequest != null) {
+                var oldSys = uidRequest.get();
                 systemID = oldSys.getId();
-            else
+            } else
                 systemID = client.addSubSystem(parentSystem.systemID, system).get();
 
             SystemRegInfo systemRegInfo = new SystemRegInfo();
