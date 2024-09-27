@@ -157,6 +157,27 @@ public class ConSysApiClient
         }
     }
 
+    public CompletableFuture<String> updateSystem(String systemID, ISystemWithDesc system)
+    {
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new SystemBindingSmlJson(ctx, null, false);
+            binding.serialize(null, system, false);
+
+            return sendPutRequest(
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemID),
+                    ResourceFormat.SML_JSON,
+                    buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+
     public CompletableFuture<String> addSubSystem(String systemID, ISystemWithDesc system)
     {
         try
@@ -177,7 +198,6 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
     
     public CompletableFuture<Set<String>> addSystems(ISystemWithDesc... systems)
     {
@@ -449,6 +469,29 @@ public class ConSysApiClient
                 else
                     throw new CompletionException(resp.body(), null);
             });
+    }
+
+    protected CompletableFuture<String> sendPutRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    {
+        var req = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .PUT(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
+                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        return http.sendAsync(req, BodyHandlers.ofString())
+                .thenApply(resp ->  {
+                    if (resp.statusCode() == 201 || resp.statusCode() == 303)
+                    {
+                        var location = resp.headers()
+                                .firstValue(HttpHeaders.LOCATION)
+                                .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
+                        return location.substring(location.lastIndexOf('/')+1);
+                    }
+                    else
+                        throw new CompletionException(resp.body(), null);
+                });
     }
     
     

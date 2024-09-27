@@ -158,7 +158,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected SystemRegInfo registerSystem(BigId systemInternalID, ISystemWithDesc system)
     {
         try {
-            String systemID = client.addSystem(system).get();
+            var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
+            String systemID;
+            if(uidRequest != null) {
+                var oldSys = uidRequest.get();
+                systemID = oldSys.getId();
+            } else
+                systemID = client.addSystem(system).get();
 
             SystemRegInfo systemRegInfo = new SystemRegInfo();
             systemRegInfo.systemID = systemID;
@@ -179,7 +185,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 throw new ClientException("Could not retrieve parent system " + parentSystem.systemID);
 
             var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
-            String systemID ;
+            String systemID;
             if(uidRequest != null) {
                 var oldSys = uidRequest.get();
                 systemID = oldSys.getId();
