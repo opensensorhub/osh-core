@@ -18,6 +18,7 @@ import java.io.*;
 import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandler;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpResponse.BodySubscriber;
@@ -157,7 +158,7 @@ public class ConSysApiClient
         }
     }
 
-    public CompletableFuture<String> updateSystem(String systemID, ISystemWithDesc system)
+    public CompletableFuture<Integer> updateSystem(String systemID, ISystemWithDesc system)
     {
         try
         {
@@ -198,7 +199,7 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
+
     public CompletableFuture<Set<String>> addSystems(ISystemWithDesc... systems)
     {
         return addSystems(Arrays.asList(systems));
@@ -471,7 +472,7 @@ public class ConSysApiClient
             });
     }
 
-    protected CompletableFuture<String> sendPutRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
+    protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
     {
         var req = HttpRequest.newBuilder()
                 .uri(collectionUri)
@@ -481,17 +482,7 @@ public class ConSysApiClient
                 .build();
 
         return http.sendAsync(req, BodyHandlers.ofString())
-                .thenApply(resp ->  {
-                    if (resp.statusCode() == 201 || resp.statusCode() == 303)
-                    {
-                        var location = resp.headers()
-                                .firstValue(HttpHeaders.LOCATION)
-                                .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
-                        return location.substring(location.lastIndexOf('/')+1);
-                    }
-                    else
-                        throw new CompletionException(resp.body(), null);
-                });
+                .thenApply(HttpResponse::statusCode);
     }
     
     

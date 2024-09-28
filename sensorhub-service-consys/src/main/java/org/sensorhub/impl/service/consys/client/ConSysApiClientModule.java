@@ -1,6 +1,8 @@
 package org.sensorhub.impl.service.consys.client;
 
+import com.google.common.base.Strings;
 import org.checkerframework.checker.units.qual.C;
+import org.eclipse.jetty.client.HttpResponse;
 import org.sensorhub.api.client.ClientException;
 import org.sensorhub.api.client.IClientModule;
 import org.sensorhub.api.common.BigId;
@@ -19,9 +21,9 @@ import org.sensorhub.impl.module.RobustConnection;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.cdm.common.DataStreamWriter;
 import org.vast.swe.SWEData;
+import org.vast.util.Asserts;
 
-import java.net.HttpURLConnection;
-import java.net.URI;
+import java.net.*;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -98,7 +100,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
         this.client = ConSysApiClient.
                 newBuilder(apiEndpointUrl)
-                .simpleAuth(config.conSys.user, config.conSys.password.toCharArray())
+                .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
                 .build();
 
         // TODO: Other initialization
@@ -109,8 +111,16 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         // Check if endpoint is available
         try{
             HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
+            if (!Strings.isNullOrEmpty(config.conSys.user)) {
+                urlConnection.setAuthenticator(new Authenticator() {
+                    @Override
+                    public PasswordAuthentication getPasswordAuthentication() {
+                        return new PasswordAuthentication(config.conSys.user, config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0]);
+                    }
+                });
+            }
             urlConnection.connect();
-            assert urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK;
+            Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
         } catch (Exception e) {
             throw new SensorHubException("Unable to establish connection to Connected Systems endpoint");
         }
@@ -163,6 +173,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             if(uidRequest != null) {
                 var oldSys = uidRequest.get();
                 systemID = oldSys.getId();
+                var responseCode = client.updateSystem(systemID, system).get();
+                if(responseCode != 204)
+                    throw new ClientException("There was a problem updating resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
             } else
                 systemID = client.addSystem(system).get();
 
@@ -171,7 +184,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             systemRegInfo.internalID = systemInternalID;
             systemRegInfo.system = system;
             return systemRegInfo;
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException | ClientException e) {
             throw new RuntimeException(e);
         }
     }
@@ -189,6 +202,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             if(uidRequest != null) {
                 var oldSys = uidRequest.get();
                 systemID = oldSys.getId();
+                var responseCode = client.updateSystem(systemID, system).get();
+                if(responseCode != 204)
+                    throw new ClientException("There was a problem updating resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
             } else
                 systemID = client.addSubSystem(parentSystem.systemID, system).get();
 
