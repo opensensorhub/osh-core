@@ -71,19 +71,18 @@ public class DeploymentBindingHtml extends SmlFeatureBindingHtml<IDeploymentWith
         var procId = idEncoders.getDeploymentIdEncoder().encodeID(key.getInternalID());
         return ctx.getApiRootURL() + "/" + DeploymentHandler.NAMES[0] + "/" + procId;
     }
-    
-    
+
+
     @Override
     protected DivTag getLinks(String resourceUrl, FeatureKey key, IDeploymentWithDesc f)
     {
         var deplId = idEncoders.getDeploymentIdEncoder().encodeID(key.getInternalID());
 
-        DivTag div = div(
-                (DomContent) iff(assocs.getParentLink(deplId, ResourceFormat.HTML),
+        return div((DomContent)
+                iff(assocs.getParentLink(deplId, ResourceFormat.HTML),
                         link -> getLinkButton("Parent Deployment", link.getHref())),
-                (DomContent) iff(assocs.getSubdeploymentsLink(deplId, ResourceFormat.HTML),
+                iff(assocs.getSubdeploymentsLink(deplId, ResourceFormat.HTML),
                         link -> getLinkButton("Subdeployments", link.getHref()))
         );
-        return div;
     }
 }
