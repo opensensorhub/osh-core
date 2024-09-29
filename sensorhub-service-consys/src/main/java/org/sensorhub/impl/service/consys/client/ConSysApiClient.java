@@ -33,8 +33,10 @@ import java.util.function.Function;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
+import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.datastore.obs.IObsStore;
@@ -42,7 +44,10 @@ import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingOmJson;
+import org.sensorhub.impl.service.consys.obs.ObsBindingSweCommon;
+import org.sensorhub.impl.service.consys.obs.ObsHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
+import org.sensorhub.impl.service.consys.resource.ResourceBinding;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.stream.StreamHandler;
@@ -384,20 +389,27 @@ public class ConSysApiClient
     /*--------------*/
     /* Observations */
     /*--------------*/
-    
-    public CompletableFuture<String> pushObs(String datastreamId, IObsData obs, IObsStore obsStore)
+    // TODO: Be able to push different kinds of observations such as video
+    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
 
-            var binding = new ObsBindingOmJson(ctx, null, false, obsStore);
-            binding.serializeCreate(obs);
-
+            if(dataStream != null && dataStream.getRecordEncoding() instanceof BinaryEncoding) {
+                var binding = new ObsBindingSweCommon(ctx, null, false, obsStore);
+                binding.serialize(null, obs, false);
+                ctx.setFormat(ResourceFormat.SWE_BINARY);
+            } else {
+                var binding = new ObsBindingOmJson(ctx, null, false, obsStore);
+                binding.serializeCreate(obs);
+                ctx.setFormat(ResourceFormat.OM_JSON);
+            }
+            
             return sendPostRequest(
-                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + datastreamId + "/" + OBSERVATIONS_COLLECTION),
-                    ResourceFormat.JSON,
+                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + dataStreamId + "/" + OBSERVATIONS_COLLECTION),
+                    ctx.getFormat(),
                     buffer);
         }
         catch (IOException e)

@@ -26,6 +26,7 @@ import org.vast.util.Asserts;
 import java.net.*;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -50,6 +51,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
     static class StreamInfo
     {
+        private IDataStreamInfo dataStream;
         private String dataStreamID;
         private String topicID;
         private BigId internalID;
@@ -224,11 +226,14 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 new DataStreamFilter.Builder()
                         .withSystems(new SystemFilter.Builder()
                             .withUniqueIDs(system.system.getUniqueIdentifier())
-                                .build())
+                            .build())
                         .build())
                 .forEach((entry) -> {
-                    var streamInfo = registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue());
-                    dataStreams.put(streamInfo.dataStreamID, streamInfo);
+                    if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
+                    {
+                        var streamInfo = registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue());
+                        dataStreams.put(streamInfo.dataStreamID, streamInfo);
+                    }
                 });
     }
 
@@ -243,6 +248,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             throw new RuntimeException(e);
         }
 
+        streamInfo.dataStream = dataStream;
         streamInfo.topicID = dsTopicId;
         streamInfo.outputName = dataStream.getOutputName();
         streamInfo.sysUID = dataStream.getSystemID().getUniqueID();
@@ -272,7 +278,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                                 .withLatestResult()
                                 .build())
                             .forEach(obs ->
-                                client.pushObs(streamInfo.dataStreamID, obs, this.dataBaseView.getObservationStore()));
+                                client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs, this.dataBaseView.getObservationStore()));
 
                         getLogger().info("Starting Connected Systems data push for stream {} with UID {} to Connected Systems endpoint {}",
                                 streamInfo.dataStreamID, streamInfo.sysUID, apiEndpointUrl);
@@ -303,7 +309,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
         for(var obs : e.getObservations())
-            client.pushObs(streamInfo.dataStreamID, obs, this.dataBaseView.getObservationStore());
+            client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs, this.dataBaseView.getObservationStore());
     }
 
 }
