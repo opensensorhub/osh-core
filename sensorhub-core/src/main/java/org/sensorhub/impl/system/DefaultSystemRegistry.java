@@ -291,7 +291,7 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
 
             systemStateDb.getDataStreamStore().removeEntries(dsFilter);
             systemStateDb.getCommandStreamStore().removeEntries(csFilter);
-            var count = systemStateDb.getSystemDescStore().removeEntries(topLevelSystemsFilter);
+            var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
 
             if (count > 0)
                 log.info("Database #{} now handles system {}. Removing all records from state DB", db.getDatabaseNum(), uid);
