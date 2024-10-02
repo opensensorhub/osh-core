@@ -7,9 +7,9 @@ at http://mozilla.org/MPL/2.0/.
 Software distributed under the License is distributed on an "AS IS" basis,
 WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
 for the specific language governing rights and limitations under the License.
- 
+
 Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
- 
+
 ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.impl.service.consys.client;
@@ -36,18 +36,17 @@ import com.google.gson.JsonParser;
 import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
-import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.SWECommonUtils;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingOmJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingSweCommon;
 import org.sensorhub.impl.service.consys.obs.ObsHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
-import org.sensorhub.impl.service.consys.resource.ResourceBinding;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.stream.StreamHandler;
@@ -71,31 +70,31 @@ public class ConSysApiClient
     static final String OBSERVATIONS_COLLECTION = "observations";
     static final String SUBSYSTEMS_COLLECTION = "subsystems";
     static final String SF_COLLECTION = "fois";
-    
+
     HttpClient http;
     URI endpoint;
-    
-    
+
+
     static class InMemoryBufferStreamHandler implements StreamHandler
     {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
-        
+
         public void setStartCallback(Runnable onStart) {}
         public void setCloseCallback(Runnable onClose) {}
         public void sendPacket() throws IOException {}
         public void close() {}
         public OutputStream getOutputStream() { return os; }
-        public InputStream getAsInputStream() { return new ByteArrayInputStream(os.toByteArray()); }
+        public InputStream getAsInputStream() { return new BufferedInputStream(new ByteArrayInputStream(os.toByteArray()), 8192); }
     }
-    
-    
+
+
     protected ConSysApiClient() {}
-    
-    
+
+
     /*---------*/
     /* Systems */
     /*---------*/
-    
+
     public CompletableFuture<ISystemWithDesc> getSystemById(String id, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + id), format, body -> {
@@ -112,7 +111,7 @@ public class ConSysApiClient
             }
         });
     }
-    
+
     // TODO Needs to parse top feature from FeatureCollection, instead of trying to parse FeatureCollection as ISystemWithDesc
     public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format) throws ExecutionException, InterruptedException {
         var searchUID = sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?uid=" + uid), format, body -> {
@@ -140,18 +139,18 @@ public class ConSysApiClient
             return null;
         return getSystemById(id, format);
     }
-    
-    
+
+
     public CompletableFuture<String> addSystem(ISystemWithDesc system)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new SystemBindingSmlJson(ctx, null, false);
             binding.serialize(null, system, false);
-            
+
             return sendPostRequest(
                 endpoint.resolve(SYSTEMS_COLLECTION),
                 ResourceFormat.SML_JSON,
@@ -209,33 +208,33 @@ public class ConSysApiClient
     {
         return addSystems(Arrays.asList(systems));
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addSystems(Collection<ISystemWithDesc> systems)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new SystemBindingSmlJson(ctx, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
                 }
-                
+
                 protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
                 {
                     writer.endArray();
                     writer.flush();
                 }
             };
-            
+
             binding.startCollection();
             for (var sys: systems)
                 binding.serialize(null, sys, false);
             binding.endCollection(Collections.emptyList());
-            
+
             return sendBatchPostRequest(
                 endpoint.resolve(SYSTEMS_COLLECTION),
                 ResourceFormat.SML_JSON,
@@ -246,22 +245,22 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     /*-------------*/
     /* Datastreams */
     /*-------------*/
-    
+
     public CompletableFuture<String> addDataStream(String systemId, IDataStreamInfo datastream)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap());
             binding.serializeCreate(datastream);
-            
+
             return sendPostRequest(
                 endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
                 ResourceFormat.JSON,
@@ -272,39 +271,39 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addDataStreams(String systemId, IDataStreamInfo... datastreams)
     {
         return addDataStreams(systemId, Arrays.asList(datastreams));
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addDataStreams(String systemId, Collection<IDataStreamInfo> datastreams)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap()) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
                 }
-                
+
                 protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
                 {
                     writer.endArray();
                     writer.flush();
                 }
             };
-            
+
             binding.startCollection();
             for (var ds: datastreams)
                 binding.serializeCreate(ds);
             binding.endCollection(Collections.emptyList());
-            
+
             return sendBatchPostRequest(
                 endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
                 ResourceFormat.JSON,
@@ -315,22 +314,22 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     /*-----------------*/
     /* Control Streams */
     /*-----------------*/
-    
+
     public CompletableFuture<String> addControlStream(String systemId, ICommandStreamInfo cmdstream)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new CommandStreamBindingJson(ctx, null, null, false);
             binding.serializeCreate(cmdstream);
-            
+
             return sendPostRequest(
                 endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
                 ResourceFormat.JSON,
@@ -341,39 +340,39 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addControlStreams(String systemId, ICommandStreamInfo... cmdstreams)
     {
         return addControlStreams(systemId, Arrays.asList(cmdstreams));
     }
-    
-    
+
+
     public CompletableFuture<Set<String>> addControlStreams(String systemId, Collection<ICommandStreamInfo> cmdstreams)
     {
         try
         {
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
-            
+
             var binding = new CommandStreamBindingJson(ctx, null, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
                 }
-                
+
                 protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
                 {
                     writer.endArray();
                     writer.flush();
                 }
             };
-            
+
             binding.startCollection();
             for (var ds: cmdstreams)
                 binding.serializeCreate(ds);
             binding.endCollection(Collections.emptyList());
-            
+
             return sendBatchPostRequest(
                 endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
                 ResourceFormat.JSON,
@@ -384,8 +383,8 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     /*--------------*/
     /* Observations */
     /*--------------*/
@@ -394,19 +393,23 @@ public class ConSysApiClient
     {
         try
         {
+            ObsHandler.ObsHandlerContextData contextData = new ObsHandler.ObsHandlerContextData();
+            contextData.dsInfo = dataStream;
+
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
 
             if(dataStream != null && dataStream.getRecordEncoding() instanceof BinaryEncoding) {
+                ctx.setData(contextData);
+                ctx.setFormat(ResourceFormat.SWE_BINARY);
                 var binding = new ObsBindingSweCommon(ctx, null, false, obsStore);
                 binding.serialize(null, obs, false);
-                ctx.setFormat(ResourceFormat.SWE_BINARY);
             } else {
+                ctx.setFormat(ResourceFormat.OM_JSON);
                 var binding = new ObsBindingOmJson(ctx, null, false, obsStore);
                 binding.serializeCreate(obs);
-                ctx.setFormat(ResourceFormat.OM_JSON);
             }
-            
+
             return sendPostRequest(
                     endpoint.resolve(DATASTREAMS_COLLECTION + "/" + dataStreamId + "/" + OBSERVATIONS_COLLECTION),
                     ctx.getFormat(),
@@ -417,18 +420,18 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
-    
-    
+
+
     /*----------*/
     /* Commands */
     /*----------*/
-    
+
     public CompletableFuture<String> sendCommand(String controlId, ICommandData cmd)
     {
         return null;
     }
-    
-    
+
+
     protected <T> CompletableFuture<T> sendGetRequest(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
     {
         var req = HttpRequest.newBuilder()
@@ -436,7 +439,7 @@ public class ConSysApiClient
             .GET()
             .header(HttpHeaders.ACCEPT, format.getMimeType())
             .build();
-        
+
         var bodyHandler = new BodyHandler<T>() {
             @Override
             public BodySubscriber<T> apply(ResponseInfo resp)
@@ -450,7 +453,7 @@ public class ConSysApiClient
                 });
             }
         };
-        
+
         return http.sendAsync(req, bodyHandler)
             .thenApply(resp ->  {
                 if (resp.statusCode() == 200)
@@ -459,17 +462,16 @@ public class ConSysApiClient
                     throw new CompletionException("HTTP error " + resp.statusCode(), null);
             });
     }
-    
-    
+
     protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
     {
         var req = HttpRequest.newBuilder()
             .uri(collectionUri)
-            .POST(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
+            .POST(HttpRequest.BodyPublishers.ofInputStream(body::getAsInputStream))
             .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
             .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
             .build();
-        
+
         return http.sendAsync(req, BodyHandlers.ofString())
             .thenApply(resp ->  {
                 if (resp.statusCode() == 201 || resp.statusCode() == 303)
@@ -496,8 +498,8 @@ public class ConSysApiClient
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(HttpResponse::statusCode);
     }
-    
-    
+
+
     protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, InMemoryBufferStreamHandler body)
     {
         var req = HttpRequest.newBuilder()
@@ -505,7 +507,7 @@ public class ConSysApiClient
             .POST(HttpRequest.BodyPublishers.ofInputStream(() -> body.getAsInputStream()))
             .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
             .build();
-        
+
         return http.sendAsync(req, BodyHandlers.ofString())
             .thenApply(Lambdas.checked(resp ->  {
                 if (resp.statusCode() == 201 || resp.statusCode() == 303)
@@ -527,27 +529,27 @@ public class ConSysApiClient
                     throw new ResourceParseException(resp.body());
             }));
     }
-    
-    
+
+
     /* Builder stuff */
-    
+
     public static ConSysApiClientBuilder newBuilder(String endpoint)
     {
         Asserts.checkNotNull(endpoint, "endpoint");
         return new ConSysApiClientBuilder(endpoint);
     }
-    
-    
+
+
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
         HttpClient.Builder httpClientBuilder;
-        
-        
+
+
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
             this.httpClientBuilder = HttpClient.newBuilder();
-            
+
             try
             {
                 if (!endpoint.endsWith("/"))
@@ -559,15 +561,15 @@ public class ConSysApiClient
                 throw new IllegalArgumentException("Invalid URI " + endpoint);
             }
         }
-        
-        
+
+
         public ConSysApiClientBuilder useHttpClient(HttpClient http)
         {
             instance.http = http;
             return this;
         }
-        
-        
+
+
         public ConSysApiClientBuilder simpleAuth(String user, char[] password)
         {
             if (!Strings.isNullOrEmpty(user))
@@ -580,16 +582,16 @@ public class ConSysApiClient
                     }
                 });
             }
-            
+
             return this;
         }
-        
-        
+
+
         public ConSysApiClient build()
         {
             if (instance.http == null)
                 instance.http = httpClientBuilder.build();
-            
+
             return instance;
         }
     }
