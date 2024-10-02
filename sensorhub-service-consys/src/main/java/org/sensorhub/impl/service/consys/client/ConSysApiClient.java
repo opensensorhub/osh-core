@@ -41,7 +41,6 @@ import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
-import org.sensorhub.impl.service.consys.SWECommonUtils;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingOmJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingSweCommon;

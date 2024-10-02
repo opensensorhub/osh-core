@@ -18,22 +18,22 @@ public class ConSysApiClientConfig extends ClientConfig {
 
 
     @DisplayInfo(label="Connection Options")
-    public ConSysConnectionConfig connection = new ConSysConnectionConfig();
+    public RobustIPConnectionConfig connection = new RobustIPConnectionConfig();
 
 
-    public static class ConSysConnectionConfig extends RobustIPConnectionConfig
-    {
-        @DisplayInfo(desc="Enable to use a persistent HTTP connection for InsertResult")
-        public boolean usePersistentConnection;
-
-
-        @DisplayInfo(desc="Maximum number of records in upload queue (used to compensate for variable bandwidth)")
-        public int maxQueueSize = 10;
-
-
-        @DisplayInfo(desc="Maximum number of stream errors before we try to reconnect to remote server")
-        public int maxConnectErrors = 10;
-    }
+//    public static class ConSysConnectionConfig extends RobustIPConnectionConfig
+//    {
+//        @DisplayInfo(desc="Enable to use a persistent HTTP connection for InsertResult")
+//        public boolean usePersistentConnection;
+//
+//
+//        @DisplayInfo(desc="Maximum number of records in upload queue (used to compensate for variable bandwidth)")
+//        public int maxQueueSize = 10;
+//
+//
+//        @DisplayInfo(desc="Maximum number of stream errors before we try to reconnect to remote server")
+//        public int maxConnectErrors = 10;
+//    }
 
 
     public ConSysApiClientConfig()
