@@ -28,7 +28,9 @@ import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
+import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.impl.service.consys.client.ConSysApiClient;
+import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.ogc.gml.GeoJsonBindings;
 import org.vast.ogc.gml.IFeature;
 import org.vast.sensorML.SMLJsonBindings;
@@ -48,7 +50,32 @@ public class Api
 {
     static String API_ROOT = "http://localhost:8181/sensorhub/api/";
     static String CREDENTIALS = "admin:test";
+//    static String API_ROOT = "https://api.georobotix.io/ogc/demo1/api/";
+//    static String CREDENTIALS = "admin:admin@demo";
     static Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    
+    
+    static String addOrUpdateProperty(IDerivedProperty prop, boolean replace) throws IOException
+    {
+        var user = CREDENTIALS.split(":")[0];
+        var pwd = CREDENTIALS.split(":")[1];
+        var client = ConSysApiClient.newBuilder(API_ROOT)
+            .simpleAuth(user, pwd.toCharArray())
+            .build();
+        
+        /*var id = client.getPropertyByUri(prop.getURI(), ResourceFormat.JSON).get();
+        if (id == null)
+            throw new IllegalArgumentException("Parent system not found: " + sysUid);*/
+        
+        try
+        {
+            return client.addProperty(prop).get();
+        }
+        catch (InterruptedException | ExecutionException e)
+        {
+            throw new IOException(e);
+        }
+    }
     
     
     static String addOrUpdateProcedure(AbstractProcess obj, boolean replace) throws IOException
@@ -95,6 +122,7 @@ public class Api
         var strWriter = new StringWriter();
         var bindings = new SMLJsonBindings();
         bindings.writeDescribedObject(new JsonWriter(strWriter), obj);
+        System.out.println(strWriter.toString());
         
         if (id == null || !replace)
         {

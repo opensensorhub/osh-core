@@ -24,6 +24,7 @@ import org.sensorhub.api.system.IDeploymentWithDesc;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.sensorml.SmlFeatureBindingHtml;
+import j2html.tags.DomContent;
 import j2html.tags.specialized.DivTag;
 
 
@@ -76,7 +77,7 @@ public class DeploymentBindingHtml extends SmlFeatureBindingHtml<IDeploymentWith
     {
         var deplId = idEncoders.getDeploymentIdEncoder().encodeID(key.getInternalID());
         
-        return div(
+        return div((DomContent)
             iff(assocs.getParentLink(deplId, ResourceFormat.HTML),
                 link -> getLinkButton("Parent Deployment", link.getHref())),
             iff(assocs.getSubdeploymentsLink(deplId, ResourceFormat.HTML),

@@ -28,6 +28,8 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.DataStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.system.SystemId;
+import org.vast.ogc.geopose.Pose;
+import org.vast.ogc.geopose.PoseImpl.PoseBuilder;
 import org.vast.ogc.gml.IFeature;
 import org.vast.sensorML.SMLHelper;
 import org.vast.sensorML.SMLMetadataBuilders.CIResponsiblePartyBuilder;
@@ -43,6 +45,7 @@ import org.vast.swe.helper.RasterHelper;
 import net.opengis.gml.v32.Point;
 import net.opengis.gml.v32.impl.GMLFactory;
 import net.opengis.sensorml.v20.AbstractProcess;
+import net.opengis.sensorml.v20.PhysicalSystem;
 import net.opengis.swe.v20.BinaryBlock;
 import net.opengis.swe.v20.BinaryComponent;
 import net.opengis.swe.v20.BinaryEncoding;
@@ -257,7 +260,7 @@ public class Dahua
     }
     
     
-    static AbstractProcess createCameraInstance(String id, Point location, double heading, Instant startTime)
+    static AbstractProcess createCameraInstance(String id, Pose pose, double heading, Instant startTime)
     {
         return sml.createPhysicalSystem()
             .definition(SWEConstants.DEF_SENSOR)
@@ -267,7 +270,7 @@ public class Dahua
             .addIdentifier(sml.identifiers.shortName("Dahua PTZ Cam " + id))
             .addContact(getOperatorContactInfo())
             .validFrom(startTime.atOffset(ZoneOffset.UTC))
-            .location(location)
+            .position(pose)
             .build();
     }
     
@@ -277,20 +280,28 @@ public class Dahua
         var list = new ArrayList<AbstractProcess>(100);
         
         var fac = new GMLFactory();
-        var locations = new Point[] {
+        /*var locations = new Point[] {
             fac.newPoint(103.868811, 1.327909),
             fac.newPoint(103.879014, 1.331288),
             fac.newPoint(103.869337, 1.332328),
             fac.newPoint(103.863479, 1.322020),
             fac.newPoint(103.862309, 1.330440),
             fac.newPoint(103.855743, 1.329089)
+        };*/
+        var positions = new Pose[] {
+            new PoseBuilder().latLonPos(103.868811, 1.327909).eulerAngles(123, -10, 0).build(),
+            new PoseBuilder().latLonPos(103.879014, 1.331288).eulerAngles(80, -10, 0).build(),
+            new PoseBuilder().latLonPos(103.869337, 1.332328).eulerAngles(190, -10, 0).build(),
+            new PoseBuilder().latLonPos(103.863479, 1.322020).eulerAngles(128, -10, 0).build(),
+            new PoseBuilder().latLonPos(103.862309, 1.330440).eulerAngles(115, -10, 0).build(),
+            new PoseBuilder().latLonPos(103.855743, 1.329089).eulerAngles(95, -10, 0).build()
         };
         
-        for (int i = 0; i < locations.length; i++)
+        for (int i = 0; i < positions.length; i++)
         {
             list.add(createCameraInstance(
                 String.format("SG%05d", (i+10)),
-                locations[i],
+                positions[i],
                 0.0,
                 Instant.parse("2020-04-28T08:00:00Z").plus((i+1)*(i-1), ChronoUnit.DAYS)
             ));
@@ -329,6 +340,8 @@ public class Dahua
     {
         var sysUid = sys.getUniqueIdentifier();
         var camId = sysUid.substring(sysUid.lastIndexOf(':')+1);
+        var pose = (Pose)((PhysicalSystem)sys).getPositionList().get(0);
+        var heading = pose.getOrientation()[0];
         
         var sf = new ViewingSector();
         sf.setUniqueIdentifier(sysUid + ":sf");
@@ -338,8 +351,8 @@ public class Dahua
         sf.setRadius(150.0);
         sf.setMinElevation(-90.0);
         sf.setMaxElevation(25.0);
-        sf.setMinAzimuth(23.0);
-        sf.setMaxAzimuth(223.0);
+        sf.setMinAzimuth(heading-100);
+        sf.setMaxAzimuth(heading+100);
         
         return sf;
     }

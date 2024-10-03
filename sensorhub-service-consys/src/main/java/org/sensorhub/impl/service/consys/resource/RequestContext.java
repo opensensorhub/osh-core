@@ -14,6 +14,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.resource;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -432,7 +433,7 @@ public class RequestContext
     
     public InputStream getInputStream() throws IOException
     {
-        return req != null ? req.getInputStream() : inputStream;
+        return req != null ? new BufferedInputStream(req.getInputStream()) : inputStream;
     }
     
     

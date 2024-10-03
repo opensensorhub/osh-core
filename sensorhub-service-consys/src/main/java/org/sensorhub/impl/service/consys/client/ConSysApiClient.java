@@ -43,9 +43,14 @@ import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
+import org.sensorhub.api.procedure.IProcedureWithDesc;
+import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
+import org.sensorhub.impl.service.consys.procedure.ProcedureBindingGeoJson;
+import org.sensorhub.impl.service.consys.procedure.ProcedureBindingSmlJson;
+import org.sensorhub.impl.service.consys.property.PropertyBindingJson;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
@@ -64,7 +69,10 @@ import com.google.gson.stream.JsonWriter;
 
 public class ConSysApiClient
 {
+    static final String PROPERTIES_COLLECTION = "properties";
+    static final String PROCEDURES_COLLECTION = "procedures";
     static final String SYSTEMS_COLLECTION = "systems";
+    static final String DEPLOYMENTS_COLLECTION = "deployments";
     static final String DATASTREAMS_COLLECTION = "datastreams";
     static final String CONTROLS_COLLECTION = "controls";
     static final String SF_COLLECTION = "fois";
@@ -87,6 +95,223 @@ public class ConSysApiClient
     
     
     protected ConSysApiClient() {}
+    
+    
+    /*------------*/
+    /* Properties */
+    /*------------*/
+    
+    public CompletableFuture<IDerivedProperty> getPropertyById(String id, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(PROPERTIES_COLLECTION + "/" + id), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new PropertyBindingJson(ctx, null, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+    
+    
+    public CompletableFuture<IDerivedProperty> getPropertyByUri(String uri, ResourceFormat format)
+    {
+        try
+        {
+            return sendGetRequest(new URI(uri), format, body -> {
+                try
+                {
+                    var ctx = new RequestContext(body);
+                    var binding = new PropertyBindingJson(ctx, null, null, true);
+                    return binding.deserialize();
+                }
+                catch (IOException e)
+                {
+                    e.printStackTrace();
+                    throw new CompletionException(e);
+                }
+            });
+        }
+        catch (URISyntaxException e)
+        {
+            throw new IllegalArgumentException("Invalid property URI: " + uri);
+        }
+    }
+    
+    
+    public CompletableFuture<String> addProperty(IDerivedProperty prop)
+    {
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+            
+            var binding = new PropertyBindingJson(ctx, null, null, false);
+            binding.serialize(null, prop, false);
+            
+            return sendPostRequest(
+                endpoint.resolve(PROPERTIES_COLLECTION),
+                ResourceFormat.JSON,
+                buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+    
+    
+    public CompletableFuture<Set<String>> addProperties(IDerivedProperty... properties)
+    {
+        return addProperties(Arrays.asList(properties));
+    }
+    
+    
+    public CompletableFuture<Set<String>> addProperties(Collection<IDerivedProperty> properties)
+    {
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+            
+            var binding = new PropertyBindingJson(ctx, null, null, false) {
+                protected void startJsonCollection(JsonWriter writer) throws IOException
+                {
+                    writer.beginArray();
+                }
+                
+                protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
+                {
+                    writer.endArray();
+                    writer.flush();
+                }
+            };
+            
+            binding.startCollection();
+            for (var prop: properties)
+                binding.serialize(null, prop, false);
+            binding.endCollection(Collections.emptyList());
+            
+            return sendBatchPostRequest(
+                endpoint.resolve(PROPERTIES_COLLECTION),
+                ResourceFormat.JSON,
+                buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+    
+    
+    /*------------*/
+    /* Procedures */
+    /*------------*/
+    
+    public CompletableFuture<IProcedureWithDesc> getProcedureById(String id, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "/" + id), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new ProcedureBindingGeoJson(ctx, null, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+    
+    
+    public CompletableFuture<IProcedureWithDesc> getProcedureByUid(String uid, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?uid=" + uid), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new ProcedureBindingGeoJson(ctx, null, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+    
+    
+    public CompletableFuture<String> addProcedure(IProcedureWithDesc system)
+    {
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+            
+            var binding = new ProcedureBindingSmlJson(ctx, null, false);
+            binding.serialize(null, system, false);
+            
+            return sendPostRequest(
+                endpoint.resolve(PROCEDURES_COLLECTION),
+                ResourceFormat.SML_JSON,
+                buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+    
+    
+    public CompletableFuture<Set<String>> addProcedures(IProcedureWithDesc... systems)
+    {
+        return addProcedures(Arrays.asList(systems));
+    }
+    
+    
+    public CompletableFuture<Set<String>> addProcedures(Collection<IProcedureWithDesc> systems)
+    {
+        try
+        {
+            var buffer = new InMemoryBufferStreamHandler();
+            var ctx = new RequestContext(buffer);
+            
+            var binding = new ProcedureBindingSmlJson(ctx, null, false) {
+                protected void startJsonCollection(JsonWriter writer) throws IOException
+                {
+                    writer.beginArray();
+                }
+                
+                protected void endJsonCollection(JsonWriter writer, Collection<ResourceLink> links) throws IOException
+                {
+                    writer.endArray();
+                    writer.flush();
+                }
+            };
+            
+            binding.startCollection();
+            for (var sys: systems)
+                binding.serialize(null, sys, false);
+            binding.endCollection(Collections.emptyList());
+            
+            return sendBatchPostRequest(
+                endpoint.resolve(PROCEDURES_COLLECTION),
+                ResourceFormat.SML_JSON,
+                buffer);
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
     
     
     /*---------*/
@@ -205,7 +430,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new DataStreamBindingJson(ctx, null, false, Collections.emptyMap());
+            var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap());
             binding.serializeCreate(datastream);
             
             return sendPostRequest(
@@ -233,7 +458,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new DataStreamBindingJson(ctx, null, false, Collections.emptyMap()) {
+            var binding = new DataStreamBindingJson(ctx, null, null, false, Collections.emptyMap()) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();
@@ -274,7 +499,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new CommandStreamBindingJson(ctx, null, false);
+            var binding = new CommandStreamBindingJson(ctx, null, null, false);
             binding.serializeCreate(cmdstream);
             
             return sendPostRequest(
@@ -302,7 +527,7 @@ public class ConSysApiClient
             var buffer = new InMemoryBufferStreamHandler();
             var ctx = new RequestContext(buffer);
             
-            var binding = new CommandStreamBindingJson(ctx, null, false) {
+            var binding = new CommandStreamBindingJson(ctx, null, null, false) {
                 protected void startJsonCollection(JsonWriter writer) throws IOException
                 {
                     writer.beginArray();

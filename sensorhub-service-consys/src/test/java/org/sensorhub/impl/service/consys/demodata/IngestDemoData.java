@@ -24,8 +24,8 @@ public class IngestDemoData
     {
 //        PhilipsHue.addResources();
 //        Davis.addResources();
-//        Dahua.addResources();
-        MavicPro.addResources();
+        Dahua.addResources();
+//        MavicPro.addResources();
 //        Saildrone.addResources();
 //        SpotSat.addResources();
 //        Pleiades.addResources();

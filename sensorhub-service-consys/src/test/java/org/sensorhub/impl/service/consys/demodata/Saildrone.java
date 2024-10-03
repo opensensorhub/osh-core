@@ -32,8 +32,10 @@ import org.vast.sensorML.sampling.SamplingPointXYZ;
 import org.vast.swe.SWEConstants;
 import org.vast.swe.SWEHelper;
 import org.vast.swe.helper.GeoPosHelper;
+import org.vast.util.TimeExtent;
 import net.opengis.gml.v32.impl.GMLFactory;
 import net.opengis.sensorml.v20.AbstractProcess;
+import net.opengis.sensorml.v20.Deployment;
 
 
 public class Saildrone
@@ -119,6 +121,10 @@ public class Saildrone
                 .getJson();
             
             //Api.addOrUpdateObs(navDsId, cgSfId, Instant.parse("2023-09-25T00:00:00Z"), result, true);
+            
+            // add deployment
+            var deploy1 = createDeployment("2025", TimeExtent.parse("2017-07-17T00:00:00Z/2017-09-29T00:00:00Z"));
+            Api.addOrUpdateDeployment(deploy1, true);
         }
     }
     
@@ -213,7 +219,7 @@ public class Saildrone
                 .origin("Center of flotation of the USV")
                 .addAxis("X", "Along the longitudinal axis of the symmetry of the hull, pointing forward")
                 .addAxis("Y", "Orthogonal to both X and Z, forming a right handed frame")
-                .addAxis("Z", "Along the axis of rotation of the sail, pointing up")
+                .addAxis("Z", "Along the axis of rotation of the sail, pointing down")
             )
             
             .build();
@@ -456,6 +462,40 @@ public class Saildrone
                 .build()
             )
             .build();
+    }
+    
+    
+    static Deployment createDeployment(String num, TimeExtent validTime)
+    {
+        var fac = new GMLFactory();
+        var geom = fac.newPolygon();
+        
+        //geom.getExterior().setPosList(null);
+        
+        return sml.createDeployment()
+            .uniqueID("urn:x-osh:saildrone:mission:" + num)
+            .name("Saildrone - 2017 Arctic Mission")
+            .description("In July 2017, three saildrones were launched from Dutch Harbor, Alaska, in partnership with NOAA Research...")
+            .addContact(getOperatorContactInfo().role(CommonIdentifiers.OPERATOR_DEF))
+            .validTimePeriod(
+                validTime.begin().atOffset(ZoneOffset.UTC),
+                validTime.end().atOffset(ZoneOffset.UTC))
+            .location(null)
+            .build();
+    }
+    
+    
+    static CIResponsiblePartyBuilder getOperatorContactInfo()
+    {
+        return sml.createContact()
+            .role(SWEHelper.getPropertyUri("Operator"))
+            .organisationName("NOAA Pacific Marine Environmental Laboratory")
+            .website("https://pmel.noaa.gov")
+            .deliveryPoint("7600 Sand Point Way NE")
+            .city("Seattle")
+            .postalCode("98115")
+            .administrativeArea("WA")
+            .country("USA");
     }
 
 }

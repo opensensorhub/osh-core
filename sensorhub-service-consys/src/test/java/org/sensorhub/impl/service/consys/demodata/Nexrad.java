@@ -31,7 +31,6 @@ import org.vast.ogc.gml.IFeature;
 import org.vast.sensorML.SMLHelper;
 import org.vast.sensorML.SMLMetadataBuilders.CIResponsiblePartyBuilder;
 import org.vast.sensorML.helper.CommonIdentifiers;
-import org.vast.sensorML.sampling.SamplingSphere;
 import org.vast.sensorML.sampling.ViewingSector;
 import org.vast.swe.SWEConstants;
 import org.vast.swe.SWEHelper;

@@ -55,11 +55,11 @@ public abstract class AbstractTestApiBase
     protected static final String PROCEDURE_COLLECTION = "procedures";
     protected static final String PROPERTY_COLLECTION = "properties";
     protected static final String SYSTEM_COLLECTION = "systems";
-    protected static final String MEMBER_COLLECTION = "members";
+    protected static final String MEMBER_COLLECTION = "subsystems";
     protected static final String DEPLOYMENT_COLLECTION = "deployments";
-    protected static final String FOI_COLLECTION = "fois";
+    protected static final String FOI_COLLECTION = "samplingFeatures";
     protected static final String DATASTREAM_COLLECTION = "datastreams";
-    protected static final String CONTROL_COLLECTION = "controls";
+    protected static final String CONTROL_COLLECTION = "controlstreams";
     protected static final String OBS_COLLECTION = "observations";
     protected static final String CMD_COLLECTION = "commands";
     

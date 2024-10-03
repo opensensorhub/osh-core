@@ -17,6 +17,8 @@ package org.sensorhub.impl.service.consys.demodata;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collection;
 import org.isotc211.v2005.gmd.CIOnlineResource;
 import org.isotc211.v2005.gmd.CIResponsibleParty;
 import org.sensorhub.api.command.CommandStreamInfo;
@@ -24,8 +26,9 @@ import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.DataStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
+import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.SystemId;
-import org.vast.ogc.geopose.Pose;
+import org.sensorhub.impl.semantic.DerivedProperty;
 import org.vast.ogc.gml.IFeature;
 import org.vast.ogc.om.SamplingPoint;
 import org.vast.sensorML.SMLHelper;
@@ -34,12 +37,10 @@ import org.vast.sensorML.helper.CommonCharacteristics;
 import org.vast.sensorML.helper.CommonClassifiers;
 import org.vast.sensorML.helper.CommonIdentifiers;
 import org.vast.sensorML.sampling.ViewingFrustum;
-import org.vast.sensorML.sampling.ViewingSector;
 import org.vast.swe.SWEConstants;
 import org.vast.swe.SWEHelper;
 import org.vast.swe.helper.GeoPosHelper;
 import org.vast.swe.helper.RasterHelper;
-import net.opengis.gml.v32.Point;
 import net.opengis.sensorml.v20.AbstractProcess;
 import net.opengis.sensorml.v20.CapabilityList;
 import net.opengis.swe.v20.BinaryBlock;
@@ -64,6 +65,10 @@ public class MavicPro
     
     static void addResources() throws IOException
     {
+        // add custom properties
+        //for (var prop: createCustomProperties())
+        //    Api.addOrUpdateProperty(prop, true);
+        
         // add MavicPro datasheet
         Api.addOrUpdateProcedure(createPlatformDatasheet(), true);
         //Api.addOrUpdateProcedure(createCameraDatasheet(), true);
@@ -95,6 +100,21 @@ public class MavicPro
             Api.addOrUpdateControlStream(createNavControlStream(mavic), true);
             Api.addOrUpdateControlStream(createCamControlStream(mavic), true);
         }
+    }
+    
+    
+    static Collection<IDerivedProperty> createCustomProperties()
+    {
+        var props = new ArrayList<IDerivedProperty>();
+        
+        props.add(new DerivedProperty.Builder()
+            .uri("#Radio_Transmitter_Range")
+            .name("Radio Range")
+            .baseProperty(SWEHelper.getQudtUri("Distance"))
+            .objectType(SWEHelper.getDBpediaUri("Transmitter"))
+            .build());
+        
+        return props;
     }
     
     
