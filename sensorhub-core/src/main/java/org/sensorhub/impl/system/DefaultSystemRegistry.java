@@ -14,6 +14,7 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.system;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -22,6 +23,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
+
 import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.data.IStreamingDataInterface;
@@ -35,6 +38,7 @@ import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemDriverRegistry;
+import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.api.utils.OshAsserts;
 import org.sensorhub.impl.database.system.SystemDriverDatabase;
 import org.sensorhub.impl.database.system.SystemDriverDatabaseConfig;
@@ -281,19 +285,23 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
                 .build();
 
             var topLevelSystemsFilter = new SystemFilter.Builder()
-                .withUniqueIDs(uid)
-                .withNoParent()
-                .build();
+                    .withUniqueIDs(uid)
+                    .withNoParent()
+                    .build();
 
-            // Replace driver's transaction handler so that new IObsSystemDatabase handles driver
+//             Replace driver's transaction handler so that new IObsSystemDatabase handles driver
             systemStateDb.getSystemDescStore().selectEntries(topLevelSystemsFilter).forEach(desc ->
                     register(getDriverHandler(desc.getValue().getUniqueIdentifier()).driver));
 
             systemStateDb.getDataStreamStore().removeEntries(dsFilter);
             systemStateDb.getCommandStreamStore().removeEntries(csFilter);
-            var count = systemStateDb.getSystemDescStore().removeEntries(topLevelSystemsFilter);
 
-            if (count > 0)
+            List<ISystemWithDesc> procsToRemove = systemStateDb.getSystemDescStore().select(procFilter).collect(Collectors.toList());
+            for(var proc : procsToRemove)
+                systemStateDb.getSystemDescStore().remove(proc.getUniqueIdentifier());
+//            var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
+
+//            if (count > 0)
                 log.info("Database #{} now handles system {}. Removing all records from state DB", db.getDatabaseNum(), uid);
         }
     }

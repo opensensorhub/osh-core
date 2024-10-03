@@ -28,6 +28,8 @@ import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.event.Event;
+import org.sensorhub.api.sensor.ISensorDriver;
+import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.processing.AbstractProcessModule;
@@ -318,9 +320,9 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     }
     
     
-    protected String getMemberId(IModule<?> member)
+    protected String getMemberId(IDataProducerModule<?> member)
     {
-        return member.getLocalID();
+        return member.getUniqueIdentifier();
     }
 
 }

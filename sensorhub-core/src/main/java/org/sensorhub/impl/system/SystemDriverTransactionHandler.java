@@ -32,6 +32,7 @@ import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.event.Event;
 import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.module.IModule;
+import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.api.system.SystemChangedEvent;
@@ -477,13 +478,25 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                     update(driver);
                 }
                 
-                else if ((e instanceof SystemChangedEvent) && driver instanceof ISystemGroupDriver)
-                {
-                    var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(eventUid);
-                    if (memberProc != null)
-                        registerMember(memberProc);
-                }
+//                else if ((e instanceof SystemChangedEvent) && driver instanceof ISystemGroupDriver)
+//                {
+//                    var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(eventUid);
+//                    if (memberProc != null)
+//                        registerMember(memberProc);
+//                }
             }
+        }
+
+        // Register member when module is added to parent system
+        else if (e instanceof ModuleEvent && e.getSource() instanceof ISystemDriver
+                && driver instanceof ISystemGroupDriver
+                && driver != e.getSource()
+                && !memberHandlers.containsKey(((ISystemDriver) e.getSource()).getUniqueIdentifier())
+                && ((ISystemDriver) e.getSource()).getUniqueIdentifier() != null)
+        {
+            var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(((ISystemDriver) e.getSource()).getUniqueIdentifier());
+            if (memberProc != null)
+                registerMember(memberProc);
         }
     }
     

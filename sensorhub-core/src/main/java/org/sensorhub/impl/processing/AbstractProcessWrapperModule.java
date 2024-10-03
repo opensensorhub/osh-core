@@ -87,7 +87,7 @@ public abstract class AbstractProcessWrapperModule<T extends ProcessConfig> exte
         // register sensor with registry if attached to a hub and we have no parent
         try
         {
-            if (hasParentHub() && getParentHub().getSystemDriverRegistry() != null && (getParentSystem() == null || getParentSystem().isEnabled()))
+            if (hasParentHub() && getParentHub().getSystemDriverRegistry() != null && getParentSystem() == null)
                 getParentHub().getSystemDriverRegistry().register(this).get(); // for now, block here until init is also async
         }
         catch (InterruptedException e)
