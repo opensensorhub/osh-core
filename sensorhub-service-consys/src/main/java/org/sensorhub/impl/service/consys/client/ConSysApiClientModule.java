@@ -25,9 +25,7 @@ import org.vast.util.Asserts;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
 import java.net.PasswordAuthentication;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -259,8 +257,10 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         return systemRegInfo;
     }
 
-    protected void registerSystemDataStreams(SystemRegInfo system)
+    protected List<StreamInfo> registerSystemDataStreams(SystemRegInfo system)
     {
+        List<StreamInfo> addedStreams = new ArrayList<>();
+
         dataBaseView.getDataStreamStore().selectEntries(
                 new DataStreamFilter.Builder()
                         .withSystems(new SystemFilter.Builder()
@@ -269,8 +269,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                         .build())
                 .forEach((entry) -> {
                     if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
-                        registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue());
+                        addedStreams.add(registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue()));
                 });
+        return addedStreams;
     }
 
     protected StreamInfo registerDataStream(BigId dsId, String systemID, IDataStreamInfo dataStream)
@@ -377,6 +378,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
+        var length = e.getObservations().length;
         for(var obs : e.getObservations())
             client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs, this.dataBaseView.getObservationStore());
     }
@@ -402,7 +404,14 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 {
                     var systemRegInfo = registerSystem(system.getKey().getInternalID(), system.getValue());
                     checkSubSystems(systemRegInfo);
-                    registerSystemDataStreams(systemRegInfo);
+                    var newStreams = registerSystemDataStreams(systemRegInfo);
+                    for(var streamInfo : newStreams) {
+                        try {
+                            startStream(streamInfo);
+                        } catch (ClientException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
                 }
             });
         }
