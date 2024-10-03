@@ -1,29 +1,30 @@
 package org.sensorhub.impl.service.consys.client;
 
 import com.google.common.base.Strings;
-import org.checkerframework.checker.units.qual.C;
-import org.eclipse.jetty.client.HttpResponse;
 import org.sensorhub.api.client.ClientException;
 import org.sensorhub.api.client.IClientModule;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.SensorHubException;
-import org.sensorhub.api.data.DataStreamInfo;
-import org.sensorhub.api.data.IDataStreamInfo;
-import org.sensorhub.api.data.ObsEvent;
+import org.sensorhub.api.data.*;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.system.ISystemWithDesc;
+import org.sensorhub.api.system.SystemAddedEvent;
+import org.sensorhub.api.system.SystemChangedEvent;
+import org.sensorhub.api.system.SystemEnabledEvent;
+import org.sensorhub.api.system.SystemRemovedEvent;
+import org.sensorhub.api.system.SystemDisabledEvent;
+import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.module.AbstractModule;
-import org.sensorhub.impl.module.RobustConnection;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
-import org.vast.cdm.common.DataStreamWriter;
-import org.vast.swe.SWEData;
 import org.vast.util.Asserts;
 
-import java.net.*;
+import java.net.Authenticator;
+import java.net.HttpURLConnection;
+import java.net.PasswordAuthentication;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -31,17 +32,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
+import java.util.concurrent.CompletableFuture;
 
 public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig> implements IClientModule<ConSysApiClientConfig> {
 
-    RobustConnection connection;
     IObsSystemDatabase dataBaseView;
     String apiEndpointUrl;
     ConSysApiClient client;
     Map<String, SystemRegInfo> registeredSystems;
     NavigableMap<String, StreamInfo> dataStreams;
+    Flow.Subscription registrySubscription;
 
-    static class SystemRegInfo
+    public static class SystemRegInfo
     {
         private String systemID;
         private BigId internalID;
@@ -49,19 +51,14 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         private ISystemWithDesc system;
     }
 
-    static class StreamInfo
+    public static class StreamInfo
     {
         private IDataStreamInfo dataStream;
         private String dataStreamID;
         private String topicID;
         private BigId internalID;
         private String sysUID;
-        private String outputName;
         private Flow.Subscription subscription;
-        private HttpURLConnection connection;
-        private DataStreamWriter persistentWriter;
-        private volatile boolean connecting = false;
-        private volatile boolean stopping = false;
     }
 
     public ConSysApiClientModule()
@@ -88,16 +85,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
     }
 
-    protected void checkConfiguration() throws SensorHubException
-    {
-        // TODO check config
-    }
-
     @Override
     protected void doInit() throws SensorHubException
     {
-        checkConfiguration();
-
         this.dataBaseView = config.dataSourceSelector.getFilteredView(getParentHub());
 
         this.client = ConSysApiClient.
@@ -139,12 +129,10 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                     registerSystemDataStreams(systemRegInfo);
                 });
 
+        subscribeToRegistryEvents();
+
         for (var stream : dataStreams.values())
             startStream(stream);
-
-        // TODO: Subscribe to system registry for system events
-
-        // TODO: Include option to push using persistent HTTP connection
     }
 
     @Override
@@ -153,6 +141,18 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
         for(var stream : dataStreams.values())
             stopStream(stream);
+    }
+
+    protected void subscribeToRegistryEvents()
+    {
+        getParentHub().getEventBus().newSubscription(SystemEvent.class)
+                .withTopicID(EventUtils.getSystemRegistryTopicID())
+                .withEventType(SystemEvent.class)
+                .subscribe(this::handleEvent)
+                .thenAccept(sub -> {
+                    registrySubscription = sub;
+                    sub.request(Long.MAX_VALUE);
+                });
     }
 
     protected void checkSubSystems(SystemRegInfo parentSystemRegInfo)
@@ -167,7 +167,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         });
     }
 
-    protected SystemRegInfo registerSystem(BigId systemInternalID, ISystemWithDesc system)
+    private String tryUpdateSystem(ISystemWithDesc system)
     {
         try {
             var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
@@ -176,17 +176,47 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 var oldSys = uidRequest.get();
                 systemID = oldSys.getId();
                 var responseCode = client.updateSystem(systemID, system).get();
-                if(responseCode != 204)
-                    throw new ClientException("There was a problem updating resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
-            } else
+                boolean successful = responseCode == 204;
+                if(!successful)
+                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
+                return systemID;
+            }
+        } catch (ExecutionException | InterruptedException | ClientException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    private void disableSystem(String uid, boolean remove)
+    {
+        var sysInfo = remove ? registeredSystems.remove(uid) : registeredSystems.get(uid);
+        if(sysInfo != null)
+        {
+            if(sysInfo.subscription != null)
+            {
+                sysInfo.subscription.cancel();
+                sysInfo.subscription = null;
+                getLogger().debug("Unsubscribed from system {}", uid);
+            }
+
+            var sysDataStreams = dataStreams.subMap(uid, uid + "\uffff");
+            for(var streamInfo : sysDataStreams.values())
+                stopStream(streamInfo);
+
+            if(remove)
+                getLogger().info("Removed system {}", uid);
+        }
+    }
+
+    protected SystemRegInfo registerSystem(BigId systemInternalID, ISystemWithDesc system)
+    {
+        try {
+            String systemID = tryUpdateSystem(system);
+            if(systemID == null)
                 systemID = client.addSystem(system).get();
 
-            SystemRegInfo systemRegInfo = new SystemRegInfo();
-            systemRegInfo.systemID = systemID;
-            systemRegInfo.internalID = systemInternalID;
-            systemRegInfo.system = system;
-            return systemRegInfo;
-        } catch (InterruptedException | ExecutionException | ClientException e) {
+            return registerSystemInfo(systemID, systemInternalID, system);
+        } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
@@ -199,25 +229,34 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             if(parent == null)
                 throw new ClientException("Could not retrieve parent system " + parentSystem.systemID);
 
-            var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
-            String systemID;
-            if(uidRequest != null) {
-                var oldSys = uidRequest.get();
-                systemID = oldSys.getId();
-                var responseCode = client.updateSystem(systemID, system).get();
-                if(responseCode != 204)
-                    throw new ClientException("There was a problem updating resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
-            } else
+            String systemID = tryUpdateSystem(system);
+            if(systemID == null)
                 systemID = client.addSubSystem(parentSystem.systemID, system).get();
 
-            SystemRegInfo systemRegInfo = new SystemRegInfo();
-            systemRegInfo.systemID = systemID;
-            systemRegInfo.internalID = systemInternalID;
-            systemRegInfo.system = system;
-            return systemRegInfo;
+            return registerSystemInfo(systemID, systemInternalID, system);
         } catch (InterruptedException | ExecutionException | ClientException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private SystemRegInfo registerSystemInfo(String systemID, BigId systemInternalID, ISystemWithDesc system)
+    {
+        SystemRegInfo systemRegInfo = new SystemRegInfo();
+        systemRegInfo.systemID = systemID;
+        systemRegInfo.internalID = systemInternalID;
+        systemRegInfo.system = system;
+
+        getParentHub().getEventBus().newSubscription(SystemEvent.class)
+                .withTopicID(EventUtils.getSystemStatusTopicID(system.getUniqueIdentifier()))
+                .withEventType(SystemEvent.class)
+                .subscribe(this::handleEvent)
+                .thenAccept(sub -> {
+                    systemRegInfo.subscription = sub;
+                    sub.request(Long.MAX_VALUE);
+                });
+
+        registeredSystems.put(system.getUniqueIdentifier(), systemRegInfo);
+        return systemRegInfo;
     }
 
     protected void registerSystemDataStreams(SystemRegInfo system)
@@ -230,10 +269,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                         .build())
                 .forEach((entry) -> {
                     if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
-                    {
-                        var streamInfo = registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue());
-                        dataStreams.put(streamInfo.dataStreamID, streamInfo);
-                    }
+                        registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue());
                 });
     }
 
@@ -250,11 +286,44 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
         streamInfo.dataStream = dataStream;
         streamInfo.topicID = dsTopicId;
-        streamInfo.outputName = dataStream.getOutputName();
         streamInfo.sysUID = dataStream.getSystemID().getUniqueID();
         streamInfo.internalID = dsId;
 
+        dataStreams.put(dsTopicId, streamInfo);
         return streamInfo;
+    }
+
+    protected void addAndStartStream(String uid, String outputName)
+    {
+        try
+        {
+            var sysInfo = registeredSystems.get(uid);
+            var dsEntry = dataBaseView.getDataStreamStore().getLatestVersionEntry(uid, outputName);
+            if(sysInfo != null && dsEntry != null)
+            {
+                var dsId = dsEntry.getKey().getInternalID();
+                var dsInfo = dsEntry.getValue();
+
+                var streamInfo = registerDataStream(dsId, sysInfo.systemID, dsInfo);
+                startStream(streamInfo);
+            }
+        }
+        catch (ClientException e)
+        {
+            reportError(e.getMessage(), e.getCause());
+        }
+    }
+
+    protected void disableDataStream(String uid, String outputName, boolean remove)
+    {
+        var dsSourceId = EventUtils.getDataStreamDataTopicID(uid, outputName);
+        var streamInfo = remove ? dataStreams.remove(dsSourceId) : dataStreams.get(dsSourceId);
+        if(streamInfo != null)
+        {
+            stopStream(streamInfo);
+            if(remove)
+                getLogger().info("Removed datastream {}", dsSourceId);
+        }
     }
 
     protected synchronized void startStream(StreamInfo streamInfo) throws ClientException
@@ -289,7 +358,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
     }
 
-    protected void stopStream(StreamInfo streamInfo) throws ClientException
+    protected void stopStream(StreamInfo streamInfo)
     {
         if(streamInfo.subscription != null)
         {
@@ -297,7 +366,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             streamInfo.subscription = null;
         }
 
-
+        // TODO Check other stuff
     }
 
     @Override
@@ -310,6 +379,77 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         for(var obs : e.getObservations())
             client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs, this.dataBaseView.getObservationStore());
+    }
+
+    protected void handleEvent(final SystemEvent e)
+    {
+        // sensor description updated
+        if (e instanceof SystemChangedEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var system = dataBaseView.getSystemDescStore().getCurrentVersion(e.getSystemUID());
+                if(system != null)
+                    tryUpdateSystem(system);
+            });
+        }
+
+        // system events
+        else if (e instanceof SystemAddedEvent || e instanceof SystemEnabledEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var system = dataBaseView.getSystemDescStore().getCurrentVersionEntry(e.getSystemUID());
+                if(system != null)
+                {
+                    var systemRegInfo = registerSystem(system.getKey().getInternalID(), system.getValue());
+                    checkSubSystems(systemRegInfo);
+                    registerSystemDataStreams(systemRegInfo);
+                }
+            });
+        }
+
+        else if (e instanceof SystemDisabledEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var sysUID = e.getSystemUID();
+                disableSystem(sysUID, false);
+            });
+        }
+
+        else if (e instanceof SystemRemovedEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var sysUID = e.getSystemUID();
+                disableSystem(sysUID, true);
+            });
+        }
+
+        // datastream events
+        else if (e instanceof DataStreamAddedEvent || e instanceof DataStreamEnabledEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var sysUID = e.getSystemUID();
+                var outputName = ((DataStreamEvent) e).getOutputName();
+                addAndStartStream(sysUID, outputName);
+            });
+        }
+
+        else if (e instanceof DataStreamDisabledEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var sysUID = e.getSystemUID();
+                var outputName = ((DataStreamEvent) e).getOutputName();
+                disableDataStream(sysUID, outputName, false);
+            });
+        }
+
+        else if (e instanceof DataStreamRemovedEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var sysUID = e.getSystemUID();
+                var outputName = ((DataStreamEvent) e).getOutputName();
+                disableDataStream(sysUID, outputName, true);
+            });
+        }
     }
 
 }
