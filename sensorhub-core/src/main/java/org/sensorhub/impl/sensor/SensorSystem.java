@@ -216,7 +216,7 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
                 }
                 catch (Exception e)
                 {
-                    reportError("Cannot start subsystem " + MsgUtils.moduleString(member), e);
+                    getLogger().error("Cannot start subsystem " + MsgUtils.moduleString(member), e);
                 }
             }
         }
