@@ -320,7 +320,7 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     
     protected String getMemberId(IDataProducerModule<?> member)
     {
-        return member.getUniqueIdentifier();
+        return member.getLocalID();
     }
 
 }

@@ -26,6 +26,7 @@ import org.sensorhub.api.command.ICommandReceiver;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.command.IStreamingControlInterfaceWithResult;
 import org.sensorhub.api.data.IDataProducer;
+import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureKey;
@@ -492,9 +493,9 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                 && driver instanceof ISystemGroupDriver
                 && driver != e.getSource()
                 && !memberHandlers.containsKey(((ISystemDriver) e.getSource()).getUniqueIdentifier())
-                && ((ISystemDriver) e.getSource()).getUniqueIdentifier() != null)
+                && ((IDataProducerModule<?>) e.getSource()).getLocalID() != null)
         {
-            var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(((ISystemDriver) e.getSource()).getUniqueIdentifier());
+            var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(((IDataProducerModule<?>)e.getSource()).getLocalID());
             if (memberProc != null)
                 registerMember(memberProc);
         }
