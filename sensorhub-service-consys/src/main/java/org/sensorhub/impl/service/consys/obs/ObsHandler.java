@@ -527,8 +527,24 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
             throw new DataStoreException("Invalid FOI ID");
         }
     }
-    
-    
+
+    @Override
+    protected boolean updateEntry(RequestContext ctx, BigId key, IObsData res) throws DataStoreException {
+        // Don't allow insertion with PUT
+        if(db.getObservationStore().get(key) == null)
+            return false;
+
+        try
+        {
+            db.getObservationStore().put(key, res);
+            return true;
+        }
+        catch (IllegalArgumentException e)
+        {
+            throw new DataStoreException(e.getMessage());
+        }
+    }
+
     @Override
     protected boolean deleteEntry(final RequestContext ctx, final BigId key) throws DataStoreException
     {
