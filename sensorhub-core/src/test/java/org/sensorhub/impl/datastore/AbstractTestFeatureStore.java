@@ -1316,7 +1316,9 @@ public abstract class AbstractTestFeatureStore<StoreType extends IFeatureStoreBa
         
         int numFeatures = 100000;
         addSamplingPoints2D(0, numFeatures);
-        
+
+        featureStore.commit();
+
         // spatial filter with all features
         FeatureFilter filter = new FeatureFilter.Builder()
                 .withLocationWithin(featureStore.getFeaturesBbox())

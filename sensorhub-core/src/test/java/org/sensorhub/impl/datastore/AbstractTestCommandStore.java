@@ -308,7 +308,7 @@ public abstract class AbstractTestCommandStore<StoreType extends ICommandStore>
     public void testGetWrongKey() throws Exception
     {
         testGetNumRecordsOneDataStream();
-        assertNull(cmdStore.get(bigId(11)));
+        assertNull(cmdStore.get(bigId(110)));
     }
 
 
@@ -555,7 +555,6 @@ public abstract class AbstractTestCommandStore<StoreType extends ICommandStore>
         resultStream = cmdStore.selectEntries(filter);
         checkSelectedEntries(resultStream, Collections.emptyMap(), filter);
     }
-
 
     @Test
     public void testSelectCommandsByDataStreamIDAndPredicates() throws Exception
