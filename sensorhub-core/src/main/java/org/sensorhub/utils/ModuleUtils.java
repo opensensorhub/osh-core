@@ -32,6 +32,8 @@ import org.vast.util.Asserts;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.util.ContextInitializer;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ModuleUtils
 {
@@ -45,8 +47,9 @@ public class ModuleUtils
     public static final String MODULE_DEPS = "OSH-Dependencies";
     
     public static final String LOG_MODULE_ID = "MODULE_ID";
-    
-    
+
+    private static Pattern ENV_VAR_REGEX = Pattern.compile("\\$?\\$\\{(.+?)(:(.+?))?\\}");
+
     public static Manifest getManifest(Class<?> clazz)
     {
         try
@@ -189,5 +192,60 @@ public class ModuleUtils
         {
             throw new IllegalStateException("Could not configure module logger", e);
         }
+    }
+
+    /**
+     * Performs variable expansion on a configuration string property.<br/>
+     * Variables are resolved by searching first the JVM system properties (i.e. set with -D)
+     * and then the environment variables.
+     * @param str The string to expand
+     * @return the string with all variable expanded
+     */
+    public static String expand(String str)
+    {
+        return expand(str, false);
+    }
+
+
+    public static String expand(String str, boolean honorLazyFlag)
+    {
+        String expandedStr = str;
+        Matcher matcher = ENV_VAR_REGEX.matcher(str);
+        while (matcher.find())
+        {
+            String varStr = matcher.group();
+            String replaceStr;
+
+            if (varStr.startsWith("$$") && honorLazyFlag)
+            {
+                // case of variable expanded lazily at run time
+                // this only works with String config params and allows the variable name to show
+                // up in the admin console. (e.g. paths and URLs)
+                // expand() must then be called again by the module itself.
+                continue;
+            }
+            else
+            {
+                // case of variable expanded at config load time (i.e. during json parsing)
+                String varName = matcher.group(1);
+                String defaultVal = matcher.group(3);
+                String envVal = getEnvVar(varName);
+                replaceStr = (envVal != null) ? envVal :
+                        (defaultVal != null) ? defaultVal : "";
+
+                expandedStr = expandedStr.replace(varStr, replaceStr);
+            }
+        }
+
+        return expandedStr;
+    }
+
+
+    private static String getEnvVar(String varName)
+    {
+        String val = System.getProperty(varName);
+        if (val == null)
+            val = System.getenv(varName);
+        return val;
     }
 }

@@ -46,7 +46,8 @@ import com.google.gson.internal.bind.JsonTreeWriter;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-
+import java.io.Reader;
+import org.sensorhub.utils.ModuleUtils;
 
 /**
  * <p>
@@ -287,7 +288,7 @@ public class ModuleConfigJsonFile implements IModuleConfigRepository
         try (FileReader reader = new FileReader(configFile))
         {
             Type collectionType = new TypeToken<List<ModuleConfig>>(){}.getType();
-            JsonReader jsonReader = new JsonReader(reader);
+            JsonReader jsonReader = new JsonReaderWithVarExpansion(reader);
             List<ModuleConfig> configList = gson.fromJson(jsonReader, collectionType);
             
             // build module map
@@ -318,6 +319,24 @@ public class ModuleConfigJsonFile implements IModuleConfigRepository
         catch (IOException e)
         {
             throw new IllegalStateException("Error while writing JSON config file " + configFile.getAbsolutePath(), e);
+        }
+    }
+
+    static class JsonReaderWithVarExpansion extends JsonReader
+    {
+        public JsonReaderWithVarExpansion(Reader in)
+        {
+            super(in);
+        }
+
+        @Override
+        public String nextString() throws IOException
+        {
+            String str = super.nextString();
+            return ModuleUtils.expand(str, true);
+
+            // TODO save original string w/ variable so we can save it back
+            // if it wasn't set to a new value
         }
     }
 }
