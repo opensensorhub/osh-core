@@ -77,7 +77,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig>
     private static final String OSH_HTTPS_CONNECTOR_ID = "osh-https";
     private static final String OSH_STATIC_CONTENT_ID = "osh-static";
     private static final String OSH_SERVLET_HANDLER_ID = "osh-servlets";
-    
+
+    private static final String[] SECURITY_EXCLUDED_METHODS = {"OPTIONS"};
     private static final String CORS_ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS";
     private static final String CORS_ALLOWED_HEADERS = "origin, content-type, accept, authorization";
     
@@ -411,6 +412,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig>
             ConstraintMapping cm = new ConstraintMapping();
             cm.setConstraint(constraint);
             cm.setPathSpec(pathSpec);
+            cm.setMethodOmissions(SECURITY_EXCLUDED_METHODS); // disable auth on OPTIONS requests (needed for CORS)
             jettySecurityHandler.addConstraintMapping(cm);
         }
     }
