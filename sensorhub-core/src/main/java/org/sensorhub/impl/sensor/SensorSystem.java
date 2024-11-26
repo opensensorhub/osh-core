@@ -28,6 +28,7 @@ import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.event.Event;
+import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.processing.AbstractProcessModule;
@@ -183,6 +184,18 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
                     }
                 }
             }
+
+            // If we receive a new submodule and parent is already started, we need to register that submodule manually.
+            if(((ModuleEvent) e).getNewState() != null && ((ModuleEvent) e).getNewState().equals(ModuleState.INITIALIZED) /* Register when module completes initialization */
+            && e.getSource() instanceof ISystemDriver && e.getSource() != this /* ModuleEvent is from system member */
+            && ((IDataProducerModule<?>) e.getSource()).getLocalID() != null /* Module has valid id */
+            && ((IDataProducerModule<?>) e.getSource()).getUniqueIdentifier() != null /* Module has UID */)
+            {
+                // Get driver of new submodule
+                var memberProc = this.getMembers().get(((IDataProducerModule<?>) e.getSource()).getLocalID());
+                if(memberProc != null)
+                    getParentHub().getSystemDriverRegistry().register(memberProc);
+            }
         }
     }
 
@@ -216,7 +229,7 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
                 }
                 catch (Exception e)
                 {
-                    reportError("Cannot start subsystem " + MsgUtils.moduleString(member), e);
+                    getLogger().error("Cannot start subsystem " + MsgUtils.moduleString(member), e);
                 }
             }
         }
@@ -318,7 +331,7 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
     }
     
     
-    protected String getMemberId(IModule<?> member)
+    protected String getMemberId(IDataProducerModule<?> member)
     {
         return member.getLocalID();
     }

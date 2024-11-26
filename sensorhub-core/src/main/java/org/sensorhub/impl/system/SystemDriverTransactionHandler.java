@@ -26,12 +26,14 @@ import org.sensorhub.api.command.ICommandReceiver;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.command.IStreamingControlInterfaceWithResult;
 import org.sensorhub.api.data.IDataProducer;
+import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.event.Event;
 import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.module.IModule;
+import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.api.system.SystemChangedEvent;
@@ -477,12 +479,12 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                     update(driver);
                 }
                 
-                else if ((e instanceof SystemChangedEvent) && driver instanceof ISystemGroupDriver)
-                {
-                    var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(eventUid);
-                    if (memberProc != null)
-                        registerMember(memberProc);
-                }
+//                else if ((e instanceof SystemChangedEvent) && driver instanceof ISystemGroupDriver)
+//                {
+//                    var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(eventUid);
+//                    if (memberProc != null)
+//                        registerMember(memberProc);
+//                }
             }
         }
     }
