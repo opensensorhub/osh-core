@@ -186,15 +186,14 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
             }
 
             // If we receive a new submodule and parent is already started, we need to register that submodule manually.
-            if(((ModuleEvent) e).getNewState() != null && ((ModuleEvent) e).getNewState().equals(ModuleState.STARTING) /* Register before starting module */
+            if(((ModuleEvent) e).getNewState() != null && ((ModuleEvent) e).getNewState().equals(ModuleState.INITIALIZED) /* Register when module completes initialization */
             && e.getSource() instanceof ISystemDriver && e.getSource() != this /* ModuleEvent is from system member */
             && ((IDataProducerModule<?>) e.getSource()).getLocalID() != null /* Module has valid id */
             && ((IDataProducerModule<?>) e.getSource()).getUniqueIdentifier() != null /* Module has UID */)
             {
                 // Get driver of new submodule
                 var memberProc = this.getMembers().get(((IDataProducerModule<?>) e.getSource()).getLocalID());
-                // Only register submodule if not already registered
-                if(!getParentHub().getSystemDriverRegistry().isRegistered(memberProc.getUniqueIdentifier()))
+                if(memberProc != null)
                     getParentHub().getSystemDriverRegistry().register(memberProc).thenRun(() -> System.out.println("Registered member " + memberProc.getName() + "!"));
             }
         }
