@@ -487,18 +487,6 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
 //                }
             }
         }
-
-        // Register member when module is added to parent system
-        else if (e instanceof ModuleEvent && e.getSource() instanceof ISystemDriver
-                && driver instanceof ISystemGroupDriver
-                && driver != e.getSource()
-                && !memberHandlers.containsKey(((ISystemDriver) e.getSource()).getUniqueIdentifier())
-                && ((IDataProducerModule<?>) e.getSource()).getLocalID() != null)
-        {
-            var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(((IDataProducerModule<?>)e.getSource()).getLocalID());
-            if (memberProc != null)
-                registerMember(memberProc);
-        }
     }
     
     

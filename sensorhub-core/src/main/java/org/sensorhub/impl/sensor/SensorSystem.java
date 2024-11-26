@@ -28,6 +28,7 @@ import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.event.Event;
+import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.processing.AbstractProcessModule;
@@ -182,6 +183,19 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
                         break;
                     }
                 }
+            }
+
+            // If we receive a new submodule and parent is already started, we need to register that submodule manually.
+            if(((ModuleEvent) e).getNewState() != null && ((ModuleEvent) e).getNewState().equals(ModuleState.STARTING) /* Register before starting module */
+            && e.getSource() instanceof ISystemDriver && e.getSource() != this /* ModuleEvent is from system member */
+            && ((IDataProducerModule<?>) e.getSource()).getLocalID() != null /* Module has valid id */
+            && ((IDataProducerModule<?>) e.getSource()).getUniqueIdentifier() != null /* Module has UID */)
+            {
+                // Get driver of new submodule
+                var memberProc = this.getMembers().get(((IDataProducerModule<?>) e.getSource()).getLocalID());
+                // Only register submodule if not already registered
+                if(!getParentHub().getSystemDriverRegistry().isRegistered(memberProc.getUniqueIdentifier()))
+                    getParentHub().getSystemDriverRegistry().register(memberProc).thenRun(() -> System.out.println("Registered member " + memberProc.getName() + "!"));
             }
         }
     }

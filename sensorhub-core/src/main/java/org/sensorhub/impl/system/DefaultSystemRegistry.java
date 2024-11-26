@@ -172,7 +172,18 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
     
     public boolean isRegistered(String uid)
     {
-        return driverHandlers.containsKey(uid);
+        // Check if registered as top level system
+        if(driverHandlers.containsKey(uid))
+            return true;
+
+        // Check if registered under a system group driver
+        for(var handler : driverHandlers.values())
+        {
+            if(handler.memberHandlers.containsKey(uid))
+                return true;
+        }
+
+        return false;
     }
     
     
