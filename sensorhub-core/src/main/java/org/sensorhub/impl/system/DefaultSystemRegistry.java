@@ -24,7 +24,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
-
 import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.data.IStreamingDataInterface;

@@ -194,7 +194,7 @@ public class SensorSystem extends AbstractSensorModule<SensorSystemConfig> imple
                 // Get driver of new submodule
                 var memberProc = this.getMembers().get(((IDataProducerModule<?>) e.getSource()).getLocalID());
                 if(memberProc != null)
-                    getParentHub().getSystemDriverRegistry().register(memberProc).thenRun(() -> System.out.println("Registered member " + memberProc.getName() + "!"));
+                    getParentHub().getSystemDriverRegistry().register(memberProc);
             }
         }
     }
