@@ -17,9 +17,14 @@ package org.sensorhub.impl.processing;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+
+import com.google.gson.stream.JsonReader;
 import net.opengis.OgcPropertyList;
+import net.opengis.sensorml.v20.AggregateProcess;
 import net.opengis.swe.v20.AbstractSWEIdentifiable;
 import net.opengis.swe.v20.DataComponent;
 import org.sensorhub.api.ISensorHub;
@@ -28,6 +33,7 @@ import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.processing.ProcessingException;
 import org.sensorhub.api.utils.OshAsserts;
 import org.vast.process.ProcessException;
+import org.vast.sensorML.SMLJsonBindings;
 import org.vast.sensorML.AggregateProcessImpl;
 import org.vast.sensorML.SMLException;
 import org.vast.sensorML.SMLHelper;
@@ -84,7 +90,10 @@ public class SMLProcessImpl extends AbstractProcessModule<SMLProcessConfig>
             // parse SensorML file
             try (InputStream is = new BufferedInputStream(new FileInputStream(smlPath)))
             {
-                processDescription = (AggregateProcessImpl)smlUtils.readProcess(is);
+                if(smlPath.endsWith(".xml"))
+                    processDescription = (AggregateProcessImpl)smlUtils.readProcess(is);
+                else if(smlPath.endsWith(".json"))
+                    processDescription = readJsonProcess(is);
                 OshAsserts.checkSystemObject(processDescription);
                 
                 // set default name if none set in SensorML file
@@ -105,8 +114,14 @@ public class SMLProcessImpl extends AbstractProcessModule<SMLProcessConfig>
                 });*/
         }
     }
-    
-    
+
+    private AggregateProcess readJsonProcess(InputStream is) throws IOException
+    {
+        SMLJsonBindings bindings = new SMLJsonBindings();
+        JsonReader reader = new JsonReader(new InputStreamReader(is));
+        return bindings.readAggregateProcess(reader);
+    }
+
     protected void initChain() throws SensorHubException
     {
         //useThreads = processDescription.getInputList().isEmpty();
