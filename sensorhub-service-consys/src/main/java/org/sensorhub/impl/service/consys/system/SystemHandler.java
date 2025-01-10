@@ -143,7 +143,7 @@ public class SystemHandler extends AbstractFeatureHandler<ISystemWithDesc, Syste
         
         // list only top level systems by default unless specific IDs are requested
         if (!parentSelected && !searchMembers &&
-            !queryParams.containsKey("id") && !queryParams.containsKey("uid"))
+            !queryParams.containsKey("id") && !queryParams.containsKey("uid") && !queryParams.containsKey("foi"))
             builder.withNoParent();
         
         // procedure UID
