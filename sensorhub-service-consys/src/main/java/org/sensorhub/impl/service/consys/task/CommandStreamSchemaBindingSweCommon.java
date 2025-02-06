@@ -56,6 +56,13 @@ public class CommandStreamSchemaBindingSweCommon extends ResourceBindingJson<Com
         super(ctx, idEncoders, reader);
         init(cmdFormat, ctx, true);
     }
+
+
+    public CommandStreamSchemaBindingSweCommon(ResourceFormat cmdFormat, RequestContext ctx, IdEncoders idEncoders, JsonWriter writer) throws IOException
+    {
+        super(ctx, idEncoders, writer);
+        init(cmdFormat, ctx, false);
+    }
     
     
     void init(ResourceFormat cmdFormat, RequestContext ctx, boolean forReading)
