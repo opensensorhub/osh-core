@@ -41,6 +41,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import net.opengis.swe.v20.BinaryEncoding;
+import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.data.DataStreamInfo;
@@ -65,6 +66,7 @@ import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.system.SystemBindingGeoJson;
 import org.sensorhub.impl.service.consys.system.SystemBindingSmlJson;
 import org.sensorhub.impl.service.consys.task.CommandStreamBindingJson;
+import org.sensorhub.impl.service.consys.task.CommandStreamSchemaBindingJson;
 import org.sensorhub.utils.Lambdas;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,7 +85,7 @@ public class ConSysApiClient
     static final String SYSTEMS_COLLECTION = "systems";
     static final String DEPLOYMENTS_COLLECTION = "deployments";
     static final String DATASTREAMS_COLLECTION = "datastreams";
-    static final String CONTROLS_COLLECTION = "controls";
+    static final String CONTROLS_COLLECTION = "controlstreams";
     static final String OBSERVATIONS_COLLECTION = "observations";
     static final String SUBSYSTEMS_COLLECTION = "subsystems";
     static final String SF_COLLECTION = "fois";
@@ -663,6 +665,59 @@ public class ConSysApiClient
         {
             throw new IllegalStateException("Error initializing binding", e);
         }
+    }
+
+
+    public CompletableFuture<ICommandStreamInfo> getControlStreamById(String id, ResourceFormat format, boolean fetchSchema)
+    {
+        var cf1 = sendGetRequest(endpoint.resolve(CONTROLS_COLLECTION + "/" + id), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new CommandStreamBindingJson(ctx, null, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+
+        if (fetchSchema)
+        {
+            return cf1.thenCombine(getControlStreamSchema(id, ResourceFormat.JSON, ResourceFormat.JSON), (csInfo, schemaInfo) -> {
+
+                schemaInfo.getRecordStructure().setName(csInfo.getControlInputName());
+
+                csInfo = CommandStreamInfo.Builder.from(csInfo)
+                        .withRecordDescription(schemaInfo.getRecordStructure())
+                        .build();
+
+                return csInfo;
+            });
+        }
+        else
+            return cf1;
+
+    }
+
+
+    public CompletableFuture<ICommandStreamInfo> getControlStreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(CONTROLS_COLLECTION + "/" + id + "/schema?obsFormat=" + obsFormat), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new CommandStreamSchemaBindingJson(ctx, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
     }
 
 

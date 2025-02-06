@@ -17,11 +17,13 @@ package org.sensorhub.impl.service.consys.task;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.command.CommandStreamKey;
+import org.sensorhub.api.feature.FeatureId;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.SWECommonUtils;
@@ -30,6 +32,8 @@ import org.sensorhub.impl.service.consys.resource.ResourceBindingJson;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.system.SystemHandler;
+import org.vast.data.TextEncodingImpl;
+import org.vast.swe.SWEHelper;
 import org.vast.swe.SWEStaxBindings;
 import org.vast.swe.json.SWEJsonStreamReader;
 import org.vast.swe.json.SWEJsonStreamWriter;
@@ -65,6 +69,8 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
     @Override
     public ICommandStreamInfo deserialize(JsonReader reader) throws IOException
     {
+        boolean requireSchema = !ctx.isClientSide();
+
         // if array, prepare to parse first element
         if (reader.peek() == JsonToken.BEGIN_ARRAY)
             reader.beginArray();
@@ -75,6 +81,7 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
         String name = null;
         String description = null;
         String inputName = null;
+        FeatureId sysRef = null;
         ICommandStreamInfo csInfo = null;
         
         try
@@ -92,6 +99,8 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
                     inputName = reader.nextString();
                 //else if ("validTime".equals(prop))
                 //    validTime = geojsonBindings.readTimeExtent(reader);
+                else if ("system@link".equals(prop))
+                    sysRef = readFeatureRef(reader);
                 else if ("schema".equals(prop))
                 {
                     reader.beginObject();
@@ -127,9 +136,36 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
         // check that mandatory properties have been parsed
         if (inputName == null)
             throw new ResourceParseException(MISSING_PROP_ERROR_MSG + "inputName");
-        if (csInfo == null)
+        if (requireSchema && csInfo == null)
             throw new ResourceParseException(MISSING_PROP_ERROR_MSG + "schema");
-        
+
+        if (requireSchema)
+        {
+            // assign inputName to data component
+            csInfo.getRecordStructure().setName(inputName);
+
+            // create CommandStreamInfo object
+            csInfo = CommandStreamInfo.Builder.from(csInfo)
+                    .withSystem(sysRef != null ? sysRef : FeatureId.NULL_FEATURE)
+                    .withName(name)
+                    .withDescription(description)
+                    .build();
+        }
+        else
+        {
+            var resultStruct = new SWEHelper().createText()
+                    .name(inputName)
+                    .build();
+
+            csInfo = new CommandStreamInfo.Builder()
+                    .withSystem(sysRef != null ? sysRef : FeatureId.NULL_FEATURE)
+                    .withName(name)
+                    .withDescription(description)
+                    .withRecordDescription(resultStruct)
+                    .withRecordEncoding(new TextEncodingImpl())
+                    .build();
+        }
+
         // assign outputName to data component
         csInfo.getRecordStructure().setName(inputName);
         
@@ -169,71 +205,93 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
     @Override
     public void serialize(CommandStreamKey key, ICommandStreamInfo csInfo, boolean showLinks, JsonWriter writer) throws IOException
     {
-        var dsId = idEncoders.getCommandStreamIdEncoder().encodeID(key.getInternalID());
-        var sysId = idEncoders.getSystemIdEncoder().encodeID(csInfo.getSystemID().getInternalID());
-        
+        serialize(key, csInfo, showLinks, false, writer);
+    }
+
+    public void serialize(CommandStreamKey key, ICommandStreamInfo csInfo, boolean showLinks, boolean expandSchema, JsonWriter writer) throws IOException
+    {
+        var dsId = key != null ?
+                idEncoders.getCommandStreamIdEncoder().encodeID(key.getInternalID()) : null;
+        var sysId = (csInfo.getSystemID() != null && csInfo.getSystemID() != FeatureId.NULL_FEATURE) ?
+                idEncoders.getSystemIdEncoder().encodeID(csInfo.getSystemID().getInternalID()) : null;
+
         writer.beginObject();
-        
-        writer.name("id").value(dsId);
+        if (dsId != null)
+            writer.name("id").value(dsId);
+
         writer.name("name").value(csInfo.getName());
-        
+
         if (csInfo.getDescription() != null)
             writer.name("description").value(csInfo.getDescription());
-        
-        writer.name("system@id").value(sysId);
-        writer.name("system@link");
-        writeLink(writer, csInfo.getSystemID(), SystemHandler.class);
-        
+
+        if (sysId != null)
+        {
+            writer.name("system@id").value(sysId);
+            writer.name("system@link");
+            writeLink(writer, csInfo.getSystemID(), SystemHandler.class);
+        }
+
         writer.name("inputName").value(csInfo.getControlInputName());
-        
-        writer.name("validTime").beginArray()
-            .value(csInfo.getValidTime().begin().toString())
-            .value(csInfo.getValidTime().end().toString())
-            .endArray();
+
+        if (csInfo.getValidTime() != null)
+        {
+            writer.name("validTime");
+            geojsonBindings.writeTimeExtent(writer, csInfo.getValidTime());
+        }
 
         if (csInfo.getIssueTimeRange() != null)
         {
-            writer.name("issueTime").beginArray()
-                .value(csInfo.getIssueTimeRange().begin().toString())
-                .value(csInfo.getIssueTimeRange().end().toString())
-                .endArray();
+            writer.name("issueTime");
+            geojsonBindings.writeTimeExtent(writer, csInfo.getIssueTimeRange());
         }
 
         if (csInfo.getExecutionTimeRange() != null)
         {
-            writer.name("executionTime").beginArray()
-                .value(csInfo.getExecutionTimeRange().begin().toString())
-                .value(csInfo.getExecutionTimeRange().end().toString())
-                .endArray();
+            writer.name("executionTime");
+            geojsonBindings.writeTimeExtent(writer, csInfo.getExecutionTimeRange());
         }
-        
-        // observed properties
-        writer.name("controlledProperties").beginArray();
-        for (var prop: SWECommonUtils.getProperties(csInfo.getRecordStructure()))
+
+        if (ctx.isClientSide() || expandSchema)
         {
-            writer.beginObject();
-            if (prop.getDefinition() != null)
-                writer.name("definition").value(prop.getDefinition());
-            if (prop.getLabel() != null)
-                writer.name("label").value(prop.getLabel());
-            if (prop.getDescription() != null)
-                writer.name("description").value(prop.getDescription());
-            writer.endObject();
+            writer.name("schema");
+            ResourceBindingJson<CommandStreamKey, ICommandStreamInfo> schemaBinding;
+            if (csInfo.getRecordEncoding() instanceof BinaryEncoding)
+                schemaBinding = new CommandStreamSchemaBindingSweCommon(ResourceFormat.SWE_BINARY, ctx, idEncoders, writer);
+            else
+                schemaBinding = new CommandStreamSchemaBindingJson(ctx, idEncoders, writer);
+
+            schemaBinding.serialize(null, csInfo, false);
         }
-        writer.endArray();
-        
-        // available formats
-        writer.name("formats").beginArray();
-        writer.value(ResourceFormat.JSON.getMimeType());
-        if (ResourceFormat.allowNonBinaryFormat(csInfo.getRecordEncoding()))
+        else
         {
-            writer.value(ResourceFormat.SWE_JSON.getMimeType());
-            writer.value(ResourceFormat.SWE_TEXT.getMimeType());
-            writer.value(ResourceFormat.SWE_XML.getMimeType());
+            // observed properties
+            writer.name("controlledProperties").beginArray();
+            for (var prop : SWECommonUtils.getProperties(csInfo.getRecordStructure()))
+            {
+                writer.beginObject();
+                if (prop.getDefinition() != null)
+                    writer.name("definition").value(prop.getDefinition());
+                if (prop.getLabel() != null)
+                    writer.name("label").value(prop.getLabel());
+                if (prop.getDescription() != null)
+                    writer.name("description").value(prop.getDescription());
+                writer.endObject();
+            }
+            writer.endArray();
+
+            // available formats
+            writer.name("formats").beginArray();
+            writer.value(ResourceFormat.JSON.getMimeType());
+            if (ResourceFormat.allowNonBinaryFormat(csInfo.getRecordEncoding()))
+            {
+                writer.value(ResourceFormat.SWE_JSON.getMimeType());
+                writer.value(ResourceFormat.SWE_TEXT.getMimeType());
+                writer.value(ResourceFormat.SWE_XML.getMimeType());
+            }
+            writer.value(ResourceFormat.SWE_BINARY.getMimeType());
+            writer.endArray();
         }
-        writer.value(ResourceFormat.SWE_BINARY.getMimeType());
-        writer.endArray();
-        
+
         // links
         if (showLinks)
         {
