@@ -14,7 +14,6 @@ Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.client;
 
-import static org.junit.Assert.assertFalse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Set;
@@ -24,10 +23,14 @@ import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.feature.FeatureId;
+import org.sensorhub.api.feature.FeatureLink;
+import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.data.TextEncodingImpl;
 import org.vast.swe.helper.GeoPosHelper;
 import com.google.common.base.Strings;
 import net.opengis.swe.v20.DataComponent;
+
+import static org.junit.Assert.*;
 
 
 public class TestClientControlStreams extends TestClientBase
@@ -73,7 +76,33 @@ public class TestClientControlStreams extends TestClientBase
         
         addControlStreamBatch(sysId, 10, recordStruct, true);
     }
-    
+
+
+    @Test
+    public void testAddControlStreamAndGetById() throws Exception
+    {
+        var sysId = systemTests.addSystem(1, true);
+
+        var swe = new GeoPosHelper();
+        var recordStruct = swe.createRecord()
+                .name("ptz_control")
+                .addField("pan", swe.createQuantity())
+                .addField("tilt", swe.createQuantity())
+                .addField("zoom", swe.createQuantity())
+                .build();
+
+        var csId = addControlStream(sysId, 1, recordStruct, false);
+
+        var client = ConSysApiClient
+                .newBuilder(apiRootUrl)
+                .build();
+
+        var csInfo = client.getControlStreamById(csId, ResourceFormat.JSON, false).get();
+
+        assertEquals(recordStruct.getName(), csInfo.getControlInputName());
+        assertEquals(systemTests.getSystemUid(1), csInfo.getSystemID().getUniqueID());
+        assertTrue(((FeatureLink)csInfo.getSystemID()).getLink().getHref().contains(sysId));
+    }
     
 
     protected String addControlStream(String sysId, int num, DataComponent recordStruct, boolean checkHead) throws Exception
