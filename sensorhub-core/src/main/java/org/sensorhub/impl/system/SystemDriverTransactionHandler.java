@@ -478,13 +478,6 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                     // update main system
                     update(driver);
                 }
-                
-//                else if ((e instanceof SystemChangedEvent) && driver instanceof ISystemGroupDriver)
-//                {
-//                    var memberProc = ((ISystemGroupDriver<?>) driver).getMembers().get(eventUid);
-//                    if (memberProc != null)
-//                        registerMember(memberProc);
-//                }
             }
         }
     }
