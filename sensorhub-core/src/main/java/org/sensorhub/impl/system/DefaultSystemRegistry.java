@@ -42,6 +42,7 @@ import org.sensorhub.api.utils.OshAsserts;
 import org.sensorhub.impl.database.system.SystemDriverDatabase;
 import org.sensorhub.impl.database.system.SystemDriverDatabaseConfig;
 import org.sensorhub.impl.system.wrapper.SystemWrapper;
+import org.sensorhub.utils.FilterUtils;
 import org.sensorhub.utils.MapWithWildcards;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -190,7 +191,7 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
     {
         var handler = driverHandlers.get(sysUID);
         if (handler == null)
-            throw new IllegalStateException("No driver for system " + sysUID + " is registered");
+            throw new IllegalStateException("No driver registered for system " + sysUID + ", or it's managed by a parent system");
         
         return handler;
     }
@@ -270,7 +271,17 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
     {
         Asserts.checkNotNull(uid, "systemUID");
         Asserts.checkNotNull(db, IObsSystemDatabase.class);
-        
+
+        // Filter out subsystems
+        var topLevelSystemsFilter = new SystemFilter.Builder()
+                .withUniqueIDs(uid)
+                .withNoParent()
+                .build();
+        // Count top level systems
+        var numTopLevelSystems = federatedDb.getSystemDescStore().selectEntries(topLevelSystemsFilter).count();
+        // Assert that we have top level system(s) or a driver handler. Ensures that wildcard top level systems are included but any subsystems throw error
+        Asserts.checkArgument(numTopLevelSystems > 0 || driverHandlers.get(uid) != null, "No system found with UID " + uid + ", or it's managed by a parent system.");
+
         if (db.isReadOnly())
             throw new IllegalStateException("Cannot use a read-only database to collect system driver data");
         
@@ -294,24 +305,16 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
                 .withSystems(procFilter)
                 .build();
 
-            var topLevelSystemsFilter = new SystemFilter.Builder()
-                    .withUniqueIDs(uid)
-                    .withNoParent()
-                    .build();
-
-//             Replace driver's transaction handler so that new IObsSystemDatabase handles driver
+            // Replace driver's transaction handler so that new IObsSystemDatabase handles driver
             systemStateDb.getSystemDescStore().selectEntries(topLevelSystemsFilter).forEach(desc ->
                     register(getDriverHandler(desc.getValue().getUniqueIdentifier()).driver));
 
             systemStateDb.getDataStreamStore().removeEntries(dsFilter);
             systemStateDb.getCommandStreamStore().removeEntries(csFilter);
 
-            List<ISystemWithDesc> procsToRemove = systemStateDb.getSystemDescStore().select(procFilter).collect(Collectors.toList());
-            for(var proc : procsToRemove)
-                systemStateDb.getSystemDescStore().remove(proc.getUniqueIdentifier());
-//            var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
+            var count = systemStateDb.getSystemDescStore().removeEntries(procFilter);
 
-//            if (count > 0)
+            if (count > 0)
                 log.info("Database #{} now handles system {}. Removing all records from state DB", db.getDatabaseNum(), uid);
         }
     }
