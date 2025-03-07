@@ -112,7 +112,7 @@ public class PropertyBindingJson extends ResourceBindingJson<PropertyKey, IDeriv
     @Override
     public void serialize(PropertyKey key, IDerivedProperty prop, boolean showLinks, JsonWriter writer) throws IOException
     {
-        var propId = key != null ?
+        var propId = (key != null && !ctx.isClientSide()) ?
             idEncoders.getPropertyIdEncoder().encodeID(key.getInternalID()) : null;
         
         var conceptUri = prop.getURI();

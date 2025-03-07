@@ -72,10 +72,13 @@ public class SystemEventBindingJson extends ResourceBindingJson<Long, SystemEven
             return;
         
         // write event message
-        var sysId = idEncoders.getSystemIdEncoder().encodeID(res.getSystemID());
+        var sysId = !ctx.isClientSide() ? idEncoders.getSystemIdEncoder().encodeID(res.getSystemID()) : null;
         writer.beginObject();
         writer.name("time").value(Instant.ofEpochMilli(res.getTimeStamp()).toString());
-        writer.name("system@id").value(sysId);
+
+        if(sysId != null)
+            writer.name("system@id").value(sysId);
+
         writer.name("eventType").value(eventType);
         writer.endObject();
         writer.flush();

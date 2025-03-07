@@ -168,11 +168,10 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     private String tryUpdateSystem(ISystemWithDesc system)
     {
         try {
-            var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
+            var oldSystem = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON).get();
             String systemID;
-            if(uidRequest != null) {
-                var oldSys = uidRequest.get();
-                systemID = oldSys.getId();
+            if(oldSystem != null) {
+                systemID = oldSystem.getId();
                 var responseCode = client.updateSystem(systemID, system).get();
                 boolean successful = responseCode == 204;
                 if(!successful)

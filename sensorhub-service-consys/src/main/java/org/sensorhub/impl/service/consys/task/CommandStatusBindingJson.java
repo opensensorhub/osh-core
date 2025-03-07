@@ -70,7 +70,7 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
             {
                 var propName = reader.nextName();
                 
-                if ("command@id".equals(propName))
+                if ("command@id".equals(propName) && !ctx.isClientSide())
                 {
                     var cmdId = idEncoders.getCommandIdEncoder().decodeID(reader.nextString());
                     status.withCommand(cmdId);
@@ -128,17 +128,19 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
 
     public void serialize(BigId key, ICommandStatus status, boolean showLinks, boolean inlineResult, JsonWriter writer) throws IOException
     {
-        var cmdId = idEncoders.getCommandIdEncoder().encodeID(status.getCommandID());
+        var cmdId = (status.getCommandID() != null && !ctx.isClientSide()) ? idEncoders.getCommandIdEncoder().encodeID(status.getCommandID()) : null;
         
         writer.beginObject();
         
-        if (key != null)
+        if (key != null && !ctx.isClientSide())
         {
             var statusId = idEncoders.getCommandIdEncoder().encodeID(key);
             writer.name("id").value(statusId);
         }
-        
-        writer.name("command@id").value(cmdId);
+
+        if(cmdId != null)
+            writer.name("command@id").value(cmdId);
+
         writer.name("reportTime").value(status.getReportTime().toString());
         writer.name("statusCode").value(status.getStatusCode().toString());
         
@@ -159,14 +161,14 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
             writer.name("result").beginObject();
             
             // whole datastream
-            if (result.getDataStreamID() != null)
+            if (result.getDataStreamID() != null && !ctx.isClientSide())
             {
                 var dsId = idEncoders.getDataStreamIdEncoder().encodeID(result.getDataStreamID());
                 writer.name("datastream@id").value(dsId);
             }
             
             // obs references
-            else if (result.getObservationRefs() != null)
+            else if (result.getObservationRefs() != null && !ctx.isClientSide())
             {
                 writer.name("obsRefs").beginArray();
                 for (var bigId: result.getObservationRefs())

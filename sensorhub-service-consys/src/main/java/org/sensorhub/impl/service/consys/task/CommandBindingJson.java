@@ -143,17 +143,18 @@ public class CommandBindingJson extends ResourceBindingJson<BigId, ICommandData>
     @Override
     public void serialize(BigId key, ICommandData cmd, boolean showLinks, JsonWriter writer) throws IOException
     {
-        var controlId = idEncoders.getCommandStreamIdEncoder().encodeID(cmd.getCommandStreamID());
+        var controlId = (cmd.getCommandStreamID() != null && !ctx.isClientSide()) ? idEncoders.getCommandStreamIdEncoder().encodeID(cmd.getCommandStreamID()) : null;
             
         writer.beginObject();
         
-        if (key != null)
+        if (key != null && !ctx.isClientSide())
         {
             var cmdId = idEncoders.getCommandIdEncoder().encodeID(key);
             writer.name("id").value(cmdId);
         }
-        
-        writer.name("control@id").value(controlId);
+
+        if (controlId != null)
+            writer.name("control@id").value(controlId);
         
         if (cmd.hasFoi())
         {

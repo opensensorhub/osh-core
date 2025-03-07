@@ -210,9 +210,9 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
 
     public void serialize(CommandStreamKey key, ICommandStreamInfo csInfo, boolean showLinks, boolean expandSchema, JsonWriter writer) throws IOException
     {
-        var dsId = key != null ?
+        var dsId = (key != null && !ctx.isClientSide()) ?
                 idEncoders.getCommandStreamIdEncoder().encodeID(key.getInternalID()) : null;
-        var sysId = (csInfo.getSystemID() != null && csInfo.getSystemID() != FeatureId.NULL_FEATURE) ?
+        var sysId = (csInfo.getSystemID() != null && csInfo.getSystemID() != FeatureId.NULL_FEATURE && !ctx.isClientSide()) ?
                 idEncoders.getSystemIdEncoder().encodeID(csInfo.getSystemID().getInternalID()) : null;
 
         writer.beginObject();
