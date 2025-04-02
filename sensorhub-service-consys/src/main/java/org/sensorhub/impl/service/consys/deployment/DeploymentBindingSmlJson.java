@@ -85,7 +85,7 @@ public class DeploymentBindingSmlJson extends ResourceBindingJson<FeatureKey, ID
             if (sml == null)
                 sml = new SMLConverter().genericFeatureToDeployment(res);
             
-            if (key != null)
+            if (key != null && !ctx.isClientSide())
             {
                 var idStr = idEncoders.getDeploymentIdEncoder().encodeID(key.getInternalID());
                 sml.setId(idStr);
