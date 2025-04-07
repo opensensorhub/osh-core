@@ -229,6 +229,7 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             {
                 arrayData = new DataBlockList(true);
                 array.setData(arrayData);
+                array.updateSize(0);
                 var parent = ((AbstractRecordImpl<?>)array.getParent());
                 parent.updateDataBlock();
             }
@@ -358,7 +359,7 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             @Override
             public void clear()
             {
-                
+                array.clearData();
             }
         };
     }

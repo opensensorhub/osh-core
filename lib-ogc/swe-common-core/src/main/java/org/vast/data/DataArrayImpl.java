@@ -150,26 +150,25 @@ public class DataArrayImpl extends AbstractArrayImpl
             if (dataBlock instanceof DataBlockMixed)
             {
                 throw new IllegalStateException(MIXED_BLOCK_ERROR_MSG);
-            }            
+            } 
+            else if (dataBlock instanceof DataBlockList)
+            {
+                startIndex = 0;
+                component.setData(((DataBlockList)dataBlock).get(index));
+            }           
             else if (dataBlock instanceof DataBlockParallel)
             {
                 if (component instanceof DataArrayImpl)
                     startIndex += index * ((DataArrayImpl)component).getComponentCount();
                 else
                     startIndex += index;
-            }
-            else if (dataBlock instanceof DataBlockList)
-            {
-                startIndex = 0;
-                component.setData(((DataBlockList)dataBlock).get(index));
+                component.updateStartIndex(startIndex);
             }
             else // primitive block
             {
                 startIndex += index * component.scalarCount;
+                component.updateStartIndex(startIndex);
             }
-            
-            // update child start index
-            component.updateStartIndex(startIndex);
         }
         
         return component;
