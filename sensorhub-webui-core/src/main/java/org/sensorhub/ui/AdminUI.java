@@ -854,6 +854,18 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                                     {
                                         try
                                         {
+                                            // Parent handles submodule destruction, so error would be thrown if we try to destroy it ourselves. REMOVE_SUBMODULE_ACTION is for submodules
+                                            if(module instanceof ISystemDriver && ((ISystemDriver) module).getParentSystem() != null)
+                                            {
+                                                // Only remove submodule from UI if parent is also being removed
+                                                if(selectedModules.contains((IModule<?>) ((ISystemDriver) module).getParentSystem()))
+                                                {
+                                                    // Only remove from UI
+                                                    table.removeItem(module.getLocalID());
+                                                }
+                                                continue;
+                                            }
+
                                             moduleRegistry.destroyModule(module.getLocalID());
 
                                             if(table.hasChildren(module.getLocalID()))
@@ -997,6 +1009,16 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                                     {
                                         try
                                         {
+                                            // If submodule is selected, wait for parent to start before starting
+                                            if (module instanceof ISystemDriver
+                                            && selectedModules.contains((IModule<?>) ((ISystemDriver)module).getParentSystem())
+                                            && !((IModule<?>) ((ISystemDriver)module).getParentSystem()).getCurrentState().equals(ModuleState.STARTED))
+                                            {
+                                                ((IModule<?>) ((ISystemDriver)module).getParentSystem()).waitForState(ModuleState.STARTED, 3000);
+                                                if(!module.isStarted())
+                                                    moduleRegistry.startModuleAsync(module);
+                                            }
+
                                             if (module != null)
                                                 moduleRegistry.startModuleAsync(module);
                                         }
