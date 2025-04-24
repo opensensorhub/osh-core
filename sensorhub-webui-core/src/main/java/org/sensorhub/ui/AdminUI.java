@@ -46,6 +46,7 @@ import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.sensor.SensorSystem;
+import org.sensorhub.impl.sensor.SensorSystemConfig;
 import org.sensorhub.impl.sensor.SensorSystemConfig.SystemMember;
 import org.sensorhub.ui.ModuleTypeSelectionPopup.ModuleTypeSelectionCallback;
 import org.sensorhub.ui.api.IModuleAdminPanel;
@@ -1334,6 +1335,27 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             @Override
                             public void run()
                             {
+                                // Add submodule if added NOT from UI
+                                if (config instanceof SensorSystemConfig && module instanceof SensorSystem)
+                                {
+                                    for (var subsystem : ((SensorSystemConfig) config).subsystems)
+                                    {
+                                        // Only add non-existent children
+                                        if(foundTable.getChildren(module.getLocalID()) == null
+                                        || !foundTable.getChildren(module.getLocalID()).contains(subsystem.config.id))
+                                        {
+                                            // Get submodule from parent and add to module table
+                                            IModule<?> member = ((SensorSystem) module).getMembers().get(subsystem.config.id);
+                                            var memberId = member.getLocalID();
+                                            Item newItem = foundTable.addItem(memberId);
+                                            newItem.getItemProperty(PROP_NAME).setValue(member.getName());
+                                            newItem.getItemProperty(PROP_STATE).setValue(member.getCurrentState());
+                                            newItem.getItemProperty(PROP_MODULE_OBJECT).setValue(member);
+                                            foundTable.setParent(memberId, module.getLocalID());
+                                            foundTable.setChildrenAllowed(memberId, false);
+                                        }
+                                    }
+                                }
                                 // update module name
                                 foundItem.getItemProperty(PROP_NAME).setValue(config.name);
                                 push();
