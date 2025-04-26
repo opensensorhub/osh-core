@@ -867,14 +867,20 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                                                 continue;
                                             }
 
-                                            moduleRegistry.destroyModule(module.getLocalID());
-
                                             if(table.hasChildren(module.getLocalID()))
                                             {
                                                 // Remove children of parent, so children are not moved to top level when parent is removed
                                                 for(var childId : table.getChildren(module.getLocalID()))
                                                     table.removeItem(childId);
                                             }
+
+                                            // TODO dont allow REMOVE_MODULE to remove submodules, let parents remove submodules
+                                            if(table.getParent(module.getLocalID()) == null)
+                                            {
+                                                moduleRegistry.destroyModule(module.getLocalID());
+                                                table.removeItem(module.getLocalID());
+                                            }
+
                                             table.removeItem(module.getLocalID());
                                             selectNone(table);
                                         }
