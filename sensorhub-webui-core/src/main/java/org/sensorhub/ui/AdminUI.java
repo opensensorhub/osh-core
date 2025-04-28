@@ -880,8 +880,6 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                                                 moduleRegistry.destroyModule(module.getLocalID());
                                                 table.removeItem(module.getLocalID());
                                             }
-
-                                            table.removeItem(module.getLocalID());
                                             selectNone(table);
                                         }
                                         catch (SensorHubException ex)
