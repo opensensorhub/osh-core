@@ -486,11 +486,26 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
             else
                 builder.withFois(foiIDs.getBigIds());
         }
+
+        // system param
+        var sysIDs = parseResourceIdsOrUids("system", queryParams, idEncoders.getSystemIdEncoder());
+        if (sysIDs != null && !sysIDs.isEmpty())
+        {
+            if (sysIDs.isUids())
+                builder.withSystems().withUniqueIDs(sysIDs.getUids()).done();
+            else
+                builder.withSystems(sysIDs.getBigIds());
+        }
         
         // datastream param
-        var dsIDs = parseResourceIds("datastream", queryParams, idEncoders.getDataStreamIdEncoder());
+        var dsIDs = parseResourceIds("dataStream", queryParams, idEncoders.getDataStreamIdEncoder());
         if (dsIDs != null && !dsIDs.isEmpty())
             builder.withDataStreams(dsIDs);
+
+        // observedProperty param
+        var obsProps = parseMultiValuesArg("observedProperty", queryParams);
+        if (obsProps != null && !obsProps.isEmpty())
+            builder.withDataStreams().withObservedProperties(obsProps).done();
         
         // use opensearch bbox param to filter spatially
         var bbox = parseBboxArg("bbox", queryParams);
