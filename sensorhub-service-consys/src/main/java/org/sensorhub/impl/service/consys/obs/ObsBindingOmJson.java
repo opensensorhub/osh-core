@@ -110,7 +110,7 @@ public class ObsBindingOmJson extends ResourceBindingJson<BigId, IObsData>
                     obs.withPhenomenonTime(OffsetDateTime.parse(reader.nextString()).toInstant());
                 else if ("resultTime".equals(propName))
                     obs.withResultTime(OffsetDateTime.parse(reader.nextString()).toInstant());
-                else if ("foi@id".equals(propName))
+                else if ("foi@id".equals(propName) && !ctx.isClientSide())
                 {
                     try
                     {
@@ -163,7 +163,7 @@ public class ObsBindingOmJson extends ResourceBindingJson<BigId, IObsData>
     {
         writer.beginObject();
         
-        if (key != null)
+        if (key != null && !ctx.isClientSide())
         {
             var obsId = idEncoders.getObsIdEncoder().encodeID(key);
             writer.name("id").value(obsId);
@@ -175,7 +175,7 @@ public class ObsBindingOmJson extends ResourceBindingJson<BigId, IObsData>
             writer.name("datastream@id").value(dsId);
         }
         
-        if (obs.hasFoi())
+        if (obs.hasFoi() && !ctx.isClientSide())
         {
             var foiId = idEncoders.getFoiIdEncoder().encodeID(obs.getFoiID());
             writer.name("foi@id").value(foiId);

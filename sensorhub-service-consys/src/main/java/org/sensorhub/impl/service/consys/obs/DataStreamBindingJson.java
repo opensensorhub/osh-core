@@ -228,10 +228,10 @@ public class DataStreamBindingJson extends ResourceBindingJson<DataStreamKey, ID
     
     public void serialize(DataStreamKey key, IDataStreamInfo dsInfo, boolean showLinks, boolean expandSchema, JsonWriter writer) throws IOException
     {
-        var dsId = key != null ?
+        var dsId = (key != null && !ctx.isClientSide()) ?
             idEncoders.getDataStreamIdEncoder().encodeID(key.getInternalID()) : null;
         
-        var sysId = (dsInfo.getSystemID() != null && dsInfo.getSystemID() != FeatureId.NULL_FEATURE) ?
+        var sysId = (dsInfo.getSystemID() != null && dsInfo.getSystemID() != FeatureId.NULL_FEATURE && !ctx.isClientSide()) ?
             idEncoders.getSystemIdEncoder().encodeID(dsInfo.getSystemID().getInternalID()) : null;
         
         writer.beginObject();
@@ -310,7 +310,7 @@ public class DataStreamBindingJson extends ResourceBindingJson<DataStreamKey, ID
                 writer.value(time.toString());
             writer.endArray();
         }
-        
+
         if (ctx.isClientSide() || expandSchema)
         {
             writer.name("schema");
