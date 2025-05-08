@@ -17,8 +17,12 @@ package org.vast.sensorML;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import javax.xml.namespace.QName;
+
+import net.opengis.gml.v32.impl.GMLFactory;
 import org.vast.ogc.geopose.Pose;
+import org.vast.swe.SWEConstants;
 import org.vast.util.Asserts;
 import net.opengis.OgcPropertyList;
 import net.opengis.gml.v32.AbstractGeometry;
@@ -29,6 +33,7 @@ import net.opengis.sensorml.v20.PhysicalSystem;
 import net.opengis.sensorml.v20.SpatialFrame;
 import net.opengis.sensorml.v20.TemporalFrame;
 import net.opengis.swe.v20.DataArray;
+import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.DataRecord;
 import net.opengis.swe.v20.Text;
 import net.opengis.swe.v20.Time;
@@ -274,16 +279,24 @@ public class PhysicalSystemImpl extends AggregateProcessImpl implements Physical
     }
 
 
+    /**
+     * Returns the geometry of the first position in the positionList
+     */
     @Override
     public AbstractGeometry getGeometry()
     {
         if (!positionList.isEmpty())
         {
             var pos = positionList.get(0);
-            if (pos instanceof AbstractGeometry)
-                return (AbstractGeometry)pos;
-            else if (pos instanceof Pose)
-                return ((Pose)pos).toLocation();
+            if (pos instanceof AbstractGeometry geometry)
+                return geometry;
+            else if (pos instanceof Pose pose)
+                return pose.toLocation();
+            else if (pos instanceof DataComponent component) {
+                var geometry = parseGeometry(component);
+                if (geometry != null)
+                    return geometry;
+            }
         }
         
         return super.getGeometry();
@@ -295,5 +308,54 @@ public class PhysicalSystemImpl extends AggregateProcessImpl implements Physical
     {
         Asserts.checkArgument(geom instanceof Point, "geom must be a Point");
         addPositionAsPoint((Point)geom);
+    }
+
+
+    /**
+     * Helper method to parse the geometry from a DataComponent
+     *
+     * @param dataComponent the DataComponent to extract the geometry from
+     * @return the AbstractGeometry if found, null otherwise
+     */
+    private AbstractGeometry parseGeometry(DataComponent dataComponent)
+    {
+        // The DataComponent is itself a Vector
+        if (dataComponent instanceof Vector vector) {
+            return parseGeometry(vector);
+        }
+
+        // Find the sensor location field in the DataRecord and get the Vector from it
+        for (int i = 0; i < dataComponent.getComponentCount(); i++) {
+            DataComponent component = dataComponent.getComponent(i);
+            if (component instanceof Vector vector && Objects.equals(vector.getDefinition(), SWEConstants.DEF_SENSOR_LOC)) {
+                return parseGeometry(vector);
+            }
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Helper method to parse the geometry from a Vector
+     *
+     * @param vector the Vector to extract the geometry from
+     * @return the AbstractGeometry if found, null otherwise
+     */
+    private AbstractGeometry parseGeometry(Vector vector)
+    {
+        double[] coordinates = new double[vector.getNumCoordinates()];
+        for (int i = 0; i < vector.getNumCoordinates(); i++) {
+            coordinates[i] = vector.getComponent(i).getData().getDoubleValue();
+        }
+
+        Point point = new GMLFactory(true).newPoint();
+        if (vector.isSetReferenceFrame()) {
+            point.setSrsName(vector.getReferenceFrame());
+            point.setSrsDimension(vector.getNumCoordinates());
+        }
+        point.setPos(coordinates);
+
+        return point;
     }
 }
