@@ -6,18 +6,12 @@ import org.sensorhub.api.module.SubModuleConfig;
 
 public abstract class MessageQueueConfig extends SubModuleConfig
 {
-    @DisplayInfo(desc="Name of topic/queue to use for publish and subscribe operations")
+    @DisplayInfo(desc="Name of topic/queue to use")
     public String topicName;
     
-    @DisplayInfo(desc="Name of subscription to use for publish and subscribe operations")
-    public String subscriptionName;
-    
-    @DisplayInfo(desc="Enable/disable publisher")
+    @DisplayInfo(desc="Enable/disable writing to queue")
     public boolean enablePublish;
     
-    @DisplayInfo(desc="Enable/disable subscriber")
+    @DisplayInfo(desc="Enable/disable reading from queue")
     public boolean enableSubscribe;
-    
-    @DisplayInfo(desc="Set to always use a new subscription (i.e. with no message history)")
-    public boolean deleteOldSubscription;
 }
