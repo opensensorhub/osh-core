@@ -47,34 +47,29 @@ public class XMLImplFinder
     static DOMImplementation domImplementation;
     static XMLInputFactory staxInputFactory;
     static XMLOutputFactory staxOutputFactory;
-    
-    
+
+
+    private XMLImplFinder()
+    {
+        // prevent instantiation
+    }
+
+
+    /**
+     * @return the DOMImplementation, either LS or XML 1.0.
+     * If neither was found, or if the DOMImplementationRegistry class is not available,
+     * i.e., on Android, null is returned.
+     */
     public static DOMImplementation getDOMImplementation()
     {
         if (domImplementation != null)
             return domImplementation;
-        
-        try
-        {
-            // first try to get an LS implementation
-            DOMImplementationRegistry registry = DOMImplementationRegistry.newInstance();
-            return registry.getDOMImplementation("LS");
-        }
-        catch (Exception e)
-        {
-            log.warn("Cannot find DOM LS implementation", e);
-            
-            try
-            {
-                // otherwise fallback to simple implementation
-                DOMImplementationRegistry registry = DOMImplementationRegistry.newInstance();
-                return registry.getDOMImplementation("XML 1.0");
-            }
-            catch (Exception e1)
-            {
-                throw new IllegalStateException("Cannot find DOM implementation", e1);
-            }
-        }
+
+        domImplementation = getLSImplementation();
+        if (domImplementation == null)
+            domImplementation = getFallbackImplementation();
+
+        return domImplementation;
     }
     
     
@@ -113,5 +108,43 @@ public class XMLImplFinder
     public static void setStaxOutputFactory(XMLOutputFactory outputFactory)
     {
         staxOutputFactory = outputFactory;
+    }
+
+
+    /**
+     * Get DOMImplementation that supports LS (Load/Save) module
+     *
+     * @return DOMImplementationLS or null if not found
+     */
+    private static DOMImplementation getLSImplementation()
+    {
+        try
+        {
+            DOMImplementationRegistry registry = DOMImplementationRegistry.newInstance();
+            return registry.getDOMImplementation("LS");
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
+    }
+
+
+    /**
+     * Get a DOMImplementation that supports XML 1.0
+     *
+     * @return DOMImplementation or null if not found
+     */
+    private static DOMImplementation getFallbackImplementation()
+    {
+        try
+        {
+            DOMImplementationRegistry registry = DOMImplementationRegistry.newInstance();
+            return registry.getDOMImplementation("XML 1.0");
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
     }
 }
