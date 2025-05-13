@@ -14,9 +14,11 @@ Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.client;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Authenticator;
@@ -25,6 +27,13 @@ import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandler;
+import java.net.http.HttpResponse.BodyHandlers;
+import java.net.http.HttpResponse.BodySubscriber;
+import java.net.http.HttpResponse.BodySubscribers;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -61,6 +70,7 @@ import org.sensorhub.impl.service.consys.system.SystemBindingGeoJson;
 import org.sensorhub.impl.service.consys.system.SystemBindingSmlJson;
 import org.sensorhub.impl.service.consys.task.CommandStreamBindingJson;
 import org.sensorhub.impl.service.consys.task.CommandStreamSchemaBindingJson;
+import org.sensorhub.utils.Lambdas;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vast.util.Asserts;
@@ -85,8 +95,21 @@ public class ConSysApiClient
 
     static final Logger log = LoggerFactory.getLogger(ConSysApiClient.class);
 
+    protected static boolean isHttpClientAvailable;
+
+    static {
+        // Check if HttpClient is available. Will not be available on Android.
+        try {
+            Class.forName("java.net.http.HttpClient");
+            isHttpClientAvailable = true;
+        } catch (ClassNotFoundException e) {
+            isHttpClientAvailable = false;
+        }
+    }
+
     protected Authenticator authenticator;
-    URI endpoint;
+    protected HttpClient http;
+    protected URI endpoint;
 
 
     protected ConSysApiClient() {}
@@ -768,6 +791,39 @@ public class ConSysApiClient
 
     protected <T> CompletableFuture<T> sendGetRequest(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
     {
+        if (!isHttpClientAvailable)
+            return sendGetRequestFallback(collectionUri, format, bodyMapper);
+
+        var req = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .GET()
+                .header(HttpHeaders.ACCEPT, format.getMimeType())
+                .build();
+
+        BodyHandler<T> bodyHandler = resp -> {
+            BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
+            return BodySubscribers.mapping(upstream, body -> {
+                var is = new ByteArrayInputStream(body);
+                return bodyMapper.apply(is);
+            });
+        };
+
+        return http.sendAsync(req, bodyHandler)
+                .thenApply(resp -> {
+                    if (resp.statusCode() == 200)
+                        return resp.body();
+                    else
+                        throw new CompletionException("HTTP error " + resp.statusCode(), null);
+                });
+    }
+
+
+    /**
+     * Fallback method for sending requests using HttpURLConnection.
+     * This is used when HttpClient is not available (e.g., on Android).
+     */
+    protected <T> CompletableFuture<T> sendGetRequestFallback(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
+    {
         return CompletableFuture.supplyAsync(() -> {
             HttpURLConnection connection = null;
             try {
@@ -797,7 +853,37 @@ public class ConSysApiClient
         });
     }
 
+
     protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
+    {
+        if (!isHttpClientAvailable)
+            return sendPostRequestFallback(collectionUri, format, body);
+
+        var req = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        return http.sendAsync(req, BodyHandlers.ofString())
+                .thenApply(resp -> {
+                    if (resp.statusCode() == 201 || resp.statusCode() == 303) {
+                        var location = resp.headers()
+                                .firstValue(HttpHeaders.LOCATION)
+                                .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
+                        return location.substring(location.lastIndexOf('/') + 1);
+                    } else
+                        throw new CompletionException(resp.body(), null);
+                });
+    }
+
+
+    /**
+     * Fallback method for sending requests using HttpURLConnection.
+     * This is used when HttpClient is not available (e.g., on Android).
+     */
+    protected CompletableFuture<String> sendPostRequestFallback(URI collectionUri, ResourceFormat format, byte[] body)
     {
         return CompletableFuture.supplyAsync(() -> {
             HttpURLConnection connection = null;
@@ -836,7 +922,29 @@ public class ConSysApiClient
         });
     }
 
+
     protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, byte[] body)
+    {
+        if (!isHttpClientAvailable)
+            return sendPutRequestFallback(collectionUri, format, body);
+
+        var req = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
+                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        return http.sendAsync(req, BodyHandlers.ofString())
+                .thenApply(HttpResponse::statusCode);
+    }
+
+
+    /**
+     * Fallback method for sending requests using HttpURLConnection.
+     * This is used when HttpClient is not available (e.g., on Android).
+     */
+    protected CompletableFuture<Integer> sendPutRequestFallback(URI collectionUri, ResourceFormat format, byte[] body)
     {
         return CompletableFuture.supplyAsync(() -> {
             HttpURLConnection connection = null;
@@ -868,6 +976,40 @@ public class ConSysApiClient
 
 
     protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
+    {
+        if (!isHttpClientAvailable)
+            return sendBatchPostRequestFallback(collectionUri, format, body);
+
+        var req = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
+                .build();
+
+        return http.sendAsync(req, BodyHandlers.ofString())
+                .thenApply(Lambdas.checked(resp -> {
+                    if (resp.statusCode() == 201 || resp.statusCode() == 303) {
+                        var idList = new LinkedHashSet<String>();
+                        try (JsonReader reader = new JsonReader(new StringReader(resp.body()))) {
+                            reader.beginArray();
+                            while (reader.hasNext()) {
+                                var uri = reader.nextString();
+                                idList.add(uri.substring(uri.lastIndexOf('/') + 1));
+                            }
+                            reader.endArray();
+                        }
+                        return idList;
+                    } else
+                        throw new ResourceParseException(resp.body());
+                }));
+    }
+
+
+    /**
+     * Fallback method for sending requests using HttpURLConnection.
+     * This is used when HttpClient is not available (e.g., on Android).
+     */
+    protected CompletableFuture<Set<String>> sendBatchPostRequestFallback(URI collectionUri, ResourceFormat format, byte[] body)
     {
         return CompletableFuture.supplyAsync(() -> {
             HttpURLConnection connection = null;
@@ -940,9 +1082,13 @@ public class ConSysApiClient
 
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
+        HttpClient.Builder httpClientBuilder;
+
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
+            if (isHttpClientAvailable)
+                this.httpClientBuilder = HttpClient.newBuilder();
 
             try
             {
@@ -957,6 +1103,13 @@ public class ConSysApiClient
         }
 
 
+        public ConSysApiClientBuilder useHttpClient(HttpClient http)
+        {
+            instance.http = http;
+            return this;
+        }
+
+
         public ConSysApiClientBuilder simpleAuth(String user, char[] password)
         {
             if (!Strings.isNullOrEmpty(user))
@@ -968,6 +1121,9 @@ public class ConSysApiClient
                         return new PasswordAuthentication(user, finalPwd);
                     }
                 };
+
+                if (isHttpClientAvailable)
+                    httpClientBuilder.authenticator(instance.authenticator);
             }
 
             return this;
@@ -977,6 +1133,8 @@ public class ConSysApiClient
         @Override
         public ConSysApiClient build()
         {
+            if (isHttpClientAvailable && instance.http == null)
+                instance.http = httpClientBuilder.build();
             return instance;
         }
     }
