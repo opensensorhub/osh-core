@@ -293,7 +293,7 @@ public class PhysicalSystemImpl extends AggregateProcessImpl implements Physical
             else if (pos instanceof Pose pose)
                 return pose.toLocation();
             else if (pos instanceof DataComponent component) {
-                var geometry = parseGeometry(component);
+                var geometry = convertToGeometry(component);
                 if (geometry != null)
                     return geometry;
             }
@@ -312,23 +312,23 @@ public class PhysicalSystemImpl extends AggregateProcessImpl implements Physical
 
 
     /**
-     * Helper method to parse the geometry from a DataComponent
+     * Helper method to convert a DataComponent's location to a geometry
      *
      * @param dataComponent the DataComponent to extract the geometry from
      * @return the AbstractGeometry if found, null otherwise
      */
-    private AbstractGeometry parseGeometry(DataComponent dataComponent)
+    private AbstractGeometry convertToGeometry(DataComponent dataComponent)
     {
         // The DataComponent is itself a Vector
         if (dataComponent instanceof Vector vector) {
-            return parseGeometry(vector);
+            return convertToGeometry(vector);
         }
 
         // Find the sensor location field in the DataRecord and get the Vector from it
         for (int i = 0; i < dataComponent.getComponentCount(); i++) {
             DataComponent component = dataComponent.getComponent(i);
             if (component instanceof Vector vector && Objects.equals(vector.getDefinition(), SWEConstants.DEF_SENSOR_LOC)) {
-                return parseGeometry(vector);
+                return convertToGeometry(vector);
             }
         }
 
@@ -337,12 +337,12 @@ public class PhysicalSystemImpl extends AggregateProcessImpl implements Physical
 
 
     /**
-     * Helper method to parse the geometry from a Vector
+     * Helper method to convert a Vector to a geometry
      *
      * @param vector the Vector to extract the geometry from
      * @return the AbstractGeometry if found, null otherwise
      */
-    private AbstractGeometry parseGeometry(Vector vector)
+    private AbstractGeometry convertToGeometry(Vector vector)
     {
         double[] coordinates = new double[vector.getNumCoordinates()];
         for (int i = 0; i < vector.getNumCoordinates(); i++) {
