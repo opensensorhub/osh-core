@@ -869,8 +869,9 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
 
                                             if(table.hasChildren(module.getLocalID()))
                                             {
+                                                var childrenIds = new ArrayList<>(table.getChildren(module.getLocalID()));
                                                 // Remove children of parent, so children are not moved to top level when parent is removed
-                                                for(var childId : table.getChildren(module.getLocalID()))
+                                                for(var childId : childrenIds)
                                                     table.removeItem(childId);
                                             }
 
