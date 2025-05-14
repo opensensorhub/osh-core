@@ -54,17 +54,23 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
     Button statusBtn;
     Button errorBtn;
     TabSheet configTabs;
+    protected TabSheet pageTabs;
+    VerticalLayout config;
+    VerticalLayout readme;
+    Readme readmeContent;
     
     
     @Override
     public void build(final MyBeanItem<ModuleConfig> beanItem, final ModuleType module)
     {
         this.module = module;
-        
-        setSizeUndefined();
-        setWidth(100.0f, Unit.PERCENTAGE);
-        setMargin(false);
-        setSpacing(true);
+
+        config = new VerticalLayout();
+
+        config.setSizeUndefined();
+        config.setWidth(100.0f, Unit.PERCENTAGE);
+        config.setMargin(false);
+        config.setSpacing(true);
         
         // header = module name + spinner
         header = new HorizontalLayout();
@@ -91,13 +97,13 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             applyButton.setIcon(APPLY_ICON);
             applyButton.addStyleName(STYLE_SMALL);
             applyButton.addStyleName("apply-button");
-            addComponent(applyButton);
+            config.addComponent(applyButton);
             
             // config forms
             final IModuleConfigForm form = getConfigForm(beanItem);
             TabbedConfigForms tabbedConfigForm = new TabbedConfigForms(form);
             configTabs = tabbedConfigForm.configTabs;
-            addComponent(tabbedConfigForm);
+            config.addComponent(tabbedConfigForm);
             
             // apply button action
             applyButton.addClickListener(event -> {
@@ -126,7 +132,20 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                     DisplayUtils.showErrorPopup(IModule.CANNOT_UPDATE_MSG, e);
                 }
             });
+
         }
+        readmeContent = new Readme(beanItem);
+        readme = new VerticalLayout(readmeContent);
+        // Add tabs for readme and config
+        config.setMargin(true);
+        config.setSpacing(true);
+        readme.setMargin(true);
+        readme.setSpacing(true);
+        readme.setResponsive(true);
+        pageTabs = new TabSheet();
+        pageTabs.addTab(config, "Configuration");
+        pageTabs.addTab(readme, "README");
+        addComponent(pageTabs);
     }
     
     
@@ -169,15 +188,15 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             statusBtn.setCaption(statusMsg);
             
             if (oldBtn == null)
-                addComponent(statusBtn, 2);
+                config.addComponent(statusBtn, 2);
             else
-                replaceComponent(oldBtn, statusBtn);
+                config.replaceComponent(oldBtn, statusBtn);
         }
         else
         {
             if (statusBtn != null)
             {
-                removeComponent(statusBtn);
+                config.removeComponent(statusBtn);
                 statusBtn = null;
             }
         }
@@ -212,15 +231,15 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             });
             
             if (oldBtn == null)
-                addComponent(errorBtn, (statusBtn == null) ? 2 : 3);
+                config.addComponent(errorBtn, (statusBtn == null) ? 2 : 3);
             else
-                replaceComponent(oldBtn, errorBtn);
+                config.replaceComponent(oldBtn, errorBtn);
         }
         else
         {
             if (errorBtn != null)
             {
-                removeComponent(errorBtn);
+                config.removeComponent(errorBtn);
                 errorBtn = null;
             }
         }
@@ -264,7 +283,7 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
     {
         if (!isAttached())
             return;
-        
+
         if (e instanceof ModuleEvent)
         {
             switch (((ModuleEvent)e).getType())
@@ -298,6 +317,10 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                     
                 case CONFIG_CHANGED:
                     getUI().access(() -> {
+                        readme.removeAllComponents();
+                        pageTabs.removeAllComponents();
+                        readmeContent = null;
+                        readme = null;
                         DefaultModulePanel.this.removeAllComponents();
                         DefaultModulePanel.this.build(new MyBeanItem<>(module.getConfiguration()), module);
                         if (isAttached())
