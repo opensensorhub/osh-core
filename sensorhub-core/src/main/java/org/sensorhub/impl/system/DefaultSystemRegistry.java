@@ -15,15 +15,20 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.system;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.command.IStreamingControlInterface;
+import org.sensorhub.api.data.DataStreamEvent;
+import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.database.DatabaseConfig;
 import org.sensorhub.api.database.IObsSystemDatabase;
@@ -31,7 +36,9 @@ import org.sensorhub.api.database.ISystemStateDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.command.CommandStreamFilter;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
+import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.system.SystemFilter;
+import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemDriverRegistry;
@@ -354,6 +361,68 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
     public ISystemStateDatabase getSystemStateDatabase()
     {
         return (ISystemStateDatabase)systemStateDb.getWrappedDatabase();
+    }
+    
+    
+    @Override
+    public CompletableFuture<Entry<DataStreamKey, IDataStreamInfo>> waitForDataStream(String sysUid, String outputName)
+    {
+        var sysTopic = EventUtils.getSystemStatusTopicID(sysUid);
+        Asserts.checkNotNullOrBlank(outputName, "outputName");
+        
+        var cf = new CompletableFuture<Entry<DataStreamKey, IDataStreamInfo>>();
+        
+        hub.getEventBus().newSubscription(DataStreamEvent.class)
+            .withTopicID(sysTopic)
+            .subscribe(new Subscriber<DataStreamEvent>() {
+                volatile Subscription subscription;
+                
+                @Override
+                public void onSubscribe(Subscription subscription)
+                {
+                    this.subscription = subscription;
+                    fetchFromDataStore();
+                }
+    
+                @Override
+                public void onNext(DataStreamEvent e)
+                {
+                    if (sysUid.equals(e.getSystemUID()) && outputName.equals(e.getOutputName()))
+                        fetchFromDataStore();
+                }
+                
+                void fetchFromDataStore()
+                {
+                    var dsStore = hub.getDatabaseRegistry().getFederatedDatabase().getDataStreamStore();
+                    
+                    var filter = new DataStreamFilter.Builder()
+                        .withSystems().withUniqueIDs(sysUid).done()
+                        .withOutputNames(outputName)
+                        .withCurrentVersion()
+                        .build();
+                    
+                    dsStore.selectEntries(filter).findFirst().ifPresentOrElse(
+                        e -> {
+                          cf.complete(e);
+                          subscription.cancel();
+                        },
+                        () -> subscription.request(1)
+                    );
+                }
+    
+                @Override
+                public void onError(Throwable throwable)
+                {
+                    log.error("Error receiving data from event bus", throwable);
+                }
+    
+                @Override
+                public void onComplete()
+                {
+                }
+            });
+        
+        return cf;
     }
 
 }

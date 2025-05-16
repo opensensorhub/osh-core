@@ -14,6 +14,7 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.ui;
 
+import java.lang.reflect.ParameterizedType;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +36,7 @@ import org.sensorhub.api.module.ModuleConfigBase;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.sensor.SensorSystemConfig.SystemMember;
 import org.sensorhub.ui.ModuleInstanceSelectionPopup.ModuleInstanceSelectionCallback;
+import org.sensorhub.ui.ModuleTypeSelectionPopup.ModuleTypeSelectionCallback;
 import org.sensorhub.ui.ModuleTypeSelectionPopup.ModuleTypeSelectionWithClearCallback;
 import org.sensorhub.ui.NetworkAddressSelectionPopup.AddressSelectionCallback;
 import org.sensorhub.ui.ObjectTypeSelectionPopup.ObjectTypeSelectionCallback;
@@ -115,6 +117,7 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
     private static final String CHANGE_OBJECT_ERROR = "Cannot change object type of ";
     protected static final String OPTION_SELECT_MSG = "Please select the desired item";
     protected static final String MAIN_CONFIG = "General";
+    protected static final String ADD_BUTTON_TAB_ID = "$ADD$";
     
     protected transient List<Field<?>> labels = new ArrayList<>();
     protected transient List<Field<?>> textBoxes = new ArrayList<>();
@@ -1122,7 +1125,7 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
         }
         
         // add fake tab with icon to add new items
-        tabs.addTab(new VerticalLayout(), "", UIConstants.ADD_ICON);
+        tabs.addTab(new VerticalLayout(), "", UIConstants.ADD_ICON).setId(ADD_BUTTON_TAB_ID);
         
         // also add empty tab so click on the '+' tab can be detected with tab changed events
         tabs.addTab(new VerticalLayout(), "").setStyleName("empty-tab");
@@ -1185,7 +1188,7 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
                 final int selectedTabPos = tabs.getTabPosition(tab);
                 
                 // case of + tab to add new item
-                if (tab.getIcon() != null && !tabJustRemoved)
+                if (ADD_BUTTON_TAB_ID.equals(tab.getId()) && !tabJustRemoved)
                 {
                     // select something in case add is canceled
                     if (tabs.getComponentCount() > 2)
@@ -1195,45 +1198,88 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
                     
                     try
                     {
-                        Map<String, Class<?>> typeList = GenericConfigForm.this.getPossibleTypes(propId, prop);
-                        
-                        // create callback to add table item
-                        ObjectTypeSelectionCallback callback = new ObjectTypeSelectionCallback() {
-                            @Override
-                            public void onSelected(Class<?> objectType)
+                        // if bean is a module config, let user pick a module
+                        if (ModuleConfigBase.class.isAssignableFrom(container.getBeanType()))
+                        {
+                            Collection<IModuleProvider> moduleTypes = getPossibleModuleTypes(propId, container.getBeanType());
+                            
+                            // show popup to select among available module types
+                            var callback = new ModuleTypeSelectionCallback() {
+                                @Override
+                                public void onSelected(ModuleConfigBase config)
+                                {
+                                    try
+                                    {
+                                        // add new item to container
+                                        MyBeanItem<Object> childBeanItem = container.addBean(config, propId + PROP_SEP);                                                                        
+                                        Tab newTab = addTab(tabs, container.lastItemId(), childBeanItem, selectedTabPos);
+                                        tabs.setSelectedTab(newTab);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        DisplayUtils.showErrorPopup(ADD_ITEM_ERROR + propId, e);
+                                    }
+                                }
+                            };
+    
+                            if (moduleTypes.size() == 1)
                             {
-                                try
-                                {
-                                    // add new item to container
-                                    MyBeanItem<Object> childBeanItem = container.addBean(objectType.newInstance(), propId + PROP_SEP);                                                                        
-                                    Tab newTab = addTab(tabs, container.lastItemId(), childBeanItem, selectedTabPos);
-                                    tabs.setSelectedTab(newTab);
-                                }
-                                catch (Exception e)
-                                {
-                                    DisplayUtils.showErrorPopup(ADD_ITEM_ERROR + propId, e);
-                                }
+                                // we automatically use the only type in the list
+                                Class<?> firstType = moduleTypes.iterator().next().getModuleConfigClass();
+                                callback.onSelected((ModuleConfig)firstType.newInstance());
                             }
-                        };
+                            else
+                            {
+                                // popup the list so the user can select what he wants
+                                var popup = new ModuleTypeSelectionPopup(moduleTypes, callback);
+                                popup.setModal(true);
+                                getUI().addWindow(popup);
+                            }
+                        }
                         
-                        if (typeList == null || typeList.isEmpty())
-                        {
-                            // we use the declared type
-                            callback.onSelected(container.getBeanType());
-                        }
-                        else if (typeList.size() == 1)
-                        {
-                            // we automatically use the only type in the list
-                            Class<?> firstType = typeList.values().iterator().next();
-                            callback.onSelected(firstType);
-                        }
+                        // else if possible types are not modules
                         else
                         {
-                            // we popup the list so the user can select what he wants
-                            String title = "Please select the desired option";
-                            ObjectTypeSelectionPopup popup = new ObjectTypeSelectionPopup(title, typeList, callback);
-                            popup.setModal(true);
-                            getUI().addWindow(popup);
+                            Map<String, Class<?>> typeList = GenericConfigForm.this.getPossibleTypes(propId, prop);
+                            
+                            // create callback to add table item
+                            var callback = new ObjectTypeSelectionCallback() {
+                                @Override
+                                public void onSelected(Class<?> objectType)
+                                {
+                                    try
+                                    {
+                                        // add new item to container
+                                        MyBeanItem<Object> childBeanItem = container.addBean(objectType.newInstance(), propId + PROP_SEP);                                                                        
+                                        Tab newTab = addTab(tabs, container.lastItemId(), childBeanItem, selectedTabPos);
+                                        tabs.setSelectedTab(newTab);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        DisplayUtils.showErrorPopup(ADD_ITEM_ERROR + propId, e);
+                                    }
+                                }
+                            };
+                            
+                            if (typeList == null || typeList.isEmpty())
+                            {
+                                // we use the declared type
+                                callback.onSelected(container.getBeanType());
+                            }
+                            else if (typeList.size() == 1)
+                            {
+                                // we automatically use the only type in the list
+                                Class<?> firstType = typeList.values().iterator().next();
+                                callback.onSelected(firstType);
+                            }
+                            else
+                            {
+                                // we popup the list so the user can select what he wants
+                                String title = "Please select the desired option";
+                                var popup = new ObjectTypeSelectionPopup(title, typeList, callback);
+                                popup.setModal(true);
+                                getUI().addWindow(popup);
+                            }
                         }
                     }
                     catch (Exception e)
@@ -1269,6 +1315,18 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
     }
     
     
+    protected void addObjectToTable()
+    {
+        
+    }
+    
+    
+    protected void addModuleToTable()
+    {
+        
+    }
+    
+    
     protected Tab addTab(TabSheet tabs, final Object itemId, final MyBeanItem<Object> beanItem, final int tabIndex)
     {
         // generate subform
@@ -1299,7 +1357,7 @@ public class GenericConfigForm extends VerticalLayout implements IModuleConfigFo
         if (beanItemId != null)
             return beanItemId;
         
-        return "Item #" + (tabIndex+1);
+        return "Item " + (tabIndex+1);
     }
     
     

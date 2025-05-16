@@ -211,6 +211,7 @@ public class DataStreamTransactionHandler implements IEventListener
             ObsData obs = new ObsData.Builder()
                 .withDataStream(dsKey.getInternalID())
                 .withFoi(foiId)
+                .withResultTime(e.getResultTime())
                 .withPhenomenonTime(SWEDataUtils.toInstant(time))
                 .withResult(rec)
                 .build();
@@ -259,6 +260,11 @@ public class DataStreamTransactionHandler implements IEventListener
         if (e instanceof DataEvent)
         {
             addObs((DataEvent)e);
+        }
+        else if (e instanceof ObsEvent)
+        {
+            for (var obs: ((ObsEvent)e).getObservations())
+                addObs(obs);
         }
     }
     

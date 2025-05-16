@@ -93,6 +93,27 @@ public class DataEvent extends DataStreamEvent
 
 
     /**
+     * Helper constructor to construct a data event associated to the system
+     * that is the parent of the given data interface
+     * @param timeStamp Time of event generation (unix time in milliseconds, base 1970)
+     * @param dataInterface Stream interface that generated the associated data
+     * @param resultTime Time at which the data was generated (e.g. model run time)
+     * @param foiUID Unique ID of feature of interest that this data applies to
+     * @param records Array of records that triggered this event
+     */
+    public DataEvent(long timeStamp, IStreamingDataInterface dataInterface, Instant resultTime, String foiUID, DataBlock ... records)
+    {
+        this(timeStamp,
+             dataInterface.getParentProducer().getUniqueIdentifier(),
+             dataInterface.getName(),
+             resultTime,
+             foiUID,
+             records);
+        this.source = dataInterface;
+    }
+
+
+    /**
      * Constructs a data event associated to a specific system, channel and FOI
      * @param timeStamp Time of event generation (unix time in milliseconds, base 1970)
      * @param sysUID Unique ID of system that produced the data records

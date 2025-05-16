@@ -15,12 +15,15 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.api.system;
 
 import java.util.Collection;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.data.IDataProducer;
+import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.database.ISystemStateDatabase;
+import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.vast.ogc.gml.IFeature;
 
@@ -208,5 +211,15 @@ public interface ISystemDriverRegistry
      * for the specified system
      */
     IObsSystemDatabase getDatabase(String systemUID);
+    
+    
+    /**
+     * Waits for a datastream to be available and return the corresponding database entry
+     * @param sysUid UID of parent system
+     * @param outputName Output name
+     * @return A future providing the database entry for the most recent datastream mapped
+     * to the specified output
+     */
+    CompletableFuture<Entry<DataStreamKey, IDataStreamInfo>> waitForDataStream(String sysUid, String outputName);
     
 }

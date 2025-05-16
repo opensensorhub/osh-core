@@ -81,6 +81,7 @@ public class DataEventToObsConverter
             ObsData obs = new ObsData.Builder()
                 .withDataStream(dsID)
                 .withFoi(foiId)
+                .withResultTime(e.getResultTime())
                 .withPhenomenonTime(SWEDataUtils.toInstant(time))
                 .withResult(record)
                 .build();
