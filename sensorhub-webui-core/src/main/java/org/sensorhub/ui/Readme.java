@@ -10,10 +10,7 @@ import org.sensorhub.ui.data.MyBeanItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
@@ -21,6 +18,37 @@ import java.security.CodeSource;
 
 @JavaScript({"vaadin://js/jquery.min.js", "vaadin://js/lodash.min.js", "vaadin://js/backbone.min.js", "vaadin://js/joint.js", "vaadin://js/marked.min.js", "vaadin://js/readme.js"})
 public class Readme extends AbstractJavaScriptComponent {
+
+    private static final String defaultReadme = "## Missing README\n" +
+            "\n" +
+            "A README file could not be found for this module.\n" +
+            "\n" +
+            "If this is a mistake, please be sure that...\n" +
+            "\n" +
+            "*   The module contains a file titled `README.md` within its build (build > resources > main > README.md).\n" +
+            "\n" +
+            "OR\n" +
+            "*   The module contains a file titled `README.md` in its root directory.\n" +
+            "*   Your node's `build.gradle` file (the outermost one) includes the following:\n" +
+            "       ```plaintext\n" +
+            "        allprojects {\n" +
+            "            version = oshCoreVersion\n" +
+            "            tasks.register('copyReadme', Copy) {\n" +
+            "                from \"${projectDir}/README.md\"\n" +
+            "                into \"${buildDir}/resources/main\"\n" +
+            "                onlyIf { file(\"${projectDir}/README.md\").exists() }\n" +
+            "            }\n" +
+            "        }\n" +
+            "        \n" +
+            "        subprojects {\n" +
+            "            // inject all repositories from included builds if any\n" +
+            "            repositories.addAll(rootProject.repositories)\n" +
+            "            plugins.withType(JavaPlugin) {\n" +
+            "                processResources {\n" +
+            "                    dependsOn copyReadme\n" +
+            "                }\n" +
+            "            }\n" +
+            "        }\n";
 
     private InputStream readmeIs;
     private static final Logger logger = LoggerFactory.getLogger(Readme.class);
@@ -48,14 +76,7 @@ public class Readme extends AbstractJavaScriptComponent {
             }
 
             if (readmeIs == null) {
-                try {
-                    File buildDir = new File(this.getClass().getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile().getParentFile();
-                    readmeIs = new FileInputStream(new File(buildDir, "resources/main/DefaultREADME.md"));
-                    logger.info("Using default README");
-                } catch (IOException e) {
-                    logger.error("Error opening default readme file", e);
-                    return;
-                }
+                readmeIs = new ByteArrayInputStream(defaultReadme.getBytes());
             }
 
             getState().readmeText = new String(readmeIs.readAllBytes());;

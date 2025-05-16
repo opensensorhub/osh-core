@@ -4,11 +4,12 @@ window.org_sensorhub_ui_Readme = function() {
 
 
     contentDiv.className = 'readme-content';
+    contentDiv.style.userSelect = 'text';
     self.getElement().appendChild(contentDiv);
 
     // Set the readme content
     this.onStateChange = function() {
-        console.log(marked.parse(this.getState().readmeText));
+        //console.log(marked.parse(this.getState().readmeText));
         if (typeof marked !== 'undefined') {
             // Parse markdown and set HTML
             contentDiv.innerHTML = marked.parse(this.getState().readmeText);
