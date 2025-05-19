@@ -126,7 +126,6 @@ public class DefaultDatabaseRegistry implements IDatabaseRegistry
     @Override
     public IObsSystemDatabase getObsDatabaseByNum(int dbNum)
     {
-        checkDbNum(dbNum);
         var db = databases.get(dbNum);
         
         if (db instanceof IObsSystemDatabase)
