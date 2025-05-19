@@ -160,13 +160,12 @@ public class DefaultDatabaseRegistry implements IDatabaseRegistry
     @Override
     public IProcedureDatabase getProcedureDatabaseByNum(int dbNum)
     {
-        checkDbNum(dbNum);
         var db = databases.get(dbNum);
         
         if (db instanceof IProcedureDatabase)
             return (IProcedureDatabase)db;
         else
-            throw new IllegalArgumentException("No procedure database with num " + dbNum);
+            return null;
     }
 
 
@@ -191,13 +190,12 @@ public class DefaultDatabaseRegistry implements IDatabaseRegistry
     @Override
     public IFeatureDatabase getFeatureDatabaseByNum(int dbNum)
     {
-        checkDbNum(dbNum);
         var db = databases.get(dbNum);
         
         if (db instanceof IFeatureDatabase)
             return (IFeatureDatabase)db;
         else
-            throw new IllegalArgumentException("No feature database with num " + dbNum);
+            return null;
     }
     
     
