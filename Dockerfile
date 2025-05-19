@@ -19,3 +19,5 @@ RUN unzip osh.zip
 WORKDIR /root/osh-core-osgi-2.0-beta2
 
 CMD ["sh", "launch.sh"]
+
+EXPOSE 8181
