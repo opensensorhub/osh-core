@@ -66,21 +66,6 @@ public class LocalMessageQueue extends AbstractSubModule<MessageQueueConfig> imp
     }
     
     
-    public static class LocalMessageQueueConfig extends MessageQueueConfig
-    {
-        public LocalMessageQueueConfig()
-        {
-            this.moduleClass = LocalMessageQueue.class.getCanonicalName();
-        }
-        
-        public LocalMessageQueueConfig(String topicName)
-        {
-            this();
-            this.topicName = Asserts.checkNotNullOrBlank(topicName, "topicName");
-        }
-    }
-    
-    
     @Override
     public void init(final MessageQueueConfig config) throws SensorHubException
     {
