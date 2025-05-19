@@ -14,6 +14,7 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl;
 
+import java.util.HashMap;
 import java.util.concurrent.ForkJoinPool;
 import org.osgi.framework.BundleContext;
 import org.sensorhub.api.ISensorHub;
@@ -28,6 +29,7 @@ import org.sensorhub.api.processing.IProcessingManager;
 import org.sensorhub.api.security.ISecurityManager;
 import org.sensorhub.api.system.ISystemDriverRegistry;
 import org.sensorhub.impl.comm.NetworkManagerImpl;
+import org.sensorhub.impl.common.IdEncodersBase32;
 import org.sensorhub.impl.common.IdEncodersDES;
 import org.sensorhub.impl.database.registry.DefaultDatabaseRegistry;
 import org.sensorhub.impl.datastore.mem.InMemorySystemStateDbConfig;
@@ -69,6 +71,7 @@ public class SensorHub implements ISensorHub
     protected ISecurityManager securityManager;
     protected IProcessingManager processingManager;
     protected IdEncoders idEncoders;
+    protected boolean useSecureIds;
     protected volatile boolean started = false;
     
     
@@ -136,7 +139,7 @@ public class SensorHub implements ISensorHub
             this.securityManager = new SecurityManagerImpl(this);
             this.networkManager = new NetworkManagerImpl(this);
             this.processingManager = new ProcessingManagerImpl(this);
-            this.idEncoders = new IdEncodersDES(this);
+            this.idEncoders = useSecureIds ? new IdEncodersDES(this) : new IdEncodersBase32();
             
             // prepare client authenticator (e.g. for HTTP connections, etc...)
             ClientAuth.createInstance("keystore");
@@ -268,21 +271,38 @@ public class SensorHub implements ISensorHub
             // print usage
             System.out.println("SensorHub " + version + " (build " + buildNumber + ")");
             System.out.println("Command syntax: sensorhub <module_config_path> [module_data_path]");
+            System.out.println("""
+                Options:
+                
+                -useSecureIds: use ID encryption to 
+                """);
             System.exit(1);
         }
         
         // start sensorhub
-        ISensorHub instance = null;
+        SensorHub instance = null;
         try
         {
             var moduleConfigPath = args[0];
             var moduleDataPath = args.length > 1 ? args[1] : null;
             
+            // create argument map
+            var argMap = new HashMap<String, String>();
+            for (int i = 2; i < args.length; i++)
+            {
+                var arg = args[i];
+                var parts = arg.split("=");
+                var name = parts[0];
+                var val = parts.length > 1 ? parts[1] : null;
+                argMap.put(name, val);
+            }
+            
             SensorHubConfig config = new SensorHubConfig(moduleConfigPath, moduleDataPath);
             instance = new SensorHub(config);
+            instance.useSecureIds = argMap.containsKey("useSecureIds");
             
             // register shutdown hook for a clean stop 
-            final ISensorHub sh = instance;
+            final SensorHub sh = instance;
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
                 public void run()
