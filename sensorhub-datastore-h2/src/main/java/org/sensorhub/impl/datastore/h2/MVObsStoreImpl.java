@@ -47,6 +47,8 @@ import org.sensorhub.api.feature.FeatureId;
 import org.sensorhub.impl.datastore.DataStoreUtils;
 import org.sensorhub.impl.datastore.MergeSortSpliterator;
 import org.sensorhub.impl.datastore.h2.MVDatabaseConfig.IdProviderType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vast.util.Asserts;
 import org.vast.util.TimeExtent;
 import com.google.common.collect.Range;
@@ -66,6 +68,8 @@ import net.opengis.swe.v20.DataBlock;
  */
 public class MVObsStoreImpl implements IObsStore
 {
+    static Logger logger = LoggerFactory.getLogger(MVObsStoreImpl.class);
+    
     private static final String OBS_RECORDS_MAP_NAME = "obs_records";
     private static final String OBS_SERIES_MAP_NAME = "obs_series";
     private static final String OBS_SERIES_FOI_MAP_NAME = "obs_series_foi";
@@ -259,9 +263,11 @@ public class MVObsStoreImpl implements IObsStore
             })
             .map(k -> {
                 MVTimeSeriesInfo series = obsSeriesMainIndex.get(k);
-                series.key = k;
+                if (series != null)
+                    series.key = k;
                 return series;
-            });
+            })
+            .filter(Objects::nonNull);
     }
     
     
@@ -420,6 +426,7 @@ public class MVObsStoreImpl implements IObsStore
         // just get one record per series alternatively
         if (numSeries > maxOrderedSeries)
         {
+            logger.warn("Query hits a large number of observation series: time sorting disabled");
             return Stream.iterate(0, i -> i++)
                 .flatMap(i -> {
                     return selectObsSeries(filter, timeParams)
@@ -429,7 +436,6 @@ public class MVObsStoreImpl implements IObsStore
                                 timeParams.phenomenonTimeRange,
                                 timeParams.currentTimeOnly,
                                 timeParams.latestResultOnly);
-                            System.err.println("skip="+i);
                             return getPostFilteredResultStream(obsStream, filter).skip(i).limit(1);
                         }); 
                 })
@@ -466,6 +472,62 @@ public class MVObsStoreImpl implements IObsStore
             return StreamSupport.stream(mergeSortIt, false)
                 .limit(filter.getLimit())
                 .onClose(() -> mergeSortIt.close());
+        }
+    }
+
+
+    @Override
+    public synchronized long removeEntries(ObsFilter filter)
+    {
+        synchronized (mvStore)
+        {
+            long currentVersion = mvStore.getCurrentVersion();
+            
+            try
+            {
+                // stream obs directly in case of filtering by internal IDs
+                if (filter.getInternalIDs() != null)
+                {
+                    var obsStream = filter.getInternalIDs().stream()
+                        .map(k -> toInternalKey(k))
+                        .filter(Objects::nonNull)
+                        .map(k -> obsRecordsIndex.getEntry(k))
+                        .filter(Objects::nonNull);
+                    
+                    return getPostFilteredResultStream(obsStream, filter)
+                        .peek(e -> remove(e.getKey()))
+                        .count();
+                }
+                
+                // select obs series matching the filter
+                var timeParams = new TimeParams(filter);
+                return selectObsSeries(filter, timeParams)
+                    .mapToLong(series -> {
+                        var obsStream = getObsStream(series, 
+                            timeParams.resultTimeRange,
+                            timeParams.phenomenonTimeRange,
+                            timeParams.currentTimeOnly,
+                            timeParams.latestResultOnly);
+                        
+                        // delete all matching record in series
+                        var numRemoved = getPostFilteredResultStream(obsStream, filter)
+                            .peek(e -> remove(e.getKey()))
+                            .count();
+                        
+                        // delete series if it has no more records
+                        if (getObsSeriesCount(series.id, H2Utils.ALL_TIMES_RANGE) == 0) {
+                            obsSeriesByFoiIndex.remove(series.key);
+                            obsSeriesMainIndex.remove(series.key);
+                        }   
+                        
+                        return numRemoved;
+                    }).sum();
+            }
+            catch (Exception e)
+            {
+                mvStore.rollbackTo(currentVersion);
+                throw e;
+            }
         }
     }
     
@@ -997,8 +1059,8 @@ public class MVObsStoreImpl implements IObsStore
             });
             
             // remove series from index
-            obsSeriesMainIndex.remove(entry.getKey());
             obsSeriesByFoiIndex.remove(entry.getKey());
+            obsSeriesMainIndex.remove(entry.getKey());
         });
     }
 
