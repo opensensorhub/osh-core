@@ -1,16 +1,16 @@
 /***************************** BEGIN LICENSE BLOCK ***************************
 
-The contents of this file are subject to the Mozilla Public License, v. 2.0.
-If a copy of the MPL was not distributed with this file, You can obtain one
-at http://mozilla.org/MPL/2.0/.
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
 
-Software distributed under the License is distributed on an "AS IS" basis,
-WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-for the specific language governing rights and limitations under the License.
- 
-Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
- 
-******************************* END LICENSE BLOCK ***************************/
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
+
+ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
+
+ ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.ui;
 
@@ -54,24 +54,18 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
     Button statusBtn;
     Button errorBtn;
     TabSheet configTabs;
-    protected TabSheet pageTabs;
-    VerticalLayout config;
-    VerticalLayout readme;
-    Readme readmeContent;
-    
-    
+
+
     @Override
     public void build(final MyBeanItem<ModuleConfig> beanItem, final ModuleType module)
     {
         this.module = module;
 
-        config = new VerticalLayout();
+        setSizeUndefined();
+        setWidth(100.0f, Unit.PERCENTAGE);
+        setMargin(false);
+        setSpacing(true);
 
-        config.setSizeUndefined();
-        config.setWidth(100.0f, Unit.PERCENTAGE);
-        config.setMargin(false);
-        config.setSpacing(true);
-        
         // header = module name + spinner
         header = new HorizontalLayout();
         header.setSpacing(true);
@@ -84,12 +78,12 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
         Label hr = new Label("<hr/>", ContentMode.HTML);
         hr.setWidth(100.0f, Unit.PERCENTAGE);
         addComponent(hr);
-        
+
         // status message
         refreshState();
         refreshStatusMessage();
         refreshErrorMessage();
-        
+
         if (!module.getLocalID().startsWith("$$"))
         {
             // apply changes button
@@ -97,26 +91,27 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             applyButton.setIcon(APPLY_ICON);
             applyButton.addStyleName(STYLE_SMALL);
             applyButton.addStyleName("apply-button");
-            config.addComponent(applyButton);
-            
+            addComponent(applyButton);
+
             // config forms
             final IModuleConfigForm form = getConfigForm(beanItem);
             TabbedConfigForms tabbedConfigForm = new TabbedConfigForms(form);
             configTabs = tabbedConfigForm.configTabs;
-            config.addComponent(tabbedConfigForm);
-            
+            configTabs.addTab(new ReadmePanel(beanItem), "README");
+            addComponent(tabbedConfigForm);
+
             // apply button action
             applyButton.addClickListener(event -> {
                 AdminUI ui = (AdminUI)UI.getCurrent();
                 ui.logAction("Update Config", module);
-                
+
                 // security check
                 if (!ui.securityHandler.hasPermission(ui.securityHandler.module_update))
                 {
                     DisplayUtils.showUnauthorizedAccess(ui.securityHandler.module_update.getErrorMessage());
                     return;
                 }
-                
+
                 try
                 {
                     form.commit();
@@ -132,29 +127,16 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                     DisplayUtils.showErrorPopup(IModule.CANNOT_UPDATE_MSG, e);
                 }
             });
-
         }
-        readmeContent = new Readme(beanItem);
-        readme = new VerticalLayout(readmeContent);
-        // Add tabs for readme and config
-        config.setMargin(true);
-        config.setSpacing(true);
-        readme.setMargin(true);
-        readme.setSpacing(true);
-        readme.setResponsive(true);
-        pageTabs = new TabSheet();
-        pageTabs.addTab(config, "Configuration");
-        pageTabs.addTab(readme, "README");
-        addComponent(pageTabs);
     }
-    
-    
+
+
     protected void beforeUpdateConfig() throws SensorHubException
     {
         // to be overridden by derived classes
     }
-    
-    
+
+
     protected void refreshState()
     {
         if (spinner == null)
@@ -173,43 +155,43 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             spinner = null;
         }
     }
-    
-    
+
+
     protected void refreshStatusMessage()
     {
         String statusMsg = module.getStatusMessage();
         if (statusMsg != null)
         {
             Button oldBtn = statusBtn;
-            
+
             statusBtn = new Button();
             statusBtn.setStyleName(STYLE_LINK);
             statusBtn.setIcon(INFO_ICON);
             statusBtn.setCaption(statusMsg);
-            
+
             if (oldBtn == null)
-                config.addComponent(statusBtn, 2);
+                addComponent(statusBtn, 2);
             else
-                config.replaceComponent(oldBtn, statusBtn);
+                replaceComponent(oldBtn, statusBtn);
         }
         else
         {
             if (statusBtn != null)
             {
-                config.removeComponent(statusBtn);
+                removeComponent(statusBtn);
                 statusBtn = null;
             }
         }
     }
-    
-    
+
+
     protected void refreshErrorMessage()
     {
         final Throwable errorObj = module.getCurrentError();
         if (errorObj != null)
         {
             Button oldBtn = errorBtn;
-            
+
             // show link with error msg
             errorBtn = new Button();
             errorBtn.setStyleName(STYLE_LINK);
@@ -224,35 +206,35 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                 errorMsg.append(errorObj.getCause().getMessage());
             }
             errorBtn.setCaption(errorMsg.toString());
-            
+
             // show error details on button click
             errorBtn.addClickListener(event -> {
                 DisplayUtils.showErrorDetails(module, errorObj);
             });
-            
+
             if (oldBtn == null)
-                config.addComponent(errorBtn, (statusBtn == null) ? 2 : 3);
+                addComponent(errorBtn, (statusBtn == null) ? 2 : 3);
             else
-                config.replaceComponent(oldBtn, errorBtn);
+                replaceComponent(oldBtn, errorBtn);
         }
         else
         {
             if (errorBtn != null)
             {
-                config.removeComponent(errorBtn);
+                removeComponent(errorBtn);
                 errorBtn = null;
             }
         }
     }
-    
-    
+
+
     protected void refreshContent()
     {
         // do nothing by default
         // can be overriden by custom panels
     }
-    
-    
+
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     protected IModuleConfigForm getConfigForm(MyBeanItem<ModuleConfig> beanItem)
     {
@@ -260,16 +242,16 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
         form.build(GenericConfigForm.MAIN_CONFIG, "General module configuration", (MyBeanItem)beanItem, false);
         return form;
     }
-    
-    
+
+
     @Override
     public void attach()
     {
         super.attach();
         module.registerListener(this);
     }
-    
-    
+
+
     @Override
     public void detach()
     {
@@ -295,7 +277,7 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                             getUI().push();
                     });
                     break;
-                    
+
                 case ERROR:
                     getUI().access(() -> {
                         refreshErrorMessage();
@@ -303,7 +285,7 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                             getUI().push();
                     });
                     break;
-                    
+
                 case STATE_CHANGED:
                     getUI().access(() -> {
                         refreshState();
@@ -312,41 +294,37 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
                         refreshContent();
                         if (isAttached())
                             getUI().push();
-                    });  
+                    });
                     break;
-                    
+
                 case CONFIG_CHANGED:
                     getUI().access(() -> {
-                        readme.removeAllComponents();
-                        pageTabs.removeAllComponents();
-                        readmeContent = null;
-                        readme = null;
                         DefaultModulePanel.this.removeAllComponents();
                         DefaultModulePanel.this.build(new MyBeanItem<>(module.getConfiguration()), module);
                         if (isAttached())
                             getUI().push();
-                    });  
+                    });
                     break;
-                    
+
                 default:
                     return;
             }
         }
     }
 
-    
+
     protected ISensorHub getParentHub()
     {
         return ((AdminUI)UI.getCurrent()).getParentHub();
     }
-    
-    
+
+
     protected AdminUIModule getParentProducer()
     {
         return ((AdminUI)UI.getCurrent()).getParentModule();
     }
-    
-    
+
+
     protected Logger getOshLogger()
     {
         return ((AdminUI)UI.getCurrent()).getOshLogger();

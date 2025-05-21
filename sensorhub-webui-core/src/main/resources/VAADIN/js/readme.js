@@ -1,4 +1,4 @@
-window.org_sensorhub_ui_Readme = function() {
+window.org_sensorhub_ui_ReadmePanel_ReadmeJS = function() {
     var self = this;
     var contentDiv = document.createElement('div');
 
