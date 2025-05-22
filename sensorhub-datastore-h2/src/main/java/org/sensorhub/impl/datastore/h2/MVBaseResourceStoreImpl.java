@@ -240,21 +240,18 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
     @Override
     public synchronized void clear()
     {
-        // synchronize on MVStore to avoid autocommit in the middle of things
-        synchronized (mvStore)
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
+        
+        try
         {
-            long currentVersion = mvStore.getCurrentVersion();
-            
-            try
-            {
-                mainIndex.clear();
-                fullTextIndex.clear();
-            }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+            mainIndex.clear();
+            fullTextIndex.clear();
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
 
@@ -299,7 +296,7 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
 
 
     @Override
-    public V put(K key, V res)
+    public synchronized V put(K key, V res)
     {
         try
         {
@@ -315,32 +312,29 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
     
     protected V put(K key, V res, boolean replace) throws DataStoreException
     {
-        // synchronize on MVStore to avoid autocommit in the middle of things
-        synchronized (mvStore)
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
+        
+        try
         {
-            long currentVersion = mvStore.getCurrentVersion();
+            // add to main index
+            V oldValue = mainIndex.put(key, res);
             
-            try
+            // check if we're allowed to replace existing entry
+            boolean isNewEntry = (oldValue == null);
+            if (!isNewEntry)
             {
-                // add to main index
-                V oldValue = mainIndex.put(key, res);
-                
-                // check if we're allowed to replace existing entry
-                boolean isNewEntry = (oldValue == null);
-                if (!isNewEntry)
-                {
-                    if (!replace)
-                        throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_KEY);
-                }
-                
-                updateIndexes(key, oldValue, res, isNewEntry);
-                return oldValue;
+                if (!replace)
+                    throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_KEY);
             }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+            
+            updateIndexes(key, oldValue, res, isNewEntry);
+            return oldValue;
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
     
@@ -362,27 +356,24 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
         if (k == null)
             return null;
         
-        // synchronize on MVStore to avoid autocommit in the middle of things
-        synchronized (mvStore)
-        {
-            long currentVersion = mvStore.getCurrentVersion();
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
             
-            try
-            {
-                // remove from main index
-                V oldValue = mainIndex.remove(k);
-                if (oldValue == null)
-                    return null;
-                
-                removeFromIndexes(k, oldValue);
-                
-                return oldValue;
-            }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+        try
+        {
+            // remove from main index
+            V oldValue = mainIndex.remove(k);
+            if (oldValue == null)
+                return null;
+            
+            removeFromIndexes(k, oldValue);
+            
+            return oldValue;
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
     

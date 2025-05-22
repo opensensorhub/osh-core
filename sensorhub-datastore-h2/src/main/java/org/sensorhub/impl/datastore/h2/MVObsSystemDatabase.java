@@ -287,22 +287,20 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
     
     
     @Override
-    public <T> T executeTransaction(Callable<T> transaction) throws Exception
+    public synchronized <T> T executeTransaction(Callable<T> transaction) throws Exception
     {
         checkStarted();
-        synchronized (mvStore)
+        
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
+        try
         {
-            long currentVersion = mvStore.getCurrentVersion();
-            
-            try
-            {
-                return transaction.call();
-            }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+            return transaction.call();
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
 
