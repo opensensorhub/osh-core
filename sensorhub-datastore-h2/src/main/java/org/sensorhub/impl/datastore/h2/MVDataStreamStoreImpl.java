@@ -419,54 +419,51 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
     {
         var dsID = key.getInternalID().getIdAsLong();
         
-        // synchronize on MVStore to avoid autocommit in the middle of things
-        synchronized (mvStore)
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
+
+        try
         {
-            long currentVersion = mvStore.getCurrentVersion();
-
-            try
+            // add to main index
+            var oldValue = dataStreamIndex.put(key, dsInfo);
+            
+            // check if we're allowed to replace existing entry
+            boolean isNewEntry = (oldValue == null);
+            if (!isNewEntry && !replace)
+                throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+            
+            // update sys/output index
+            // remove old entry if needed
+            if (oldValue != null && replace)
             {
-                // add to main index
-                var oldValue = dataStreamIndex.put(key, dsInfo);
-                
-                // check if we're allowed to replace existing entry
-                boolean isNewEntry = (oldValue == null);
-                if (!isNewEntry && !replace)
-                    throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
-                
-                // update sys/output index
-                // remove old entry if needed
-                if (oldValue != null && replace)
-                {
-                    MVTimeSeriesSystemKey procKey = new MVTimeSeriesSystemKey(dsID,
-                        oldValue.getSystemID().getInternalID().getIdAsLong(),
-                        oldValue.getOutputName(),
-                        oldValue.getValidTime().begin().getEpochSecond());
-                    dataStreamBySystemIndex.remove(procKey);
-                }
-
-                // add new entry
                 MVTimeSeriesSystemKey procKey = new MVTimeSeriesSystemKey(dsID,
-                    dsInfo.getSystemID().getInternalID().getIdAsLong(),
-                    dsInfo.getOutputName(),
-                    dsInfo.getValidTime().begin().getEpochSecond());
-                var oldProcKey = dataStreamBySystemIndex.put(procKey, Boolean.TRUE);
-                if (oldProcKey != null && !replace)
-                    throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
-                
-                // update full-text index
-                if (isNewEntry)
-                    fullTextIndex.add(dsID, dsInfo);
-                else
-                    fullTextIndex.update(dsID, oldValue, dsInfo);
-                
-                return oldValue;
+                    oldValue.getSystemID().getInternalID().getIdAsLong(),
+                    oldValue.getOutputName(),
+                    oldValue.getValidTime().begin().getEpochSecond());
+                dataStreamBySystemIndex.remove(procKey);
             }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+
+            // add new entry
+            MVTimeSeriesSystemKey procKey = new MVTimeSeriesSystemKey(dsID,
+                dsInfo.getSystemID().getInternalID().getIdAsLong(),
+                dsInfo.getOutputName(),
+                dsInfo.getValidTime().begin().getEpochSecond());
+            var oldProcKey = dataStreamBySystemIndex.put(procKey, Boolean.TRUE);
+            if (oldProcKey != null && !replace)
+                throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+            
+            // update full-text index
+            if (isNewEntry)
+                fullTextIndex.add(dsID, dsInfo);
+            else
+                fullTextIndex.update(dsID, oldValue, dsInfo);
+            
+            return oldValue;
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
 
@@ -477,38 +474,35 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
         var dsKey = DataStoreUtils.checkDataStreamKey(key);
         var dsID = dsKey.getInternalID().getIdAsLong();
 
-        // synchronize on MVStore to avoid autocommit in the middle of things
-        synchronized (mvStore)
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
+
+        try
         {
-            long currentVersion = mvStore.getCurrentVersion();
+            // remove all obs
+            if (obsStore != null)
+                obsStore.removeAllObsAndSeries(dsID);
+            
+            // remove from main index
+            IDataStreamInfo oldValue = dataStreamIndex.remove(dsKey);
+            if (oldValue == null)
+                return null;
 
-            try
-            {
-                // remove all obs
-                if (obsStore != null)
-                    obsStore.removeAllObsAndSeries(dsID);
-                
-                // remove from main index
-                IDataStreamInfo oldValue = dataStreamIndex.remove(dsKey);
-                if (oldValue == null)
-                    return null;
+            // remove entry in secondary index
+            dataStreamBySystemIndex.remove(new MVTimeSeriesSystemKey(
+                oldValue.getSystemID().getInternalID().getIdAsLong(),
+                oldValue.getOutputName(),
+                oldValue.getValidTime().begin()));
+            
+            // remove from full-text index
+            fullTextIndex.remove(dsID, oldValue);
 
-                // remove entry in secondary index
-                dataStreamBySystemIndex.remove(new MVTimeSeriesSystemKey(
-                    oldValue.getSystemID().getInternalID().getIdAsLong(),
-                    oldValue.getOutputName(),
-                    oldValue.getValidTime().begin()));
-                
-                // remove from full-text index
-                fullTextIndex.remove(dsID, oldValue);
-
-                return oldValue;
-            }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+            return oldValue;
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
 
@@ -516,22 +510,19 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
     @Override
     public synchronized void clear()
     {
-        // synchronize on MVStore to avoid autocommit in the middle of things
-        synchronized (mvStore)
-        {
-            long currentVersion = mvStore.getCurrentVersion();
+        // store current version so we can rollback if an error occurs
+        long currentVersion = mvStore.getCurrentVersion();
 
-            try
-            {
-                obsStore.clear();
-                dataStreamBySystemIndex.clear();
-                dataStreamIndex.clear();
-            }
-            catch (Exception e)
-            {
-                mvStore.rollbackTo(currentVersion);
-                throw e;
-            }
+        try
+        {
+            obsStore.clear();
+            dataStreamBySystemIndex.clear();
+            dataStreamIndex.clear();
+        }
+        catch (Exception e)
+        {
+            mvStore.rollbackTo(currentVersion);
+            throw e;
         }
     }
 
