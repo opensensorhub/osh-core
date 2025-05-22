@@ -97,8 +97,13 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             final IModuleConfigForm form = getConfigForm(beanItem);
             TabbedConfigForms tabbedConfigForm = new TabbedConfigForms(form);
             configTabs = tabbedConfigForm.configTabs;
-            configTabs.addTab(new ReadmePanel(beanItem), "README");
-            addComponent(tabbedConfigForm);
+            try {
+                var moduleBean = getParentHub().getModuleRegistry().findModuleClass(beanItem.getBean().moduleClass);
+                configTabs.addTab(new ReadmePanel(moduleBean), "README");
+                addComponent(tabbedConfigForm);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
 
             // apply button action
             applyButton.addClickListener(event -> {
