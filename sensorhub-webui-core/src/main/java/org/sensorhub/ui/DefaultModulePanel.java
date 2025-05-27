@@ -98,8 +98,8 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             TabbedConfigForms tabbedConfigForm = new TabbedConfigForms(form);
             configTabs = tabbedConfigForm.configTabs;
             try {
-                var moduleBean = getParentHub().getModuleRegistry().findModuleClass(beanItem.getBean().moduleClass);
-                configTabs.addTab(new ReadmePanel(moduleBean), "README");
+
+                configTabs.addTab(new ReadmePanel(beanItem), "README");
                 addComponent(tabbedConfigForm);
             } catch (Exception e) {
                 throw new RuntimeException(e);

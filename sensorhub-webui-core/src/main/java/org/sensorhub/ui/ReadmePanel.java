@@ -5,53 +5,14 @@ import com.vaadin.server.FontAwesome;
 import com.vaadin.shared.ui.ContentMode;
 import com.vaadin.shared.ui.JavaScriptComponentState;
 import com.vaadin.ui.*;
+import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.ui.api.UIConstants;
+import org.sensorhub.ui.data.MyBeanItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.*;
 
 public class ReadmePanel extends VerticalLayout {
-
-    private static final String defaultReadmeHtml = "<p>A README file could not be found for this module.</p>\n" +
-            "<p>If this is a mistake, please be sure that…</p>\n" +
-            "<ul>\n" +
-            "<li>The module contains a file titled <code>README.md</code> within its resources (src &gt; main &gt; resources &gt; {full package name} &gt; README.md).</li>\n" +
-            "</ul>\n" +
-            "<p>OR</p>\n" +
-            "<ul>\n" +
-            "<li>\n" +
-            "<p>The module contains a file titled <code>README.md</code> in its root directory.</p>\n" +
-            "</li>\n" +
-            "<li>\n" +
-            "<p>Your node’s <code>build.gradle</code> file (the outermost one) includes the following:</p>\n" +
-            "<pre><code>allprojects {\n" +
-            "\tversion = oshCoreVersion\n" +
-            "\ttasks.register('copyReadme', Copy) {\n" +
-            "\t\tif (project.hasProperty(\"osgi\")) {\n" +
-            "\t\t\tdef classPath = project.osgi.manifest.attributes.get('Bundle-Activator')\n" +
-            "\t\t\tif (classPath != null) {\n" +
-            "\t\t\t\tclassPath = classPath.tokenize('.').dropRight(1).join('/')\n" +
-            "\t\t\t\tfrom \"${projectDir}/README.md\"\n" +
-            "\t\t\t\tinto \"${projectDir}/src/main/resources/${classPath}\"\n" +
-            "\t\t\t\tonlyIf { file(\"${projectDir}/README.md\").exists() }\n" +
-            "\t\t\t}\n" +
-            "\t\t}\n" +
-            "\t}\n" +
-            "}\n" +
-            "subprojects {  \n" +
-            "\t// inject all repositories from included builds if any  \n" +
-            "\trepositories.addAll(rootProject.repositories)  \n" +
-            "\tplugins.withType(JavaPlugin) {  \n" +
-            "\t\tafterEvaluate {  \n" +
-            "\t\t\tprocessResources {  \n" +
-            "\t\t\t\tdependsOn copyReadme  \n" +
-            "\t\t\t}  \n" +
-            "\t\t} \n" +
-            "\t}\n" +
-            "}\n" +
-            "</code></pre>\n" +
-            "</li>\n" +
-            "</ul>\n";
 
     // This determines which tab is visible
     // Hack needed for desired accordion behavior in this older version of Vaadin
@@ -67,10 +28,10 @@ public class ReadmePanel extends VerticalLayout {
             public String readmeText;
         }
 
-        private ReadmeJS(final Class<?> moduleClass) {
-
+        private ReadmeJS(final MyBeanItem<ModuleConfig> beanItem) {
             try {
-                InputStream readmeIs = moduleClass.getResourceAsStream("README.md");
+                InputStream readmeIs = beanItem.getBean().getClass().getResourceAsStream("README.md");
+                //logger.debug("readmeIs: {}", beanItem.getResource(""));
 
                 if (readmeIs == null) {
                     hasContent = false;
@@ -104,8 +65,8 @@ public class ReadmePanel extends VerticalLayout {
         }
     }
 
-    public ReadmePanel(final Class<?> moduleClass) {
-        ReadmeJS readmeJS = new ReadmeJS(moduleClass);
+    public ReadmePanel(final MyBeanItem<ModuleConfig> beanItem) {
+        ReadmeJS readmeJS = new ReadmeJS(beanItem);
         if (readmeJS.hasContent()) {
             // Use JS markdown parser if a readme exists
             addComponent(readmeJS);
@@ -125,7 +86,7 @@ public class ReadmePanel extends VerticalLayout {
             VerticalLayout instructions = new VerticalLayout();
             instructions.setMargin(true);
             instructions.setSpacing(true);
-            Label instructionsLabel = new Label(defaultReadmeHtml, ContentMode.HTML);
+            Label instructionsLabel = new Label(generateInstructions(beanItem), ContentMode.HTML);
             instructions.addComponent(instructionsLabel);
             instructions.setVisible(false);
             instructions.addStyleNames("v-csslayout-well", "v-scrollable");
@@ -146,5 +107,28 @@ public class ReadmePanel extends VerticalLayout {
             addComponent(instructions);
 
         }
+    }
+
+    private String generateInstructions(final MyBeanItem<ModuleConfig> beanItem) {
+        String packagePath = beanItem.getBean().getClass().getPackage().getName().replace(".", "/");
+        return "<p>A README file could not be found for this module.</p>\n" +
+                "<p>If this is a mistake, please be sure that the module contains a file titled <code>README.md</code> within its resources directory.<br>\n" +
+                "<code>src/main/resources/" +
+                packagePath +
+                "/README.md</code></p>" +
+                "<p>Add the following to the module's build.gradle to automatically copy the readme into resources.<br>\n" +
+                "If the readme is not in the module's root directory, adjustments may be necessary.</p>\n" +
+                "<pre>\n" +
+                "tasks.register('copyReadme', Copy) {\n" +
+                "\tfrom \"${projectDir}/README.md\"\n" +
+                "\tinto \"${projectDir}/src/main/resources/" +
+                packagePath + "\"\n" +
+                "\tonlyIf { file(\"${projectDir}/README.md\").exists() }\n" +
+                "}\n" +
+                "\n" +
+                "processResources {\n" +
+                "\tdependsOn copyReadme\n" +
+                "}\n" +
+                "</pre>\n";
     }
 }
