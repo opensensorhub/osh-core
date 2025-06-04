@@ -139,7 +139,7 @@ public class RadixTreeCursor<K, V> implements Iterator<K>
         {
             Page selectedPage = context.getSelectedPage();
             Page valuePage = map.getValuePage(selectedPage);
-            valueCursor = new Cursor<>(map, valuePage, (K)valuePage.getKey(0));
+            valueCursor = new Cursor<>(valuePage, (K)valuePage.getKey(0));
             if (valueCursor.hasNext())
                 valueCursor.next();
         }

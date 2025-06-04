@@ -18,11 +18,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVStore;
 import org.h2.mvstore.MVVarLongDataType;
@@ -388,7 +388,7 @@ public class MVCommandStreamStoreImpl implements ICommandStreamStore
 
         // always wrap with dynamic command stream object
         resultStream = resultStream.map(e -> {
-            return new DataUtils.MapEntry<CommandStreamKey, ICommandStreamInfo>(
+            return new SimpleEntry<CommandStreamKey, ICommandStreamInfo>(
                 e.getKey(),
                 new CommandStreamInfoWithTimeRanges(e.getKey().getInternalID().getIdAsLong(), e.getValue())
             ); 

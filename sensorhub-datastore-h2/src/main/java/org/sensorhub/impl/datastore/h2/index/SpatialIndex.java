@@ -89,7 +89,7 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
             .map(k -> rTreeMap.get(k));*/
         
         var rTreeKeyType = ((SpatialDataType)rTreeMap.getKeyType());
-        var geoCursor = new RTreeEntryCursor<K>(rTreeMap.getRoot(), bbox) {
+        var geoCursor = new RTreeEntryCursor<K>(rTreeMap.getRoot().root, bbox) {
             @Override
             protected boolean check(boolean leaf, SpatialKey key, SpatialKey test)
             {
@@ -109,7 +109,7 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
     {
         Bbox extent = new Bbox();
         
-        Page root = rTreeMap.getRoot();
+        Page root = rTreeMap.getRoot().root;
         for (int i = 0; i < root.getKeyCount(); i++)
         {
             SpatialKey key = (SpatialKey)root.getKey(i);

@@ -4,7 +4,7 @@ ext.details = 'Storage module backed by a H2 MVStore object database'
 dependencies {
   implementation project(':sensorhub-core')
   implementation project(':sensorhub-utils-kryo')
-  embeddedApi 'com.h2database:h2-mvstore:1.4.197'
+  embeddedApi 'com.h2database:h2-mvstore:1.4.200'
   embeddedApi 'org.apache.lucene:lucene-analyzers-common:8.11.2'
   testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
 }

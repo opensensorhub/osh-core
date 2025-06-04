@@ -14,6 +14,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.h2.mvstore;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Spliterator;
@@ -131,7 +132,7 @@ public class RangeCursor<K, V> extends IteratorWrapper<K, K>
             public Entry<K, V> next()
             {
                 RangeCursor.this.next();
-                return new DataUtils.MapEntry<>(getKey(), getValue());
+                return new SimpleEntry<>(getKey(), getValue());
             }            
         }, Spliterator.DISTINCT | Spliterator.ORDERED);
     }
