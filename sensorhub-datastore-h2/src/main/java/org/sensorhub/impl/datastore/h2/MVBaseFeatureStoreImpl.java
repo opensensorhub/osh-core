@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
@@ -26,7 +27,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
@@ -590,7 +590,7 @@ public abstract class MVBaseFeatureStoreImpl<V extends IFeature, VF extends Feat
         // more recent version of the feature description available
         resultStream = resultStream.map(e -> {
             var wf = getFeatureWithAdjustedValidTime((MVFeatureParentKey)e.getKey(), e.getValue());
-            return new DataUtils.MapEntry<>(e.getKey(), wf);
+            return new SimpleEntry<>(e.getKey(), wf);
         });
         
         // apply post filter on time now that we computed the correct valid time period

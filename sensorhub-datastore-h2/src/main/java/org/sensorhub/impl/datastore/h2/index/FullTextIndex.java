@@ -23,10 +23,14 @@ import java.util.stream.Stream;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.h2.mvstore.MVRadixTreeMap;
+import org.h2.mvstore.FullTextKey;
+import org.h2.mvstore.FullTextKeyDataType;
+import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVStore;
+import org.h2.mvstore.RangeCursor;
 import org.h2.mvstore.type.DataType;
 import org.sensorhub.api.datastore.FullTextFilter;
+import org.sensorhub.impl.datastore.h2.MVVoidDataType;
 import org.vast.util.IResource;
 import com.google.common.base.Strings;
 
@@ -45,7 +49,8 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
 {
     protected static final Pattern NUMBER_PATTERN = Pattern.compile("^\\.?\\d+(\\.\\d+)?");
         
-    MVRadixTreeMap<byte[], K> radixTreeMap;
+    //MVRadixTreeMap<byte[], K> radixTreeMap;
+    MVBTreeMap<FullTextKey<K>, Boolean> btreeMap;
     
     /* Default analyzer */
     EnglishAnalyzer analyzer = new EnglishAnalyzer();
@@ -53,9 +58,12 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
     
     public FullTextIndex(MVStore mvStore, String mapName, DataType valueType)
     {
-        this.radixTreeMap = mvStore.openMap(mapName, new MVRadixTreeMap.Builder<byte[], K>()
-            .keyType(new ResourceRadixKeyDataType())
-            .valueType(valueType));
+        //this.radixTreeMap = mvStore.openMap(mapName, new MVRadixTreeMap.Builder<byte[], K>()
+        //    .keyType(new ResourceRadixKeyDataType())
+        //    .valueType(valueType));
+        this.btreeMap = mvStore.openMap(mapName, new MVBTreeMap.Builder<FullTextKey<K>, Boolean>()
+            .keyType(new FullTextKeyDataType(valueType))
+            .valueType(new MVVoidDataType()));
     }
         
     
@@ -65,7 +73,8 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
         HashSet<String> tokenSet = new HashSet<>();
         addToTokenSet(res, tokenSet);
         for (String token: tokenSet)
-            radixTreeMap.put(token.getBytes(), key);
+            //radixTreeMap.put(token.getBytes(), key);
+            btreeMap.put(new FullTextKey<>(token, key), Boolean.TRUE);
     }
     
         
@@ -81,15 +90,25 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
         HashSet<String> tokenSet = new HashSet<>();
         addToTokenSet(res, tokenSet);
         for (String token: tokenSet)
-            radixTreeMap.remove(token.getBytes(), key);
+            //radixTreeMap.remove(token.getBytes(), key);
+            btreeMap.put(new FullTextKey<>(token, key), Boolean.TRUE);
     }
     
     
     public Stream<K> selectKeys(FullTextFilter filter)
     {
+        //return getKeywordStream(filter)
+        //    .flatMap(w -> radixTreeMap.entryCursor(w.getBytes()).valueStream())
+        //    .distinct(); // remove duplicate IDs
+        
         return getKeywordStream(filter)
-            .flatMap(w -> radixTreeMap.entryCursor(w.getBytes()).valueStream())
-            .distinct(); // remove duplicate IDs
+            .flatMap(w -> {
+                var startKey = new FullTextKey<K>(w, null);
+                var endKey = new FullTextKey<K>(w + '\uffff', null);
+                return new RangeCursor<>(btreeMap, startKey, endKey).keyStream();
+            })
+            .map(k -> (K)k.getRefKey())
+            .distinct(); // remove duplicate IDs*/
     }
     
     
@@ -134,7 +153,7 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
     
     public Stream<K> addFullTextPostFilter(Stream<K> pkStream, FullTextFilter filter)
     {
-        Set<byte[]> keywordSet = getKeywordStream(filter)
+        /*Set<byte[]> keywordSet = getKeywordStream(filter)
             .map(String::getBytes)
             .collect(Collectors.toSet());
         
@@ -147,13 +166,29 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
                     return true;
             }
             return false;
+        });*/
+        
+        var keywordSet = getKeywordStream(filter)
+            .collect(Collectors.toSet());
+        
+        return pkStream.filter(k -> {
+            if (k == null)
+                return false;
+            for (var w: keywordSet)
+            {
+                var fullTextKey = new FullTextKey<>(w, k);
+                if (btreeMap.containsKey(fullTextKey))
+                    return true;
+            }
+            return false;
         });
     }
     
     
     public void clear()
     {
-        radixTreeMap.clear();
+        //radixTreeMap.clear();
+        btreeMap.clear();
     }
     
 }

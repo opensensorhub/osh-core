@@ -48,7 +48,7 @@ public class PrintDbInfo
     static void scanPages(MVMap<?,?> map)
     {
         var chunkIds = new LinkedHashSet<Integer>();
-        scanPage(map.getRoot(), chunkIds);
+        scanPage(map.getRootPage(), chunkIds);
         
         System.out.println("**************************");
         System.out.println("Map " + map.getName() + ", size=" + map.size());
