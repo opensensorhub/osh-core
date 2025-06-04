@@ -31,7 +31,8 @@ import org.h2.mvstore.type.DataType;
  */
 public class MVVoidDataType implements DataType
 {
-   
+    private final static Object VALUE = new Object();
+    
             
     @Override
     public int compare(Object objA, Object objB)
@@ -62,12 +63,16 @@ public class MVVoidDataType implements DataType
     @Override
     public Object read(ByteBuffer buf)
     {
-        return null;
+        // always return a value even though nothing is actually written to file
+        // this is needed because MVMap.contains() method checks that value is not null
+        return VALUE;
     }
     
 
     @Override
     public void read(ByteBuffer buf, Object[] obj, int len, boolean key)
     {
+        for (int i=0; i<len; i++)
+            obj[i] = read(buf);
     }
 }

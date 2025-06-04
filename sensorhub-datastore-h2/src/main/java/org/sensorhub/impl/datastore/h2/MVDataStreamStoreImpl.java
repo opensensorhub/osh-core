@@ -18,11 +18,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVStore;
 import org.h2.mvstore.MVVarLongDataType;
@@ -385,7 +385,7 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
 
         // always wrap with dynamic datastream object
         resultStream = resultStream.map(e -> {
-            return new DataUtils.MapEntry<DataStreamKey, IDataStreamInfo>(
+            return new SimpleEntry<DataStreamKey, IDataStreamInfo>(
                 e.getKey(),
                 new DataStreamInfoWithTimeRanges(e.getKey().getInternalID().getIdAsLong(), e.getValue())
             ); 

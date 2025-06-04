@@ -31,6 +31,8 @@ import org.vast.util.Asserts;
  * Implementation of a radix tree for use as an H2 MVStore map.<br/>
  * The last child of a page is used to store the reference to a binary tree
  * that contains the values.
+ * 
+ * WARNING: This is NOT working since H2 MVStore version 1.4.198
  * </p>
  *
  * @author Alex Robin
@@ -40,8 +42,6 @@ import org.vast.util.Asserts;
  */
 public class MVRadixTreeMap<K, V> extends MVMap<K, V>
 {
-    static final PageReference[] EMPTY_REF_ARRAY = new PageReference[] {new PageReference(null, 0, 0)};     
-    
     
     static class SearchNode
     {
@@ -112,37 +112,29 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     }
 
 
-    MVRadixTreeMap(RadixKeyDataType keyType, DataType valueType)
+    MVRadixTreeMap(Map<String, Object> config)
     {
-        super(keyType, valueType);
+        super(config);
     }
     
     
-    @Override
+    /*@Override
     void setRootPos(long rootPos, long version)
     {
         root = rootPos == 0 ? createEmptyNode(-1) : readPage(rootPos);
         root.setVersion(version);
-    }
+    }*/
     
     
     @Override
-    public V get(Object key)
+    public V get(Page root, Object key)
     {
-        Page valuePage = getValuePage(key);
+        Page valuePage = getValuePage(root, key);
         
         if (valuePage != null)
             return getFirstValue(valuePage);
         else
             return null;
-    }
-    
-    
-    @Override
-    public boolean containsKey(Object key)
-    {
-        Page valuePage = getValuePage(key);
-        return valuePage != null && valuePage.getTotalCount() > 0;
     }
     
     
@@ -169,7 +161,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     
     public boolean containsValue(Object key, V value)
     {
-        Page valuePage = getValuePage(key);
+        Page valuePage = getValuePage(getRootPage(), key);
         if (valuePage == null)
             return false;
         
@@ -177,7 +169,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     }
     
     
-    protected Page getValuePage(Object key)
+    protected Page getValuePage(Page root, Object key)
     {
         // use prefix search to look for matching key index and page
         SearchContext context = new SearchContext();
@@ -285,7 +277,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     public long getChildCount(K key)
     {
         SearchContext context = new SearchContext();
-        prefixBinarySearch(root, key, context, false);
+        prefixBinarySearch(getRootPage(), key, context, false);
         if (context.keyRemaining == 0 && context.index >= 0)
             return context.page.getCounts(context.index);
         else
@@ -293,15 +285,15 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     }
     
     
-    @Override
-    protected K getFirstLast(boolean first)
+    /*@Override
+    protected K getFirstLast(Page root, boolean first)
     {
         SearchContext context = new SearchContext();
-        if (getFirstLast(root, first, true, context))
+        if (getFirstLast(getRootPage(), first, true, context))
             return buildFullKey(context);
         else
             return null;
-    }
+    }*/
     
     
     /*
@@ -338,18 +330,18 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     }
     
 
-    @Override
+    /*@Override
     protected K getMinMax(K key, boolean min, boolean excluding)
     {
         SearchContext context = new SearchContext();
         return getPreviousOrNext(key, min, excluding, context);
-    }
+    }*/
     
     
     protected K getPreviousOrNext(K key, boolean previous, boolean excluding, SearchContext context)
     {
         // use prefix search to look for matching key index and page
-        prefixBinarySearch(root, key, context, true);
+        prefixBinarySearch(getRootPage(), key, context, true);
         boolean exactMatch = context.isExactMatch();
         boolean found = false;
         
@@ -472,10 +464,11 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     {
         DataUtils.checkArgument(value != null, "The value may not be null");
         beforeWrite();
-        long v = writeVersion;
-        Page p = root.copy(v);
+        RootReference rootReference = flushAndGetRoot();
+        long v = rootReference.version;
+        Page p = rootReference.root.copy();
         Object result = put(p, v, key, value, new SearchContext());
-        newRoot(p);
+        rootReference.updateRootPage(p, 1);
         return (V) result;
     }
 
@@ -509,7 +502,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
             if (context.fullNodeMatch)
             {
                 // copy selected page because it's going to be modified
-                childPage = p.getChildPage(index).copy(writeVersion);
+                childPage = p.getChildPage(index).copy();
                 
                 // if exact match, add value to this page
                 // else if end of key still has to be processed, keep going down
@@ -560,19 +553,17 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
         // create the leaf page if needed
         if (valueCount == 0)
         {
-            valuePage = Page.create(
+            valuePage = Page.createLeaf(
                 this,
-                writeVersion,
                 new Object[] {getValueKey(value)},
                 new Object[] {value},
-                null,
-                1, 0);
+                0);
 
             p.setChild(valuesNodeIndex, valuePage);
         }
         else
         {
-            valuePage = p.getChildPage(valuesNodeIndex).copy(writeVersion);
+            valuePage = p.getChildPage(valuesNodeIndex).copy();
             
             // split if value page is still a leaf page and reached memory threshold
             // we need this because super.put doesn't handle splitting a top level leaf page
@@ -584,19 +575,20 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                 int at = c1.getKeyCount() / 2;
                 Object k = c1.getKey(at);
                 Page c2 = c1.split(at);
-                valuePage = Page.create(
+                valuePage = Page.createNode(
                     this,
-                    writeVersion,
                     new Object[] {k},
-                    null,
                     new PageReference[] {
-                        new PageReference(c1, c1.getPos(), c1.getTotalCount()),
-                        new PageReference(c2, c2.getPos(), c2.getTotalCount())
+                        new PageReference(c1),
+                        new PageReference(c2)
                     },
                     numValues, 0);
             }
             
-            super.put(valuePage, writeVersion, getValueKey(value), value);
+            var valueKey = getValueKey(value);
+            int index = valuePage.binarySearch(valueKey);
+            valuePage.insertLeaf(-index - 1, valueKey, value);
+            
             p.setChild(valuesNodeIndex, valuePage); // need to do that to properly update counts
         }
     }
@@ -629,13 +621,14 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
         
         // use prefix search to look for matching key index and page
         SearchContext context = new SearchContext();
-        prefixBinarySearch(root, key, context, true);
+        prefixBinarySearch(getRootPage(), key, context, true);
         
         // continue only if exact match found
         if (context.isExactMatch())
         {
             beforeWrite();
-            long v = writeVersion;
+            RootReference rootReference = flushAndGetRoot();
+            long v = rootReference.version;
             
             synchronized (this)
             {
@@ -646,9 +639,11 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                 // remove only value if specified
                 if (value != null && hasValues(p))
                 {
-                    newPage = p.copy(v);
-                    Page newValuePage = getValuePage(newPage).copy(v);
-                    oldValue = super.remove(newValuePage, v, getValueKey(value));
+                    newPage = p.copy();
+                    Page newValuePage = getValuePage(newPage).copy();
+                    int index = newValuePage.binarySearch(key);
+                    oldValue = newValuePage.getValue(index);
+                    newValuePage.remove(index);
                     newPage.setChild(newPage.getKeyCount(), newValuePage);
                 }
                 
@@ -656,7 +651,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                 else if (removeSubKeys)
                 {
                     oldValue = Boolean.TRUE;
-                    p.removeAllRecursive();
+                    p.removeAllRecursive(v);
                 }
                 
                 // otherwise remove all values for the selected key
@@ -666,7 +661,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                     if (valuePage != null)
                     {
                         oldValue = getFirstValue(valuePage);
-                        newPage = removeAllValues(p);
+                        newPage = removeAllValues(p, v);
                     }
                 }
                 
@@ -675,7 +670,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                 Page parent = null;
                 for (SearchNode node: context.nodeStack)
                 {
-                    parent = node.page.copy(writeVersion);
+                    parent = node.page.copy();
                     if (newChild != null)
                         parent.setChild(node.childIndex, newChild);
                     else
@@ -683,7 +678,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                     newChild = parent;
                 }
                 
-                newRoot(parent);
+                rootReference.updateRootPage(parent, 1);
                 return oldValue;
             }
         }
@@ -692,35 +687,26 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     }
     
     
-    protected Page removeAllValues(Page p)
+    protected Page removeAllValues(Page p, long version)
     {
-        p = p.copy(writeVersion);
+        p = p.copy();
         
         Page valuePage = getValuePage(p);
         if (valuePage != null)
         {
             p.setChild(p.getKeyCount(), null);
-            valuePage.removeAllRecursive();
+            valuePage.removeAllRecursive(version);
         }
         
         return p;
     }
     
     
-    @Override
-    public synchronized void clear()
-    {
-        beforeWrite();
-        root.removeAllRecursive();
-        newRoot(createEmptyNode(writeVersion));
-    }
-    
-    
-    @Override
+    /*@Override
     public Cursor<K, V> cursor(K from)
     {
         throw new UnsupportedOperationException("Use prefixCursor() or entryCursor() instead");
-    }
+    }*/
     
     
     /**
@@ -731,7 +717,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
      */
     public RadixTreeCursor<K, V> prefixCursor(K startPrefix)
     {
-        return new RadixTreeCursor<>(this, root, startPrefix);
+        return new RadixTreeCursor<>(this, getRootPage(), startPrefix);
     }
     
     
@@ -744,11 +730,11 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
      */
     public RadixTreeCursor<K, V> entryCursor(K startPrefix)
     {
-        return new RadixTreeCursor<>(this, root, startPrefix, true);
+        return new RadixTreeCursor<>(this, getRootPage(), startPrefix, true);
     }
     
     
-    @Override
+    /*@Override
     public Set<Map.Entry<K, V>> entrySet()
     {
         return new AbstractSet<Entry<K, V>>()
@@ -769,7 +755,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                     public Entry<K, V> next()
                     {
                         K k = cursor.next();
-                        return new DataUtils.MapEntry<>(k, cursor.getValue());
+                        return new SimpleEntry<>(k, cursor.getValue());
                     }
 
                     @Override
@@ -792,7 +778,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
                 return MVRadixTreeMap.this.containsKey(o);
             }
         };
-    }
+    }*/
 
 
     @Override
@@ -860,13 +846,7 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     
     protected Page createEmptyNode(long version)
     {
-        return Page.create(this,
-            version, 
-            Page.EMPTY_OBJECT_ARRAY,
-            null,
-            EMPTY_REF_ARRAY,
-            0,
-            DataUtils.PAGE_MEMORY + DataUtils.PAGE_MEMORY_CHILD);
+        return Page.createEmptyNode(this);
     }
     
     
@@ -887,10 +867,10 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
     }
     
     
-    public String toString()
+    public String asString()
     {
         StringBuilder buf = new StringBuilder();
-        toString(root, buf, 0);
+        toString(getRootPage(), buf, 0);
         return buf.toString();
     }
     
@@ -967,92 +947,6 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
         }
     }
     
-    
-    /*
-     * Need to override this so pages and correctly rewritten on autoCompact
-     */
-    @Override
-    boolean rewrite(Set<Integer> set) {
-        // read from old version, to avoid concurrent reads
-        long previousVersion = store.getCurrentVersion() - 1;
-        if (previousVersion < getCreateVersion()) {
-            // a new map
-            return true;
-        }
-        MVMap<K, V> readMap;
-        try {
-            readMap = openVersion(previousVersion);
-        } catch (IllegalArgumentException e) {
-            // unknown version: ok
-            // TODO should not rely on exception handling
-            return true;
-        }
-        try {
-            synchronized (this)
-            {
-                beforeWrite();
-                long v = writeVersion;
-                var root = rewritePage(readMap.root, set, v);
-                if (root != null)
-                {
-                    newRoot(root);
-                    //System.out.println(getName() + ": Rewriting " + set.size() + " chunks: " + set);
-                }
-                return true;
-            }
-        } catch (IllegalStateException e) {
-            // TODO should not rely on exception handling
-            if (DataUtils.getErrorCode(e.getMessage()) == DataUtils.ERROR_CHUNK_NOT_FOUND) {
-                // ignore
-                return false;
-            }
-            throw e;
-        }
-    }
-
-    /*
-     * May rewrite the page if the page or one of its children is in one of the listed chunks.
-     * If a new page is created, it is returned, otherwise null is returned
-     * */
-    private Page rewritePage(Page p, Set<Integer> set, long version) {
-        long pos = p.getPos();
-        int chunkId = DataUtils.getPageChunkId(pos);
-        
-        if (p.isLeaf()) {
-            return set.contains(chunkId) ? p.copy(version) : null;
-        }
-        else
-        {
-            Page newPage = set.contains(chunkId) ? p.copy(version) : null;
-            
-            for (int i = 0; i < getChildPageCount(p); i++) {
-                // skip child page before even loading it if not in one of the chunks
-                long childPos = p.getChildPagePos(i);
-                if (childPos != 0)
-                {
-                    if (DataUtils.getPageType(childPos) == DataUtils.PAGE_TYPE_LEAF) {
-                        chunkId = DataUtils.getPageChunkId(childPos);
-                        if (!set.contains(chunkId))
-                            continue;
-                    }
-                    
-                    // may rewrite child page
-                    var newChild = rewritePage(p.getChildPage(i), set, version);
-                    
-                    // if child was rewritten, we also need to write this one
-                    // and all of the parents will be rewritten recursively
-                    if (newChild != null)
-                    {
-                        if (newPage == null)
-                            newPage = p.copy(version);
-                        newPage.setChild(i, newChild);
-                    }
-                }
-            }
-            return newPage;
-        }
-    }
-    
 
     /**
      * A builder for this class.
@@ -1072,25 +966,50 @@ public class MVRadixTreeMap<K, V> extends MVMap<K, V>
             return this;
         }
 
-
         public Builder<K, V> valueType(DataType valueType)
         {
             this.valueType = valueType;
             return this;
         }
 
+        @Override
+        public DataType getKeyType()
+        {
+            return keyType;
+        }
 
         @Override
-        public MVRadixTreeMap<K, V> create()
+        public DataType getValueType()
+        {
+            return valueType;
+        }
+
+        @Override
+        public void setKeyType(DataType dataType)
+        {
+            this.keyType = (RadixKeyDataType)dataType;
+        }
+
+        @Override
+        public void setValueType(DataType dataType)
+        {
+            this.valueType = dataType;
+        }
+
+        @Override
+        public MVRadixTreeMap<K, V> create(MVStore store, Map<String, Object> config)
         {
             Asserts.checkNotNull(keyType, RadixKeyDataType.class);
 
             if (valueType == null)
                 valueType = new ObjectDataType();
+            
+            config.put("store", store);
+            config.put("key", keyType);
+            config.put("val", valueType);
 
-            return new MVRadixTreeMap<>(keyType, valueType);
+            return new MVRadixTreeMap<>(config);
         }
-
     }
 
 }

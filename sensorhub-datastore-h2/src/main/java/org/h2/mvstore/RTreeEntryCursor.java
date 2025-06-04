@@ -13,6 +13,7 @@ forbidden unless prior written permission is obtained from Delta Air Lines, Inc.
 
 package org.h2.mvstore;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
@@ -75,7 +76,7 @@ public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
         lastKey = currentKey;
         lastVal = currentVal;
         fetchNext();
-        return new DataUtils.MapEntry<>(lastKey, lastVal);
+        return new SimpleEntry<>(lastKey, lastVal);
     }
 
     @Override
