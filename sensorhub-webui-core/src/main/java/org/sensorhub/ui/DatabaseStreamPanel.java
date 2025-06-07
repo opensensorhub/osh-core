@@ -19,16 +19,24 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.database.IObsSystemDatabase;
+import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.obs.ObsStatsQuery;
+import org.sensorhub.api.module.IModule;
+import org.sensorhub.api.service.HttpServiceConfig;
+import org.sensorhub.impl.service.AbstractHttpServiceModule;
 import org.sensorhub.ui.api.UIConstants;
 
 import org.sensorhub.ui.chartjs.Chart;
@@ -41,6 +49,8 @@ import org.vast.swe.ScalarIndexer;
 import org.vast.util.DateTimeFormat;
 import org.vast.util.TimeExtent;
 import com.google.common.io.Resources;
+import com.vaadin.v7.data.Property.ValueChangeEvent;
+import com.vaadin.v7.data.Property.ValueChangeListener;
 import com.vaadin.v7.data.util.converter.Converter;
 import com.vaadin.server.FontAwesome;
 import com.vaadin.shared.ui.MarginInfo;
@@ -53,7 +63,9 @@ import com.vaadin.ui.GridLayout;
 import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.UI;
+import com.vaadin.v7.ui.ComboBox;
 import com.vaadin.v7.ui.Table;
+import com.vaadin.v7.ui.Table.ColumnGenerator;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
@@ -81,6 +93,7 @@ public class DatabaseStreamPanel extends VerticalLayout
     private static final long serialVersionUID = 6169765057074245360L;
     static final int SECONDS_PER_HOUR = 3600;
     static final int SECONDS_PER_DAY = 3600*24;
+    static final String FOI_COLUMN_ID = "$foiId";
     
     Label timeRangeLabel;
     Chart detailChart;
@@ -89,10 +102,12 @@ public class DatabaseStreamPanel extends VerticalLayout
     
     IObsSystemDatabase db;
     BigId dataStreamID;
+    Set<BigId> foiIDs = new HashSet<>();
     IDataStreamInfo dsInfo;
     TimeExtent fullTimeRange;
     TimeExtent zoomTimeRange;
     LazyLoadingObsContainer obsDataContainer;
+    String csApiBaseUrl;
     
     
     public DatabaseStreamPanel(IObsSystemDatabase db, IDataStreamInfo dsInfo, BigId dataStreamID)
@@ -100,6 +115,17 @@ public class DatabaseStreamPanel extends VerticalLayout
         this.db = db;
         this.dataStreamID = dataStreamID;
         this.dsInfo = dsInfo;
+        
+        // get base URL of CONSYS API so we can generate links
+        var hub = ((IModule<?>)db).getParentHub();
+        hub.getModuleRegistry().getLoadedModules().stream()
+            .filter(m -> m.getClass().getSimpleName().equals("ConSysApiService"))
+            .findFirst()
+            .ifPresent(m -> {
+                var conSysApi = (AbstractHttpServiceModule<?>)m; 
+                var path = ((HttpServiceConfig)conSysApi.getConfiguration()).endPoint;
+                csApiBaseUrl = conSysApi.getHttpServer().getPublicEndpointUrl(path);
+            });
         
         setMargin(true);
         setSpacing(true);
@@ -244,40 +270,54 @@ public class DatabaseStreamPanel extends VerticalLayout
         formLayout.setMargin(false);
         formLayout.setSpacing(false);
         
-        /*// FOI filter
-        if (db.getFoiStore().)
+        // FOI filter
+        var foiEntries = db.getFoiStore().selectEntries(new FoiFilter.Builder()
+            .withObservations()
+                .withDataStreams(dataStreamID)
+                .done()
+            .build())
+            .map(e -> new SimpleEntry<BigId, String>(
+                e.getKey().getInternalID(),
+                e.getValue().getName() + " (" + e.getValue().getUniqueIdentifier() + ")"))
+            .collect(Collectors.toSet());
+        
+        if (!foiEntries.isEmpty())
         {
-            final TextField producerFilter = new TextField("Producers IDs");
-            producerFilter.addStyleName(UIConstants.STYLE_SMALL);
-            producerFilter.setDescription("Comma separated list of data producer IDs to view data for");
-            producerFilter.setValue("ALL");
-            formLayout.addComponent(producerFilter);
+            final ComboBox selectBox = new ComboBox("FOIs");
+            selectBox.setNullSelectionAllowed(false);
+            selectBox.addStyleName(UIConstants.STYLE_SMALL);
+            selectBox.setWidth(50, Unit.EM);
+            selectBox.addItem(BigId.NONE);
+            selectBox.setItemCaption(BigId.NONE, "ALL");
+            foiEntries.stream().forEach(f -> {
+                selectBox.addItem(f.getKey());
+                selectBox.setItemCaption(f.getKey(), f.getValue());
+            });
+            /*var selectedId = !foiIDs.isEmpty() ? foiIDs.iterator().next() : BigId.NONE;
+            if (selectBox.getItem(selectedId) != null)
+                selectBox.select(selectedId);
+            else*/
+                selectBox.select(BigId.NONE);
+            formLayout.addComponent(selectBox);
             
-            producerFilter.addValueChangeListener(new ValueChangeListener() {
+            selectBox.addValueChangeListener(new ValueChangeListener() {
                 @Override
                 public void valueChange(ValueChangeEvent event)
                 {
-                    String tx = producerFilter.getValue().trim();
-                    String[] items = tx.replaceAll(" ", "").split(",");
-                    if (items.length > 0)
-                    {
-                        producerIDs = Sets.newTreeSet(Arrays.asList(items));
-                        producerIDs.retainAll(((IMultiSourceStorage<?>) storage).getProducerIDs());
-                        if (producerIDs.isEmpty())
-                            producerIDs = null;
-                    }
-                    else
-                        producerIDs = null;
+                    foiIDs.clear();
+                    var selectedFoi = (BigId)selectBox.getValue();
+                    if (selectedFoi != null && selectedFoi != BigId.NONE)
+                        foiIDs.add(selectedFoi);
                     
-                    if (producerIDs == null)
-                        producerFilter.setValue("ALL");
-                    
-                    updateTable();
-                    updateHistogram(detailChart, timeRange);
+                    var fullTimeRange = dsInfo.getPhenomenonTimeRange();
+                    fullTimeRange = roundTimePeriod(fullTimeRange);
+                    updateTimeRange();
                     updateHistogram(navigatorChart, fullTimeRange);
+                    updateHistogram(detailChart, zoomTimeRange);
+                    updateTable();
                 }
             });
-        }*/
+        }
         
         // time range panel
         formLayout.addComponent(buildTimeRangeRow());
@@ -396,6 +436,7 @@ public class DatabaseStreamPanel extends VerticalLayout
         var results = db.getObservationStore().getStatistics(new ObsStatsQuery.Builder()
             .selectObservations(new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
+                .withFois(!foiIDs.isEmpty() ? foiIDs : null)
                 .withPhenomenonTime().fromTimeExtent(timeRange).done()
                 .build())
             .withHistogramBinSize(binDuration)
@@ -449,6 +490,11 @@ public class DatabaseStreamPanel extends VerticalLayout
         obsDataContainer.updateTimeRange(zoomTimeRange);
         table.setContainerDataSource(obsDataContainer);
         table.setCurrentPage(1);
+                
+        var cols = new ArrayList<Object>(table.getContainerPropertyIds());
+        cols.remove(FOI_COLUMN_ID);
+        cols.add(0, FOI_COLUMN_ID);
+        table.setVisibleColumns(cols.toArray());
     }
     
     
@@ -476,7 +522,7 @@ public class DatabaseStreamPanel extends VerticalLayout
         // add custom container for lazy loading from DB
         List<ScalarIndexer> indexers = new ArrayList<>();
         var foiIdEncoder = ((AdminUI)UI.getCurrent()).getParentHub().getIdEncoders().getFoiIdEncoder();
-        obsDataContainer = new LazyLoadingObsContainer(db, foiIdEncoder, dataStreamID, indexers);
+        obsDataContainer = new LazyLoadingObsContainer(db, foiIdEncoder, dataStreamID, foiIDs, indexers);
         obsDataContainer.updateTimeRange(zoomTimeRange);
         table.setContainerDataSource(obsDataContainer);
         table.addListener(new PageChangeListener() {
@@ -502,7 +548,20 @@ public class DatabaseStreamPanel extends VerticalLayout
         // add FOI column
         if (component.getParent() == null)
         {
-            table.addContainerProperty("$foiId", String.class, null, "FOI ID", null, null);
+            table.addContainerProperty(FOI_COLUMN_ID, String.class, null, "FOI ID", null, null);
+            
+            table.addGeneratedColumn(FOI_COLUMN_ID, new ColumnGenerator() {
+                @Override
+                public Object generateCell(Table source, Object itemId, Object columnId)
+                {
+                    var foiId = source.getContainerProperty(itemId, columnId).getValue();
+                    
+                    if (csApiBaseUrl != null)
+                        return new Label("<a href=\"" + csApiBaseUrl + "/fois?id=" + foiId + "\">" + foiId + "</a>", ContentMode.HTML);
+                    else
+                        return foiId;
+                }
+            });
         }
         
         if (component instanceof ScalarComponent)
