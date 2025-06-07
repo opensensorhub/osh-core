@@ -188,7 +188,7 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
          */
         public B withInternalIDs(Collection<BigId> ids)
         {
-            instance.internalIDs = ImmutableSortedSet.copyOf(ids);
+            instance.internalIDs = ids != null ? ImmutableSortedSet.copyOf(ids) : null;
             return (B)this;
         }
 

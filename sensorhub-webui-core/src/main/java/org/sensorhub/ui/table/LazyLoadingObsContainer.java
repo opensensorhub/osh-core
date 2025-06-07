@@ -15,6 +15,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.ui.table;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
@@ -31,17 +32,19 @@ public class LazyLoadingObsContainer extends IndexedContainer
     final IObsSystemDatabase db;
     final IdEncoder foiIdEncoder;
     final BigId dataStreamID;
+    final Set<BigId> foiIDs;
     final List<ScalarIndexer> indexers;
     int startIndexCache = -1;
     int size = -1;
     TimeExtent timeRange;
     
     
-    public LazyLoadingObsContainer(IObsSystemDatabase db, IdEncoder foiIdEncoder, BigId dataStreamID, List<ScalarIndexer> indexers)
+    public LazyLoadingObsContainer(IObsSystemDatabase db, IdEncoder foiIdEncoder, BigId dataStreamID, Set<BigId> foiIDs, List<ScalarIndexer> indexers)
     {
         this.db = db;
         this.foiIdEncoder = foiIdEncoder;
         this.dataStreamID = dataStreamID;
+        this.foiIDs = foiIDs;
         this.indexers = indexers;
     }
     
@@ -73,6 +76,7 @@ public class LazyLoadingObsContainer extends IndexedContainer
             AtomicInteger count = new AtomicInteger(startIndex);
             db.getObservationStore().select(new ObsFilter.Builder()
                     .withDataStreams(dataStreamID)
+                    .withFois(!foiIDs.isEmpty() ? foiIDs : null)
                     .withPhenomenonTime().fromTimeExtent(timeRange).done()
                     .withLimit((long)startIndex+numberOfIds)
                     .build())
@@ -112,6 +116,7 @@ public class LazyLoadingObsContainer extends IndexedContainer
         {
             size = (int)db.getObservationStore().countMatchingEntries(new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
+                .withFois(!foiIDs.isEmpty() ? foiIDs : null)
                 .withPhenomenonTime().fromTimeExtent(timeRange).done()
                 .build());
         }
