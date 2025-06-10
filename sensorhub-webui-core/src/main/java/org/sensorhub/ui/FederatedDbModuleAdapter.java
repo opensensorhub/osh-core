@@ -35,11 +35,12 @@ import org.slf4j.Logger;
 public class FederatedDbModuleAdapter implements IObsSystemDatabaseModule<DatabaseConfig>
 {
     IObsSystemDatabase delegate;
+    ISensorHub hub;
     
-    
-    public FederatedDbModuleAdapter(IObsSystemDatabase db)
+    public FederatedDbModuleAdapter(IObsSystemDatabase db, ISensorHub hub)
     {
         this.delegate = db;
+        this.hub = hub;
     }
     
 
@@ -120,7 +121,7 @@ public class FederatedDbModuleAdapter implements IObsSystemDatabaseModule<Databa
     @Override
     public ISensorHub getParentHub()
     {
-        return null;
+        return hub;
     }
 
 
