@@ -161,14 +161,13 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             @Override
             public void write(int b) { }
         }));
-        httpServer.deployServlet(vaadinServlet, initParams, "/admin/*", "/VAADIN/*");
+        httpServer.deployServlet(vaadinServlet, initParams, "/admin/*");
         System.setErr(oldStdErr);
         vaadinServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
         
         // setup security
         httpServer.addServletSecurity("/admin/*", true);
-        httpServer.addServletSecurity("/VAADIN/*", true);
-        
+
         setState(ModuleState.STARTED);
     }
     
