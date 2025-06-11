@@ -586,8 +586,12 @@ public class DatabaseStreamPanel extends VerticalLayout
                     public String convertToPresentation(String value, Class<? extends String> targetType, Locale locale) throws ConversionException
                     {
                         if (value == null)
-                            return "";
-                        return dateFormat.formatIso(Double.parseDouble(value), 0);
+                            return "n/a";
+                        var dVal = Double.parseDouble(value);
+                        if (Double.isNaN(dVal))
+                            return "n/a";
+                        else
+                            return dateFormat.formatIso(dVal, 0);
                     }
                     
                     @Override
