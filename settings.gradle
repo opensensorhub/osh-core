@@ -14,9 +14,11 @@ include 'sensorhub-datastore-h2'
 include 'sensorhub-service-swe'
 include 'sensorhub-service-consys'
 include 'sensorhub-webui-core'
-include 'sensorhub-webui-widgetset'
+//include 'sensorhub-webui-widgetset'
 include 'sensorhub-service-landing:widgetset'
 include 'sensorhub-service-landing'
+include 'sensorhub-view-widgetset'
+include 'sensorhub-view'
 
 
 project(':swe-common-core').projectDir = "$rootDir/lib-ogc/swe-common-core" as File
@@ -26,5 +28,6 @@ project(':ogc-services-common').projectDir = "$rootDir/lib-ogc/ogc-services-comm
 project(':ogc-services-swe').projectDir = "$rootDir/lib-ogc/ogc-services-swe" as File
 project(':ogc-services-sos').projectDir = "$rootDir/lib-ogc/ogc-services-sos" as File
 project(':ogc-services-sps').projectDir = "$rootDir/lib-ogc/ogc-services-sps" as File
-project(':sensorhub-webui-widgetset').projectDir = "$rootDir/sensorhub-webui-core/widgetset" as File
+//project(':sensorhub-webui-widgetset').projectDir = "$rootDir/sensorhub-webui-core/widgetset" as File
 project(':sensorhub-service-landing:widgetset').projectDir = "$rootDir/sensorhub-service-landing/widgetset" as File
+project(':sensorhub-view-widgetset').projectDir = "$rootDir/sensorhub-view/widgetset" as File

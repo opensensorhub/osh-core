@@ -12,7 +12,7 @@ Copyright (C) 2012-2016 Sensia Software LLC. All Rights Reserved.
  
 ******************************* END LICENSE BLOCK ***************************/
 
-package org.sensorhub.ui.vaadin;
+package org.sensorhub.ui.view;
 
 import org.sensorhub.api.module.IModule;
 import org.sensorhub.api.module.IModuleProvider;
@@ -23,18 +23,18 @@ import org.sensorhub.api.module.ModuleConfig;
  * @author Kalyn Stricklin
  * @since June 2025
  */
-public class VaadinModuleDescriptor implements IModuleProvider
+public class SensorhubViewDescriptor implements IModuleProvider
 {
     @Override
     public String getModuleName()
     {
-        return "Vaadin Service";
+        return "Sensorhub View Service";
     }
 
     @Override
     public String getModuleDescription()
     {
-        return "Vaadin service to handle deploying of static resources and widgesets.";
+        return "Sensorhub View service to handle deploying of static resources and widgesets.";
     }
 
     @Override
@@ -52,12 +52,12 @@ public class VaadinModuleDescriptor implements IModuleProvider
     @Override
     public Class<? extends IModule<?>> getModuleClass()
     {
-        return VaadinServiceModule.class;
+        return SensorhubViewService.class;
     }
 
     @Override
     public Class<? extends ModuleConfig> getModuleConfigClass()
     {
-        return VaadinModuleConfig.class;
+        return SensorhubViewConfig.class;
     }
 }

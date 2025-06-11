@@ -1,4 +1,4 @@
-package org.sensorhub.ui.vaadin;
+package org.sensorhub.ui.view;
 
 import com.vaadin.server.VaadinServlet;
 import com.vaadin.ui.UI;
@@ -13,16 +13,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.LogManager;
 
-public class VaadinServiceModule extends AbstractHttpServiceModule<VaadinModuleConfig> implements IEventListener {
+public class SensorhubViewService extends AbstractHttpServiceModule<SensorhubViewConfig> implements IEventListener {
 
 
-    protected static final String SERVLET_PARAM_MODULE = "vaadin_instance";
-    protected static final String SERVLET_PARAM_UI_CLASS = "VaadinUI";
+    protected static final String SERVLET_PARAM_MODULE = "view_instance";
+    protected static final String SERVLET_PARAM_UI_CLASS = "SensorhubViewUI";
     protected static final String WIDGETSET = "widgetset";
     protected static final int HEARTBEAT_INTERVAL = 10;
     VaadinServlet servlet;
 
-    public VaadinServiceModule(){}
+    public SensorhubViewService(){}
 
 
     @Override
@@ -51,7 +51,7 @@ public class VaadinServiceModule extends AbstractHttpServiceModule<VaadinModuleC
         // deploy servlet
         httpServer.deployServlet(servlet, initParams, "/VAADIN/*");
         System.setErr(oldStdErr);
-        servlet.getServletContext().setAttribute("vaadin_instance", this);
+        servlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
 
         setState(ModuleEvent.ModuleState.STARTED);
     }

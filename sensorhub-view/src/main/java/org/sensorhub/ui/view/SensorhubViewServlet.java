@@ -1,15 +1,12 @@
-package org.sensorhub.ui.vaadin;
+package org.sensorhub.ui.view;
 
 import com.vaadin.server.VaadinServlet;
 import org.slf4j.Logger;
-import org.vast.ows.OWSUtils;
-
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.security.Principal;
 
 
 /**
@@ -17,16 +14,16 @@ import java.security.Principal;
  * @author Kalyn Stricklin
  * @since June 2025
  */
-@WebServlet(urlPatterns = "/VAADIN/*", name = "VaadinServlet", asyncSupported = true)
-public class VaadinModuleServlet extends VaadinServlet{
+@WebServlet(urlPatterns = "/VAADIN/*", name = "SensorHubViewServlet", asyncSupported = true)
+public class SensorhubViewServlet extends VaadinServlet{
 
     final transient Logger log;
 
-    VaadinServiceModule vaadinServiceModule;
+    SensorhubViewService parentService;
 
-    VaadinModuleServlet(VaadinServiceModule vaadinServiceModule, Logger log){
+    SensorhubViewServlet(SensorhubViewService parentService, Logger log){
         this.log = log;
-        this.vaadinServiceModule = vaadinServiceModule;
+        this.parentService = parentService;
     }
 
 
@@ -34,10 +31,10 @@ public class VaadinModuleServlet extends VaadinServlet{
     protected void servletInitialized() throws ServletException {
         super.servletInitialized();
 
-        getServletContext().setAttribute("vaadin_instance", new VaadinServiceModule());
+        getServletContext().setAttribute("view_instance", new SensorhubViewService());
 
         getService().addSessionInitListener(event ->
-                log.debug("Vaadin Servlet Initialized")
+                log.debug("SensorHub View Servlet Initialized")
         );
     }
 
@@ -52,23 +49,10 @@ public class VaadinModuleServlet extends VaadinServlet{
         catch (SecurityException e)
         {
             log.info("Access Forbidden: {}", e.getMessage());
-            sendError(response, HttpServletResponse.SC_FORBIDDEN, e.getMessage());
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, e.getMessage());
         }
     }
 
-
-    protected void sendError(HttpServletResponse resp, int errorCode, String errorMsg)
-    {
-        try
-        {
-            resp.sendError(errorCode, errorMsg);
-        }
-        catch (IOException e)
-        {
-            if (!OWSUtils.isClientDisconnectError(e) && log.isDebugEnabled())
-                log.error("Cannot send error", e);
-        }
-    }
 }
 
 

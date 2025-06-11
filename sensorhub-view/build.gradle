@@ -1,0 +1,49 @@
+description = 'SensorHub View'
+ext.details = 'Deploying vaadin static resources and widgetsets under its own separate servlet.'
+version = '1.0.0'
+
+rootProject.allprojects {
+  ext.vaadinVersion = '8.14.3'
+  repositories {
+    maven { url "https://maven.vaadin.com/vaadin-addons" }
+  }
+}
+
+
+dependencies {
+  embeddedImpl project(':sensorhub-view-widgetset')
+  implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
+  embeddedImpl 'com.vaadin:vaadin-server:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-push:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-client:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-client-compiled:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-compatibility-server:' + vaadinVersion
+  compileOnly 'com.vaadin:vaadin-compatibility-client:' + vaadinVersion
+  embeddedImpl 'com.vaadin:vaadin-compatibility-client-compiled:' + vaadinVersion
+  implementation 'com.vaadin:vaadin-themes:8.14.3'
+  implementation 'com.vaadin.external.atmosphere:atmosphere-runtime:2.4.30.vaadin4'
+  implementation 'org.atmosphere:atmosphere-runtime:2.4.30'
+  implementation 'javax.servlet:javax.servlet-api:4.0.1'
+
+  compileOnly 'org.osgi:org.osgi.core:5.0.0'
+  compileOnly 'org.apache.felix:org.apache.felix.bundlerepository:2.0.10'
+}
+
+// add info to OSGi manifest
+osgi {
+  manifest {
+    attributes('Bundle-Vendor': 'Botts Inc')
+    attributes('Bundle-Activator': 'org.sensorhub.impl.view.Activator')
+  }
+}
+
+ext.pom >>= {
+  developers {
+    developer {
+      id 'kalynstricklin'
+      name 'Kalyn Stricklin'
+      organization 'Botts Innovative Research'
+      organizationUrl 'http://www.botts-inc.com'
+    }
+  }
+}

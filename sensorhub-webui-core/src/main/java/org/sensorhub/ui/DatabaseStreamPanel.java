@@ -30,8 +30,8 @@ import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.obs.ObsStatsQuery;
 import org.sensorhub.ui.api.UIConstants;
+
 import org.sensorhub.ui.chartjs.Chart;
-import org.sensorhub.ui.chartjs.Chart.SliderChangeListener;
 import org.sensorhub.ui.table.PagedTableControls;
 import org.sensorhub.ui.table.LazyLoadingObsContainer;
 import org.sensorhub.ui.table.PagedTable;
@@ -312,7 +312,7 @@ public class DatabaseStreamPanel extends VerticalLayout
             jsConfig = Resources.toString(getClass().getResource("chartjs_timeline_rangeslider.js"), StandardCharsets.UTF_8);
             navigatorChart.setChartConfig(jsConfig, fullRangeData);
             
-            navigatorChart.addSliderChangeListener(new SliderChangeListener()
+            navigatorChart.addSliderChangeListener(new Chart.SliderChangeListener()
             {
                 @Override
                 public void onSliderChange(double min, double max)
