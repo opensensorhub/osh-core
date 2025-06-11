@@ -30,16 +30,19 @@ import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.module.IModuleStateManager;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.slf4j.Logger;
+import org.vast.util.Asserts;
 
 
 public class FederatedDbModuleAdapter implements IObsSystemDatabaseModule<DatabaseConfig>
 {
-    IObsSystemDatabase delegate;
+    final IObsSystemDatabase delegate;
+    final ISensorHub hub;
     
     
-    public FederatedDbModuleAdapter(IObsSystemDatabase db)
+    public FederatedDbModuleAdapter(ISensorHub hub)
     {
-        this.delegate = db;
+        this.hub = Asserts.checkNotNull(hub, ISensorHub.class);
+        this.delegate = Asserts.checkNotNull(hub.getDatabaseRegistry().getFederatedDatabase(), IObsSystemDatabase.class);
     }
     
 
@@ -120,7 +123,7 @@ public class FederatedDbModuleAdapter implements IObsSystemDatabaseModule<Databa
     @Override
     public ISensorHub getParentHub()
     {
-        return null;
+        return hub;
     }
 
 

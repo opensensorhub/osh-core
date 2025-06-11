@@ -28,7 +28,6 @@ import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.client.ClientConfig;
 import org.sensorhub.api.comm.NetworkConfig;
 import org.sensorhub.api.common.SensorHubException;
-import org.sensorhub.api.data.IDataProducerModule;
 import org.sensorhub.api.database.DatabaseConfig;
 import org.sensorhub.api.module.IModule;
 import org.sensorhub.api.module.ModuleConfig;
@@ -546,7 +545,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         
         // add federated database
         if (configType == DatabaseConfig.class)
-            moduleList.add(new FederatedDbModuleAdapter(getParentHub().getDatabaseRegistry().getFederatedDatabase()));
+            moduleList.add(new FederatedDbModuleAdapter(getParentHub()));
         
         // add selected modules to list
         for (IModule<?> module: moduleRegistry.getLoadedModules())
