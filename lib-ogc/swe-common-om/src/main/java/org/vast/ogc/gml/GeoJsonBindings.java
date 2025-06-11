@@ -284,6 +284,7 @@ public class GeoJsonBindings
     protected boolean hasNonGeoJsonProperties(IFeature bean)
     {
         return bean.getUniqueIdentifier() != null ||
+               bean.getType() != null ||
                bean.getName() != null ||
                bean.getDescription() != null ||
                bean.getValidTime() != null ||
