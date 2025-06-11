@@ -27,7 +27,7 @@ import org.sensorhub.impl.service.ogc.OGCServiceConfig;
 public class LandingConfig extends OGCServiceConfig
 {
 
-    public String widgetSet = "org.sensorhub.ui.LandingWidgetSet";
+//    public String widgetSet = "org.sensorhub.ui.LandingWidgetSet";
 
     @DisplayInfo(desc="Security related options")
     public SecurityConfig security = new SecurityConfig();

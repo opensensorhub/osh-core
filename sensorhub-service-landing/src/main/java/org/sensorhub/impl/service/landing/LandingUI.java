@@ -32,7 +32,6 @@ import javax.servlet.http.HttpSession;
  */
 @Theme("valo")
 @Title("OpenSensorHub Landing Page")
-@Widgetset("org.sensorhub.ui.LandingWidgetSet")
 public class LandingUI extends UI{
 
     transient LandingService landingService;
