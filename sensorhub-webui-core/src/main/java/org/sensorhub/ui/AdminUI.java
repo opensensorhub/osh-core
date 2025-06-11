@@ -553,7 +553,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         
         // add federated database
         if (configType == DatabaseConfig.class)
-            moduleList.add(new FederatedDbModuleAdapter(getParentHub().getDatabaseRegistry().getFederatedDatabase()));
+            moduleList.add(new FederatedDbModuleAdapter(getParentHub()));
         
         // add selected modules to list
         for (IModule<?> module: moduleRegistry.getLoadedModules())
