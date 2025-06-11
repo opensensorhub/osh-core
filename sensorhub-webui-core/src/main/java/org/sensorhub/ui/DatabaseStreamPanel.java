@@ -433,12 +433,14 @@ public class DatabaseStreamPanel extends VerticalLayout
         int binSize = getBinSize(duration);        
         var binDuration = Duration.ofSeconds(binSize);
         
+        var filter = new ObsFilter.Builder()
+            .withDataStreams(dataStreamID)
+            .withPhenomenonTime().fromTimeExtent(timeRange).done();
+        if (!foiIDs.isEmpty())
+            filter.withFois(foiIDs);
+        
         var results = db.getObservationStore().getStatistics(new ObsStatsQuery.Builder()
-            .selectObservations(new ObsFilter.Builder()
-                .withDataStreams(dataStreamID)
-                .withFois(!foiIDs.isEmpty() ? foiIDs : null)
-                .withPhenomenonTime().fromTimeExtent(timeRange).done()
-                .build())
+            .selectObservations(filter.build())
             .withHistogramBinSize(binDuration)
             .aggregateFois(true)
             .build());
@@ -556,7 +558,9 @@ public class DatabaseStreamPanel extends VerticalLayout
                 {
                     var foiId = source.getContainerProperty(itemId, columnId).getValue();
                     
-                    if (csApiBaseUrl != null)
+                    if ("0000".equals(foiId))
+                        return "None";
+                    else if (csApiBaseUrl != null)
                         return new Label("<a href=\"" + csApiBaseUrl + "/fois?id=" + foiId + "\">" + foiId + "</a>", ContentMode.HTML);
                     else
                         return foiId;

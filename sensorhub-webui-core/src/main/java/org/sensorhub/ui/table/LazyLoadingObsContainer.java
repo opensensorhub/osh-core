@@ -72,14 +72,15 @@ public class LazyLoadingObsContainer extends IndexedContainer
             startIndexCache = startIndex;
             //System.out.println("Loading from " + startIndex + ", count=" + numberOfIds);
             
+            var filter = new ObsFilter.Builder()
+                .withDataStreams(dataStreamID)
+                .withPhenomenonTime().fromTimeExtent(timeRange).done();
+            if (!foiIDs.isEmpty())
+                filter.withFois(foiIDs);
+            
             // prefetch range from DB
             AtomicInteger count = new AtomicInteger(startIndex);
-            db.getObservationStore().select(new ObsFilter.Builder()
-                    .withDataStreams(dataStreamID)
-                    .withFois(!foiIDs.isEmpty() ? foiIDs : null)
-                    .withPhenomenonTime().fromTimeExtent(timeRange).done()
-                    .withLimit((long)startIndex+numberOfIds)
-                    .build())
+            db.getObservationStore().select(filter.build())
                 .skip(startIndex)
                 .forEach(obs -> {
                     var dataBlk = obs.getResult();
@@ -114,11 +115,13 @@ public class LazyLoadingObsContainer extends IndexedContainer
         
         if (size < 0)
         {
-            size = (int)db.getObservationStore().countMatchingEntries(new ObsFilter.Builder()
+            var filter = new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
-                .withFois(!foiIDs.isEmpty() ? foiIDs : null)
-                .withPhenomenonTime().fromTimeExtent(timeRange).done()
-                .build());
+                .withPhenomenonTime().fromTimeExtent(timeRange).done();
+            if (!foiIDs.isEmpty())
+                filter.withFois(foiIDs);
+            
+            size = (int)db.getObservationStore().countMatchingEntries(filter.build());
         }
         
         return size;
