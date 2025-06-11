@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
+import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.vast.swe.ScalarIndexer;
@@ -76,7 +77,7 @@ public class LazyLoadingObsContainer extends IndexedContainer
             AtomicInteger count = new AtomicInteger(startIndex);
             db.getObservationStore().select(new ObsFilter.Builder()
                     .withDataStreams(dataStreamID)
-                    .withFois(!foiIDs.isEmpty() ? foiIDs : null)
+                    .withFois((!foiIDs.isEmpty() ? foiIDs : Set.of(IObsData.NO_FOI)))
                     .withPhenomenonTime().fromTimeExtent(timeRange).done()
                     .withLimit((long)startIndex+numberOfIds)
                     .build())
@@ -114,9 +115,10 @@ public class LazyLoadingObsContainer extends IndexedContainer
         
         if (size < 0)
         {
+
             size = (int)db.getObservationStore().countMatchingEntries(new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
-                .withFois(!foiIDs.isEmpty() ? foiIDs : null)
+                .withFois((!foiIDs.isEmpty() ? foiIDs : Set.of(IObsData.NO_FOI)))
                 .withPhenomenonTime().fromTimeExtent(timeRange).done()
                 .build());
         }

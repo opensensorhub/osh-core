@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IDataStreamInfo;
+import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
@@ -436,7 +437,7 @@ public class DatabaseStreamPanel extends VerticalLayout
         var results = db.getObservationStore().getStatistics(new ObsStatsQuery.Builder()
             .selectObservations(new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
-                .withFois(!foiIDs.isEmpty() ? foiIDs : null)
+                .withFois((!foiIDs.isEmpty() ? foiIDs : Set.of(IObsData.NO_FOI)))
                 .withPhenomenonTime().fromTimeExtent(timeRange).done()
                 .build())
             .withHistogramBinSize(binDuration)
