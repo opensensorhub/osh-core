@@ -1,1 +1,0 @@
-$wnd.org_sensorhub_ui_LandingWidgetSet.runAsyncCallback2('Jhc(2314,1,{181:1,1:1});_.asb=function DTe(){this.bsb(this.b)};_.bsb=function ETe(a){this.csb(a)};_.csb=function FTe(a){};_.Wf=function HTe(){this.asb();_Yd().Rab(this.a.Sc())};bej(Sq)(2);\n//# sourceURL=org.sensorhub.ui.LandingWidgetSet-2.js\n')

@@ -11,7 +11,6 @@ rootProject.allprojects {
 
 
 dependencies {
-  embeddedImpl project(':sensorhub-service-landing:widgetset')
   implementation 'org.sensorhub:sensorhub-core:' + oshCoreVersion
   embeddedImpl 'com.vaadin:vaadin-server:' + vaadinVersion
   embeddedImpl 'com.vaadin:vaadin-push:' + vaadinVersion

@@ -35,7 +35,6 @@ public class LandingService extends AbstractHttpServiceModule<LandingConfig> imp
 
     protected static final String SERVLET_PARAM_MODULE = "landing_instance";
     protected static final String SERVLET_PARAM_UI_CLASS = "LandingUI";
-    protected static final String WIDGETSET = "widgetset";
     protected static final int HEARTBEAT_INTERVAL = 10;
     VaadinServlet landingServlet;
     LandingUISecurity securityHandler;
@@ -63,8 +62,6 @@ public class LandingService extends AbstractHttpServiceModule<LandingConfig> imp
 
         Map<String, String> initParams = new HashMap<>();
         initParams.put(SERVLET_PARAM_UI_CLASS, LandingUI.class.getCanonicalName());
-        if(config.widgetSet != null)
-            initParams.put(WIDGETSET, config.widgetSet);
         initParams.put("productionMode", "true");
         initParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
 
