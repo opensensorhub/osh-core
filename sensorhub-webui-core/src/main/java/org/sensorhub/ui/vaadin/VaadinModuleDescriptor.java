@@ -34,7 +34,7 @@ public class VaadinModuleDescriptor implements IModuleProvider
     @Override
     public String getModuleDescription()
     {
-        return "Vaadin Module for ";
+        return "Vaadin service to handle deploying of static resources and widgesets.";
     }
 
     @Override
