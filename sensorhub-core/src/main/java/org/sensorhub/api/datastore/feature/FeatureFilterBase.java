@@ -234,7 +234,7 @@ public abstract class FeatureFilterBase<T extends IFeature> extends ResourceFilt
         public B withUniqueIDs(Collection<String> uids)
         {
             // don't set if uid list contains '*' wildcard
-            if (uids != null && !uids.contains("*"))
+            if (!uids.contains("*"))
                 instance.uniqueIDs = ImmutableSortedSet.copyOf(uids);
             return (B)this;
         }

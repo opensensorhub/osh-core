@@ -169,7 +169,7 @@ public class FullTextFilter implements Predicate<String>
         
         public B withKeywords(Collection<String> keywords)
         {
-            instance.keywords = keywords != null ? ImmutableSortedSet.copyOf(keywords) : null;
+            instance.keywords = ImmutableSortedSet.copyOf(keywords);
             return (B)this;
         }
     }
