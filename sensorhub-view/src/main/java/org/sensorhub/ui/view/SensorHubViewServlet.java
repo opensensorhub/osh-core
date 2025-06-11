@@ -15,13 +15,13 @@ import java.io.IOException;
  * @since June 2025
  */
 @WebServlet(urlPatterns = "/VAADIN/*", name = "SensorHubViewServlet", asyncSupported = true)
-public class SensorhubViewServlet extends VaadinServlet{
+public class SensorHubViewServlet extends VaadinServlet{
 
     final transient Logger log;
 
-    SensorhubViewService parentService;
+    SensorHubViewService parentService;
 
-    SensorhubViewServlet(SensorhubViewService parentService, Logger log){
+    SensorHubViewServlet(SensorHubViewService parentService, Logger log){
         this.log = log;
         this.parentService = parentService;
     }
@@ -31,7 +31,7 @@ public class SensorhubViewServlet extends VaadinServlet{
     protected void servletInitialized() throws ServletException {
         super.servletInitialized();
 
-        getServletContext().setAttribute("view_instance", new SensorhubViewService());
+        getServletContext().setAttribute("view_instance", new SensorHubViewService());
 
         getService().addSessionInitListener(event ->
                 log.debug("SensorHub View Servlet Initialized")

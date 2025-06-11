@@ -13,21 +13,21 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.LogManager;
 
-public class SensorhubViewService extends AbstractHttpServiceModule<SensorhubViewConfig> implements IEventListener {
+public class SensorHubViewService extends AbstractHttpServiceModule<SensorHubViewConfig> implements IEventListener {
 
 
     protected static final String SERVLET_PARAM_MODULE = "view_instance";
-    protected static final String SERVLET_PARAM_UI_CLASS = "SensorhubViewUI";
+    protected static final String SERVLET_PARAM_UI_CLASS = "SensorHubViewUI";
     protected static final String WIDGETSET = "widgetset";
     protected static final int HEARTBEAT_INTERVAL = 10;
     VaadinServlet servlet;
 
-    public SensorhubViewService(){}
+    public SensorHubViewService(){}
 
 
     @Override
     protected void doStart() throws SensorHubException {
-        logger.debug("***** Vaadin  starting *****");
+        logger.debug("***** SensorHub View Starting *****");
 
         LogManager.getLogManager().reset();
 

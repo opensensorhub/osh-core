@@ -21,16 +21,16 @@ import org.sensorhub.impl.service.ogc.OGCServiceConfig;
  * @author Kalyn Stricklin
  * @since June 2025
  */
-public class SensorhubViewConfig extends OGCServiceConfig
+public class SensorHubViewConfig extends OGCServiceConfig
 {
 
     public String widgetSet = "org.sensorhub.ui.SensorHubWidgetSet";
 
 
-    public SensorhubViewConfig()
+    public SensorHubViewConfig()
     {
-        this.name = "Sensorhub View";
-        this.moduleClass = SensorhubViewService.class.getCanonicalName();
+        this.name = "SensorHub View";
+        this.moduleClass = SensorHubViewService.class.getCanonicalName();
         this.endPoint = "/VAADIN/";
     }
 }

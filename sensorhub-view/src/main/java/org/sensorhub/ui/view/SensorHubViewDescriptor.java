@@ -23,12 +23,12 @@ import org.sensorhub.api.module.ModuleConfig;
  * @author Kalyn Stricklin
  * @since June 2025
  */
-public class SensorhubViewDescriptor implements IModuleProvider
+public class SensorHubViewDescriptor implements IModuleProvider
 {
     @Override
     public String getModuleName()
     {
-        return "Sensorhub View Service";
+        return "SensorHub View Service";
     }
 
     @Override
@@ -52,12 +52,12 @@ public class SensorhubViewDescriptor implements IModuleProvider
     @Override
     public Class<? extends IModule<?>> getModuleClass()
     {
-        return SensorhubViewService.class;
+        return SensorHubViewService.class;
     }
 
     @Override
     public Class<? extends ModuleConfig> getModuleConfigClass()
     {
-        return SensorhubViewConfig.class;
+        return SensorHubViewConfig.class;
     }
 }
