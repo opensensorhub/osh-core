@@ -1,11 +1,7 @@
 package org.sensorhub.ui;
 
 import com.vaadin.annotations.JavaScript;
-import com.vaadin.annotations.StyleSheet;
-import com.vaadin.event.CollapseEvent;
-import com.vaadin.event.MouseEvents;
 import com.vaadin.server.FontAwesome;
-import com.vaadin.server.ThemeResource;
 import com.vaadin.shared.ui.ContentMode;
 import com.vaadin.shared.ui.JavaScriptComponentState;
 import com.vaadin.ui.*;
@@ -15,42 +11,8 @@ import org.sensorhub.ui.data.MyBeanItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.*;
-import java.security.CodeSource;
-import org.sensorhub.ui.api.UIConstants.*;
-
 
 public class ReadmePanel extends VerticalLayout {
-
-    private static final String defaultReadmeHtml = "<p>A README file could not be found for this module.</p>\n" +
-            "<p>If this is a mistake, please be sure that...</p>\n" +
-            "<ul>\n" +
-            "<li>The module contains a file titled <code>README.md</code> within its build (build &gt; resources &gt; main &gt; README.md).</li>\n" +
-            "</ul>\n" +
-            "<p>OR</p>\n" +
-            "<ul>\n" +
-            "<li>The module contains a file titled <code>README.md</code> in its root directory.</li>\n" +
-            "<li><p>Your node&#39;s <code>build.gradle</code> file (the outermost one) includes the following:\n" +
-            "   </p>\n" +
-            "<pre><code><span class=\"hljs-keyword\">allprojects</span> {\n" +
-            "    version = oshCoreVersion\n" +
-            "    tasks.register(<span class=\"hljs-string\">'copyReadme'</span>, <span class=\"hljs-keyword\">Copy</span>) {\n" +
-            "        <span class=\"hljs-keyword\">from</span> <span class=\"hljs-string\">\"${projectDir}/README.md\"</span>\n" +
-            "        <span class=\"hljs-keyword\">into</span> <span class=\"hljs-string\">\"${buildDir}/resources/main\"</span>\n" +
-            "        onlyIf { <span class=\"hljs-keyword\">file</span>(<span class=\"hljs-string\">\"${projectDir}/README.md\"</span>).exists() }\n" +
-            "    }\n" +
-            "}\n" +
-            "\n" +
-            "<span class=\"hljs-keyword\">subprojects</span> {\n" +
-            "    <span class=\"hljs-comment\">// inject all repositories from included builds if any</span>\n" +
-            "    <span class=\"hljs-keyword\">repositories</span>.addAll(rootProject.<span class=\"hljs-keyword\">repositories</span>)\n" +
-            "    plugins.withType(JavaPlugin) {\n" +
-            "        processResources {\n" +
-            "            dependsOn copyReadme\n" +
-            "        }\n" +
-            "    }\n" +
-            "}\n" +
-            "</code></pre></li>\n" +
-            "</ul>";
 
     // This determines which tab is visible
     // Hack needed for desired accordion behavior in this older version of Vaadin
@@ -67,26 +29,11 @@ public class ReadmePanel extends VerticalLayout {
         }
 
         private ReadmeJS(final MyBeanItem<ModuleConfig> beanItem) {
-
             try {
-                // Get the JAR file location from the protection domain
-                CodeSource codeSource = beanItem.getBean().getClass().getProtectionDomain().getCodeSource();
-                if (codeSource != null) {
-
-                    // Convert JAR URL to a file path, navigate to the build directory
-                    File jarFile = new File(codeSource.getLocation().toURI());
-                    File buildDir = jarFile.getParentFile().getParentFile();
-
-                    // Look for README.md in the resources directory
-                    File readmeFile = new File(buildDir, "resources/main/README.md");
-                    if (readmeFile.exists()) {
-                        readmeIs = new FileInputStream(readmeFile);
-                    }
-                }
+                InputStream readmeIs = beanItem.getBean().getClass().getResourceAsStream("README.md");
+                //logger.debug("readmeIs: {}", beanItem.getResource(""));
 
                 if (readmeIs == null) {
-                    //readmeIs = new ByteArrayInputStream(defaultReadme.getBytes());
-                    //addComponent
                     hasContent = false;
                 } else {
                     hasContent = true;
@@ -139,7 +86,7 @@ public class ReadmePanel extends VerticalLayout {
             VerticalLayout instructions = new VerticalLayout();
             instructions.setMargin(true);
             instructions.setSpacing(true);
-            Label instructionsLabel = new Label(defaultReadmeHtml, ContentMode.HTML);
+            Label instructionsLabel = new Label(generateInstructions(beanItem), ContentMode.HTML);
             instructions.addComponent(instructionsLabel);
             instructions.setVisible(false);
             instructions.addStyleNames("v-csslayout-well", "v-scrollable");
@@ -160,5 +107,28 @@ public class ReadmePanel extends VerticalLayout {
             addComponent(instructions);
 
         }
+    }
+
+    private String generateInstructions(final MyBeanItem<ModuleConfig> beanItem) {
+        String packagePath = beanItem.getBean().getClass().getPackage().getName().replace(".", "/");
+        return "<p>A README file could not be found for this module.</p>\n" +
+                "<p>If this is a mistake, please be sure that the module contains a file titled <code>README.md</code> within its resources directory.<br>\n" +
+                "<code>src/main/resources/" +
+                packagePath +
+                "/README.md</code></p>" +
+                "<p>Add the following to the module's build.gradle to automatically copy the readme into resources.<br>\n" +
+                "If the readme is not in the module's root directory, adjustments may be necessary.</p>\n" +
+                "<pre>\n" +
+                "tasks.register('copyReadme', Copy) {\n" +
+                "\tfrom \"${projectDir}/README.md\"\n" +
+                "\tinto \"${projectDir}/src/main/resources/" +
+                packagePath + "\"\n" +
+                "\tonlyIf { file(\"${projectDir}/README.md\").exists() }\n" +
+                "}\n" +
+                "\n" +
+                "processResources {\n" +
+                "\tdependsOn copyReadme\n" +
+                "}\n" +
+                "</pre>\n";
     }
 }
