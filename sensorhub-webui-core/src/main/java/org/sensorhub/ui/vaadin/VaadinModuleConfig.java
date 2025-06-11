@@ -12,30 +12,25 @@ Copyright (C) 2012-2016 Sensia Software LLC. All Rights Reserved.
  
 ******************************* END LICENSE BLOCK ***************************/
 
-package org.sensorhub.impl.service.landing;
-
-import org.sensorhub.api.config.DisplayInfo;
-import org.sensorhub.api.security.SecurityConfig;
+package org.sensorhub.ui.vaadin;
 import org.sensorhub.impl.service.ogc.OGCServiceConfig;
 
 
 /**
  *
  * @author Kalyn Stricklin
- * @since February 2025
+ * @since June 2025
  */
-public class LandingConfig extends OGCServiceConfig
+public class VaadinModuleConfig extends OGCServiceConfig
 {
 
-    public String widgetSet = "org.sensorhub.ui.LandingWidgetSet";
+    public String widgetSet = "org.sensorhub.ui.SensorHubWidgetSet";
 
-    @DisplayInfo(desc="Security related options")
-    public SecurityConfig security = new SecurityConfig();
 
-    public LandingConfig()
+    public VaadinModuleConfig()
     {
-        this.name = "OpenSensorHub Landing Page";
-        this.moduleClass = LandingService.class.getCanonicalName();
-        this.endPoint = "/";
+        this.name = "Vaadin Module";
+        this.moduleClass = VaadinServiceModule.class.getCanonicalName();
+        this.endPoint = "/VAADIN/";
     }
 }

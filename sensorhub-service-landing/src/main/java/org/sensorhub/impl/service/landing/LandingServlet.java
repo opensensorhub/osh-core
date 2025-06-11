@@ -80,7 +80,6 @@ public class LandingServlet extends VaadinServlet {
 
     private boolean isIgnored(String uri) {
         return uri.startsWith("/VAADIN/")
-                || uri.startsWith("/sensorhub/landing/VAADIN/")
                 || uri.startsWith("/sensorhub/VAADIN/")
                 || uri.startsWith("/sensorhub/APP/")
                 || uri.startsWith("/sensorhub/PUSH/")
@@ -88,9 +87,7 @@ public class LandingServlet extends VaadinServlet {
                 || uri.equals("/sensorhub/")
                 || uri.equals("/sensorhub/HEARTBEAT/")
                 || uri.equals("/sensorhub/UIDL/")
-                || uri.contains("OpenSensorHub-Logo.png")
-                || uri.equals("/sensorhub/logout")
-                || uri.equals("/sensorhub/admin/logout");
+                || uri.contains("OpenSensorHub-Logo.png");
     }
 
     /**

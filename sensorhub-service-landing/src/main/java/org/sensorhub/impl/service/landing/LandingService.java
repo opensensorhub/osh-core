@@ -34,7 +34,7 @@ public class LandingService extends AbstractHttpServiceModule<LandingConfig> imp
 {
 
     protected static final String SERVLET_PARAM_MODULE = "landing_instance";
-    protected static final String SERVLET_PARAM_UI_CLASS = "LANDING UI";
+    protected static final String SERVLET_PARAM_UI_CLASS = "LandingUI";
     protected static final String WIDGETSET = "widgetset";
     protected static final int HEARTBEAT_INTERVAL = 10;
     VaadinServlet landingServlet;
@@ -54,7 +54,7 @@ public class LandingService extends AbstractHttpServiceModule<LandingConfig> imp
 
     @Override
     protected void doStart() throws SensorHubException {
-       logger.debug("***** LandingService starting *****");
+       logger.debug("***** Landing Service starting *****");
 
         LogManager.getLogManager().reset();
 
@@ -95,15 +95,13 @@ public class LandingService extends AbstractHttpServiceModule<LandingConfig> imp
 
 
         // deploy landing ui to HTTP server
-        httpServer.deployServlet(landingServlet, initParams, "/*"); //,  , "/sensorhub/*"
+        httpServer.deployServlet(landingServlet, initParams, "/*");
         System.setErr(oldStdErr);
         landingServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
 
         //set up security
         httpServer.addServletSecurity("/*", config.security.requireAuth);
-        httpServer.addServletSecurity("/sensorhub/*", config.security.requireAuth);
-
-//        httpServer.addServletSecurity("/landing/VAADIN/*", config.security.requireAuth);
+        
         setState(ModuleEvent.ModuleState.STARTED);
     }
 
