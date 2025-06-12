@@ -43,11 +43,7 @@ import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.servlet.ServletMapping;
+import org.eclipse.jetty.servlet.*;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.util.security.Constraint;
@@ -299,8 +295,26 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             throw new SensorHubException("Cannot start embedded HTTP server", e);
         }
     }
-    
-    
+
+    @Override
+    protected void afterStart() throws SensorHubException {
+        super.afterStart();
+
+
+        if(servletHandler != null){
+            ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
+            errorHandler.addErrorPage(400, "/error/invalid");
+            errorHandler.addErrorPage(403, "/error/forbidden");
+            errorHandler.addErrorPage(404, "/error/notfound");
+
+            servletHandler.setErrorHandler(errorHandler);
+
+        }else{
+            getLogger().warn("Servlet Handler is not initialized, cannot create error pages");
+        }
+
+    }
+
     @Override
     protected synchronized void doStop() throws SensorHubException
     {
@@ -416,8 +430,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             jettySecurityHandler.addConstraintMapping(cm);
         }
     }
-    
-    
+
+
     public String getServerBaseUrl()
     {
         String baseUrl = "";
