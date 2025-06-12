@@ -203,6 +203,7 @@ public class SOSTClient extends AbstractModule<SOSTClientConfig> implements ICli
                     request.setConnectTimeOut(connectConfig.connectTimeout);
                     request.setService(SOSUtils.SOS);
                     request.setGetServer(getSosEndpointUrl());
+                    setAuth();
                     caps = sosUtils.sendRequest(request, false);
                 }
                 catch (Exception e)

@@ -53,7 +53,7 @@ public class SOSService extends SWEService<SOSServiceConfig>
         for (var formatConfig: config.customFormats)
         {
             if (Strings.isNullOrEmpty(formatConfig.mimeType))
-                throw new SensorHubException("Custum format must specify a mime type");
+                throw new SensorHubException("Custom format must specify a mime type");
         }        
         
         this.securityHandler = new SOSSecurity(this, config.security.enableAccessControl);
