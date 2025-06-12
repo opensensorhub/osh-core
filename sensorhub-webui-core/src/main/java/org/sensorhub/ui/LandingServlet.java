@@ -1,4 +1,4 @@
-package org.sensorhub.impl.service.landing;
+package org.sensorhub.ui;
 
 import com.vaadin.annotations.VaadinServletConfiguration;
 import com.vaadin.server.VaadinServlet;
@@ -21,12 +21,12 @@ import java.security.Principal;
 public class LandingServlet extends VaadinServlet {
 
     Logger log;
-    LandingUISecurity securityHandler;
-    LandingService parentService;
+    AdminUISecurity securityHandler;
+    AdminUIModule parentService;
 
 
     // this is used by the LandingService class
-    LandingServlet(LandingService service, LandingUISecurity securityHandler, Logger log) {
+    LandingServlet(AdminUIModule service, AdminUISecurity securityHandler, Logger log) {
         this.log = log;
         this.securityHandler = securityHandler;
         this.parentService = service;
@@ -37,7 +37,7 @@ public class LandingServlet extends VaadinServlet {
     protected void servletInitialized() throws ServletException {
         super.servletInitialized();
 
-        getServletContext().setAttribute("landing_instance", new LandingService());
+        getServletContext().setAttribute("landing_instance", new AdminUIModule());
 
         getService().addSessionInitListener(event ->
             log.debug("Landing Servlet Initialized")
@@ -48,7 +48,8 @@ public class LandingServlet extends VaadinServlet {
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String uri = request.getRequestURI();
-        String redirectURL = parentService.getPublicEndpointUrl();
+
+        String redirectURL = request.getContextPath(); //TODO: add landing service endpoint to config or httpserver.getContextPath
 
         try {
             Principal user = request.getUserPrincipal();

@@ -1,4 +1,4 @@
-package org.sensorhub.impl.service.landing.helpers;
+package org.sensorhub.ui;
 
 /**
  *

@@ -17,8 +17,8 @@ rootProject.allprojects {
 dependencies {
   implementation project(':sensorhub-core')
   implementation project(':sensorhub-service-swe')
-  implementation project(':sensorhub-view')
-  implementation project(':sensorhub-view-widgetset')
+  implementation project(':sensorhub-service-consys')
+  embeddedImpl project(':sensorhub-webui-widgetset')
   embeddedImpl 'com.vaadin:vaadin-server:' + vaadinVersion
   embeddedImpl 'com.vaadin:vaadin-push:' + vaadinVersion  
   compileOnly 'com.vaadin:vaadin-client:' + vaadinVersion

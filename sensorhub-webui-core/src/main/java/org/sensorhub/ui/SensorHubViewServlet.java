@@ -1,7 +1,8 @@
-package org.sensorhub.ui.view;
+package org.sensorhub.ui;
 
 import com.vaadin.server.VaadinServlet;
 import org.slf4j.Logger;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -19,9 +20,9 @@ public class SensorHubViewServlet extends VaadinServlet{
 
     final transient Logger log;
 
-    SensorHubViewService parentService;
+    AdminUIModule parentService;
 
-    SensorHubViewServlet(SensorHubViewService parentService, Logger log){
+    SensorHubViewServlet(AdminUIModule parentService, Logger log){
         this.log = log;
         this.parentService = parentService;
     }
@@ -31,7 +32,7 @@ public class SensorHubViewServlet extends VaadinServlet{
     protected void servletInitialized() throws ServletException {
         super.servletInitialized();
 
-        getServletContext().setAttribute("view_instance", new SensorHubViewService());
+        getServletContext().setAttribute("view_instance", new AdminUIModule());
 
         getService().addSessionInitListener(event ->
                 log.debug("SensorHub View Servlet Initialized")

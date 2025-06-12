@@ -1,4 +1,4 @@
-package org.sensorhub.impl.service.landing;
+package org.sensorhub.ui;
 
 
 import com.vaadin.annotations.Theme;
@@ -13,8 +13,6 @@ import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.security.IPermission;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.service.consys.ConSysApiService;
-import org.sensorhub.impl.service.landing.helpers.ConfirmDialog;
-import org.sensorhub.impl.service.landing.helpers.Endpoints;
 import org.sensorhub.impl.service.sos.SOSService;
 import org.sensorhub.ui.AdminUIModule;
 import org.sensorhub.ui.SOSAdminPanel;
@@ -34,11 +32,11 @@ import javax.servlet.http.HttpSession;
 @Title("OpenSensorHub Landing Page")
 public class LandingUI extends UI{
 
-    transient LandingService landingService;
+    transient AdminUIModule service;
     transient ISensorHub hub;
     transient Logger log;
     transient ModuleRegistry moduleRegistry;
-    transient LandingUISecurity securityHandler;
+    transient AdminUISecurity securityHandler;
     private String ip;
     String hostname;
     String user;
@@ -51,11 +49,11 @@ public class LandingUI extends UI{
 
         try{
             ServletContext servletContext = VaadinServlet.getCurrent().getServletContext();
-            this.landingService = (LandingService) servletContext.getAttribute(LandingService.SERVLET_PARAM_MODULE);
-            this.hub = landingService.getParentHub();
-            this.log = landingService.getLogger();
+            this.service = (AdminUIModule) servletContext.getAttribute(AdminUIModule.LANDING_SERVLET_PARAM_MODULE);
+            this.hub = service.getParentHub();
+            this.log = service.getLogger();
             this.moduleRegistry = hub.getModuleRegistry();
-            this.securityHandler = landingService.getSecurityHandler();
+            this.securityHandler = service.getSecurityHandler();
 
         }catch(Exception e){
             throw new IllegalStateException("Cannot get Landing page UI configuration", e);
@@ -162,7 +160,6 @@ public class LandingUI extends UI{
             //check parenthub modules as well
 
             var modules = getParentHub().getModuleRegistry().getLoadedModules();
-
 
             for(var module : modules){
                 String permissionName = permission.getName();
@@ -373,9 +370,9 @@ public class LandingUI extends UI{
     }
 
 
-    public LandingService getParentModule()
+    public AdminUIModule getParentModule()
     {
-        return landingService;
+        return service;
     }
 
 }
