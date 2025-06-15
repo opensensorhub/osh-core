@@ -7,10 +7,12 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.*;
 import org.sensorhub.api.database.IObsSystemDatabase;
+import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.api.event.EventUtils;
+import org.sensorhub.api.feature.FoiAddedEvent;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.api.system.SystemAddedEvent;
 import org.sensorhub.api.system.SystemChangedEvent;
@@ -20,6 +22,8 @@ import org.sensorhub.api.system.SystemDisabledEvent;
 import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
+import org.vast.ogc.gml.IFeature;
+import org.vast.ogc.om.SamplingFeature;
 import org.vast.util.Asserts;
 
 import java.net.Authenticator;
@@ -38,6 +42,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     String apiEndpointUrl;
     ConSysApiClient client;
     Map<String, SystemRegInfo> registeredSystems;
+    Map<BigId, String> registeredFeatureIDs;
     NavigableMap<String, StreamInfo> dataStreams;
     Flow.Subscription registrySubscription;
 
@@ -61,8 +66,8 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
     public ConSysApiClientModule()
     {
-//        this.startAsync = true;
         this.registeredSystems = new ConcurrentHashMap<>();
+        this.registeredFeatureIDs = new ConcurrentHashMap<>();
         this.dataStreams = new ConcurrentSkipListMap<>();
     }
 
@@ -127,6 +132,20 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                     registerSystemDataStreams(systemRegInfo);
                 });
 
+        dataBaseView.getFoiStore().selectEntries(
+                dataBaseView.getFoiStore().selectAllFilter())
+                .forEach(entry -> {
+                    if (entry.getValue() instanceof SamplingFeature<?> foi) {
+                        var systemUID = foi.getHostedProcedureUID();
+                        if (systemUID == null)
+                            return;
+                        var registration = registeredSystems.get(systemUID);
+                        if (registration == null)
+                            return;
+                        registerSamplingFeature(entry.getKey().getInternalID(), registration.systemID, foi);
+                    }
+                });
+
         subscribeToRegistryEvents();
 
         for (var stream : dataStreams.values())
@@ -168,16 +187,34 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     private String tryUpdateSystem(ISystemWithDesc system)
     {
         try {
-            var uidRequest = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON);
+            var oldSystem = client.getSystemByUid(system.getUniqueIdentifier(), ResourceFormat.JSON).get();
             String systemID;
-            if(uidRequest != null) {
-                var oldSys = uidRequest.get();
-                systemID = oldSys.getId();
+            if(oldSystem != null) {
+                systemID = oldSystem.getId();
                 var responseCode = client.updateSystem(systemID, system).get();
                 boolean successful = responseCode == 204;
                 if(!successful)
                     throw new ClientException("Failed to update resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
                 return systemID;
+            }
+        } catch (ExecutionException | InterruptedException | ClientException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    private String tryUpdateSamplingFeature(IFeature feature)
+    {
+        try {
+            var oldSamplingFeature = client.getSamplingFeatureByUID(feature.getUniqueIdentifier(), ResourceFormat.JSON).get();
+            String samplingFeatureId;
+            if (oldSamplingFeature != null) {
+                samplingFeatureId = oldSamplingFeature.getId();
+                var responseCode = client.updateSamplingFeature(samplingFeatureId, feature).get();
+                boolean successful = responseCode == 204;
+                if (!successful)
+                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + "/" + ConSysApiClient.SF_COLLECTION + "/" + samplingFeatureId);
+                return samplingFeatureId;
             }
         } catch (ExecutionException | InterruptedException | ClientException e) {
             throw new RuntimeException(e);
@@ -215,6 +252,20 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
             return registerSystemInfo(systemID, systemInternalID, system);
         } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected void registerSamplingFeature(BigId featureInternalId, String systemId, IFeature feature)
+    {
+        try {
+            String samplingFeatureId = tryUpdateSamplingFeature(feature);
+            if(samplingFeatureId == null)
+                samplingFeatureId = client.addSamplingFeature(systemId, feature).get();
+
+            // Register some information locally
+            registeredFeatureIDs.put(featureInternalId, samplingFeatureId);
+        } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
@@ -378,9 +429,20 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
-        var length = e.getObservations().length;
-        for(var obs : e.getObservations())
-            client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs, this.dataBaseView.getObservationStore());
+        for(var obs : e.getObservations()) {
+            String foiID = null;
+            if (obs.hasFoi()) {
+                var registeredFoiID = registeredFeatureIDs.get(obs.getFoiID());
+                if (registeredFoiID != null)
+                    foiID = registeredFoiID;
+            }
+            client.pushObs(
+                    streamInfo.dataStreamID,
+                    streamInfo.dataStream,
+                    obs,
+                    this.dataBaseView.getObservationStore(),
+                    foiID);
+        }
     }
 
     protected void handleEvent(final SystemEvent e)
@@ -405,6 +467,26 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                     var systemRegInfo = registerSystem(system.getKey().getInternalID(), system.getValue());
                     checkSubSystems(systemRegInfo);
                     var newStreams = registerSystemDataStreams(systemRegInfo);
+
+                    dataBaseView.getFoiStore().selectEntries(
+                                    new FoiFilter.Builder()
+                                            .withParents(
+                                            new SystemFilter.Builder()
+                                                    .withUniqueIDs(e.getSystemUID())
+                                                    .build())
+                                            .build())
+                            .forEach(entry -> {
+                                if (entry.getValue() instanceof SamplingFeature<?> foi) {
+                                    var systemUID = foi.getHostedProcedureUID();
+                                    if (systemUID == null)
+                                        return;
+                                    var registration = registeredSystems.get(systemUID);
+                                    if (registration == null)
+                                        return;
+                                    registerSamplingFeature(entry.getKey().getInternalID(), registration.systemID, foi);
+                                }
+                            });
+
                     for(var streamInfo : newStreams) {
                         try {
                             startStream(streamInfo);
@@ -459,6 +541,33 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 disableDataStream(sysUID, outputName, true);
             });
         }
+
+        // foi events
+//        else if (e instanceof FoiAddedEvent foiAddedEvent)
+//        {
+//            CompletableFuture.runAsync(() -> {
+//                var foi = foiAddedEvent.getFoi();
+//                var systemUID = foiAddedEvent.getSystemUID();
+//                if(foi != null && systemUID != null)
+//                {
+//                    // TODO: Check system exists. If yes, add foi to system. If no, add system, then add foi.
+//                    // Check attached system is part of our filtered db view
+//                    var currentSystem = dataBaseView.getSystemDescStore().getCurrentVersion(foiAddedEvent.getSystemID());
+//                    if (currentSystem == null)
+//                        return;
+//                    // Check FOI is part of our filtered db view
+//                    var currentFeatureEntry = dataBaseView.getFoiStore().getCurrentVersionEntry(foiAddedEvent.getFoiUID());
+//                    if (currentFeatureEntry == null)
+//                        return;
+//                    // Check if registered at remote (and tracked locally)
+//                    SystemRegInfo systemRegInfo = registeredSystems.get(systemUID);
+//                    if (systemRegInfo == null)
+//                        systemRegInfo = registerSystem(foiAddedEvent.getSystemID(), currentSystem);
+//
+//                    registerSamplingFeature(currentFeatureEntry.getKey().getInternalID(), systemRegInfo.systemID, currentFeatureEntry.getValue());
+//                }
+//            });
+//        }
     }
 
 }

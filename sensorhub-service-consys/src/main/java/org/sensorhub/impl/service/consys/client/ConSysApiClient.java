@@ -43,6 +43,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
@@ -54,6 +57,7 @@ import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.feature.FoiBindingGeoJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingOmJson;
 import org.sensorhub.impl.service.consys.procedure.ProcedureBindingGeoJson;
@@ -73,6 +77,7 @@ import org.sensorhub.impl.service.consys.task.CommandStreamSchemaBindingJson;
 import org.sensorhub.utils.Lambdas;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
@@ -91,7 +96,7 @@ public class ConSysApiClient
     static final String CONTROLS_COLLECTION = "controlstreams";
     static final String OBSERVATIONS_COLLECTION = "observations";
     static final String SUBSYSTEMS_COLLECTION = "subsystems";
-    static final String SF_COLLECTION = "fois";
+    static final String SF_COLLECTION = "samplingFeatures";
 
     static final Logger log = LoggerFactory.getLogger(ConSysApiClient.class);
 
@@ -494,6 +499,95 @@ public class ConSysApiClient
         }
     }
 
+    /*-------------------*/
+    /* Sampling Features */
+    /*-------------------*/
+    public CompletableFuture<String> addSamplingFeature(String systemId, IFeature feature)
+    {
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new FoiBindingGeoJson(ctx, null, null, false);
+            binding.serialize(null, feature, false);
+
+            return sendPostRequest(
+                    endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + SF_COLLECTION),
+                    ResourceFormat.GEOJSON,
+                    buffer.toByteArray());
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+
+    public CompletableFuture<Integer> updateSamplingFeature(String featureId, IFeature feature)
+    {
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new FoiBindingGeoJson(ctx, null, null, false);
+            binding.serialize(null, feature, false);
+
+            return sendPutRequest(
+                    endpoint.resolve(SF_COLLECTION + "/" + featureId),
+                    ResourceFormat.GEOJSON,
+                    buffer.toByteArray());
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+
+    public CompletableFuture<IFeature> getSamplingFeatureById(String featureId)
+    {
+        return sendGetRequest(
+                endpoint.resolve(SF_COLLECTION + "/" + featureId),
+                ResourceFormat.GEOJSON,
+                body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new FoiBindingGeoJson(ctx, null, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                throw new CompletionException(e);
+            }
+        });
+    }
+
+    public CompletableFuture<IFeature> getSamplingFeatureByUID(String uid, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?foi=" + uid), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+
+                // use modified binding since the response contains a feature collection
+                var binding = new FoiBindingGeoJson(ctx, null, null, true) {
+                    public IFeature deserialize(JsonReader reader) throws IOException
+                    {
+                        skipToCollectionItems(reader);
+                        return super.deserialize(reader);
+                    }
+                };
+
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                throw new CompletionException(e);
+            }
+        });
+    }
+
 
     /*-------------*/
     /* Datastreams */
@@ -743,6 +837,11 @@ public class ConSysApiClient
     // TODO: Be able to push different kinds of observations such as video
     public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore)
     {
+        return pushObs(dataStreamId, dataStream, obs, obsStore, null);
+    }
+
+    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore, String foiId)
+    {
         try
         {
             ObsHandler.ObsHandlerContextData contextData = new ObsHandler.ObsHandlerContextData();
@@ -760,6 +859,13 @@ public class ConSysApiClient
                 ctx.setFormat(ResourceFormat.OM_JSON);
                 var binding = new ObsBindingOmJson(ctx, null, false, obsStore);
                 binding.serialize(null, obs, false);
+            }
+
+            if (foiId != null) {
+                JsonObject payload = JsonParser.parseString(buffer.toString()).getAsJsonObject();
+                payload.addProperty("foi@id", foiId);
+                buffer.reset();
+                buffer.write(payload.toString().getBytes());
             }
 
             return sendPostRequest(

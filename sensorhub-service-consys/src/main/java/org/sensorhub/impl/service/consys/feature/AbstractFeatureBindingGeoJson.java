@@ -95,7 +95,7 @@ public abstract class AbstractFeatureBindingGeoJson<V extends IFeature, DB exten
     {
         try
         {
-            var f = getFeatureWithId(key, res);
+            var f = key != null ? getFeatureWithId(key, res) : res;
             this.showLinks = showLinks;
             geoJsonBindings.writeFeature(writer, f);
             writer.flush();
