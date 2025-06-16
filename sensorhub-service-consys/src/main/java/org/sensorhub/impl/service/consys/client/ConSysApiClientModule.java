@@ -21,6 +21,7 @@ import org.sensorhub.api.system.SystemRemovedEvent;
 import org.sensorhub.api.system.SystemDisabledEvent;
 import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.module.AbstractModule;
+import org.sensorhub.impl.security.ClientAuth;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.ogc.gml.IFeature;
 import org.vast.ogc.om.SamplingFeature;
@@ -71,6 +72,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         this.dataStreams = new ConcurrentSkipListMap<>();
     }
 
+    private void setAuth()
+    {
+        ClientAuth.getInstance().setUser(config.conSys.user);
+        if (config.conSys.password != null)
+            ClientAuth.getInstance().setPassword(config.conSys.password.toCharArray());
+    }
+
     @Override
     public void setConfiguration(ConSysApiClientConfig config)
     {
@@ -106,14 +114,8 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         // Check if endpoint is available
         try{
             HttpURLConnection urlConnection = (HttpURLConnection) client.endpoint.toURL().openConnection();
-            if (!Strings.isNullOrEmpty(config.conSys.user)) {
-                urlConnection.setAuthenticator(new Authenticator() {
-                    @Override
-                    public PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(config.conSys.user, config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0]);
-                    }
-                });
-            }
+            if (!Strings.isNullOrEmpty(config.conSys.user))
+                setAuth();
             urlConnection.connect();
             Asserts.checkArgument(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
         } catch (Exception e) {
