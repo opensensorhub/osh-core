@@ -256,7 +256,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IProcedureWithDesc> getProcedureByUid(String uid, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?uid=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?id=" + uid), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -369,7 +369,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format) throws ExecutionException, InterruptedException
     {
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?uid=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?id=" + uid), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -565,7 +565,7 @@ public class ConSysApiClient
 
     public CompletableFuture<IFeature> getSamplingFeatureByUID(String uid, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?foi=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);

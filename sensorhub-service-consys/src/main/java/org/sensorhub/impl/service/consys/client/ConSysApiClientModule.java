@@ -7,6 +7,7 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.*;
 import org.sensorhub.api.database.IObsSystemDatabase;
+import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.ObsFilter;
@@ -24,12 +25,9 @@ import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.security.ClientAuth;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.ogc.gml.IFeature;
-import org.vast.ogc.om.SamplingFeature;
 import org.vast.util.Asserts;
 
-import java.net.Authenticator;
 import java.net.HttpURLConnection;
-import java.net.PasswordAuthentication;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -105,8 +103,6 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 newBuilder(apiEndpointUrl)
                 .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
                 .build();
-
-        // TODO: Other initialization
     }
 
     @Override
@@ -136,22 +132,28 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
         dataBaseView.getFoiStore().selectEntries(
                 dataBaseView.getFoiStore().selectAllFilter())
-                .forEach(entry -> {
-                    if (entry.getValue() instanceof SamplingFeature<?> foi) {
-                        var systemUID = foi.getHostedProcedureUID();
-                        if (systemUID == null)
-                            return;
-                        var registration = registeredSystems.get(systemUID);
-                        if (registration == null)
-                            return;
-                        registerSamplingFeature(entry.getKey().getInternalID(), registration.systemID, foi);
-                    }
-                });
+                .forEach(entry -> registerSamplingFeature(entry.getKey(), entry.getValue()));
 
         subscribeToRegistryEvents();
 
         for (var stream : dataStreams.values())
             startStream(stream);
+    }
+
+    private void registerSamplingFeature(FeatureKey key, IFeature res) {
+        var parentKey = dataBaseView.getFoiStore().getParent(key.getInternalID());
+        if (parentKey == null)
+            return;
+        var parentSystemEntry = dataBaseView.getSystemDescStore().getCurrentVersionEntry(parentKey);
+        if (parentSystemEntry == null)
+            return;
+        var parentUID = parentSystemEntry.getValue().getUniqueIdentifier();
+        if (parentUID == null)
+            return;
+        var registration = registeredSystems.get(parentUID);
+        if (registration == null)
+            return;
+        registerSamplingFeature(key.getInternalID(), registration.systemID, res);
     }
 
     @Override
@@ -390,7 +392,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             getParentHub().getEventBus().newSubscription(ObsEvent.class)
                     .withTopicID(streamInfo.topicID)
                     .withEventType(ObsEvent.class)
-                    .subscribe(e -> handleEvent(e, streamInfo))
+                    .consume(e -> handleEvent(e, streamInfo))
                     .thenAccept(subscription -> {
                         streamInfo.subscription = subscription;
                         subscription.request(Long.MAX_VALUE);
@@ -412,15 +414,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
     }
 
-    protected void stopStream(StreamInfo streamInfo)
+    protected synchronized void stopStream(StreamInfo streamInfo)
     {
         if(streamInfo.subscription != null)
         {
             streamInfo.subscription.cancel();
             streamInfo.subscription = null;
         }
-
-        // TODO Check other stuff
     }
 
     @Override
@@ -460,7 +460,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
 
         // system events
-        else if (e instanceof SystemAddedEvent || e instanceof SystemEnabledEvent)
+        else if (e instanceof SystemAddedEvent)
         {
             CompletableFuture.runAsync(() -> {
                 var system = dataBaseView.getSystemDescStore().getCurrentVersionEntry(e.getSystemUID());
@@ -477,17 +477,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                                                     .withUniqueIDs(e.getSystemUID())
                                                     .build())
                                             .build())
-                            .forEach(entry -> {
-                                if (entry.getValue() instanceof SamplingFeature<?> foi) {
-                                    var systemUID = foi.getHostedProcedureUID();
-                                    if (systemUID == null)
-                                        return;
-                                    var registration = registeredSystems.get(systemUID);
-                                    if (registration == null)
-                                        return;
-                                    registerSamplingFeature(entry.getKey().getInternalID(), registration.systemID, foi);
-                                }
-                            });
+                            .forEach(entry -> registerSamplingFeature(entry.getKey(), entry.getValue()));
 
                     for(var streamInfo : newStreams) {
                         try {
@@ -497,6 +487,23 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                         }
                     }
                 }
+            });
+        }
+
+        else if (e instanceof SystemEnabledEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var systemEntry = dataBaseView.getSystemDescStore().getCurrentVersionEntry(e.getSystemUID());
+                if(systemEntry == null)
+                    return;
+                var sysRegInfo = registeredSystems.get(e.getSystemUID());
+                if(sysRegInfo == null)
+                    return;
+                // Only re-enable system if it was disabled
+                if(sysRegInfo.subscription != null)
+                    return;
+
+                registerSystemInfo(sysRegInfo.systemID, systemEntry.getKey().getInternalID(), systemEntry.getValue());
             });
         }
 
@@ -517,12 +524,31 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
 
         // datastream events
-        else if (e instanceof DataStreamAddedEvent || e instanceof DataStreamEnabledEvent)
+        else if (e instanceof DataStreamAddedEvent)
         {
             CompletableFuture.runAsync(() -> {
                 var sysUID = e.getSystemUID();
                 var outputName = ((DataStreamEvent) e).getOutputName();
+                getLogger().debug("Adding datastream {}", outputName);
                 addAndStartStream(sysUID, outputName);
+            });
+        }
+
+        else if (e instanceof DataStreamEnabledEvent event)
+        {
+            CompletableFuture.runAsync(() -> {
+                var dataStreamEntry = dataBaseView.getDataStreamStore().getLatestVersionEntry(e.getSystemUID(), event.getOutputName());
+                if(dataStreamEntry == null)
+                    return;
+                var dsTopicId = EventUtils.getDataStreamDataTopicID(e.getSystemUID(), event.getOutputName());
+                var registeredDataStream = dataStreams.get(dsTopicId);
+                if(registeredDataStream == null)
+                    return;
+                try {
+                    startStream(registeredDataStream);
+                } catch (ClientException ex) {
+                    throw new RuntimeException(ex);
+                }
             });
         }
 
@@ -545,31 +571,30 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         }
 
         // foi events
-//        else if (e instanceof FoiAddedEvent foiAddedEvent)
-//        {
-//            CompletableFuture.runAsync(() -> {
-//                var foi = foiAddedEvent.getFoi();
-//                var systemUID = foiAddedEvent.getSystemUID();
-//                if(foi != null && systemUID != null)
-//                {
-//                    // TODO: Check system exists. If yes, add foi to system. If no, add system, then add foi.
-//                    // Check attached system is part of our filtered db view
-//                    var currentSystem = dataBaseView.getSystemDescStore().getCurrentVersion(foiAddedEvent.getSystemID());
-//                    if (currentSystem == null)
-//                        return;
-//                    // Check FOI is part of our filtered db view
-//                    var currentFeatureEntry = dataBaseView.getFoiStore().getCurrentVersionEntry(foiAddedEvent.getFoiUID());
-//                    if (currentFeatureEntry == null)
-//                        return;
-//                    // Check if registered at remote (and tracked locally)
-//                    SystemRegInfo systemRegInfo = registeredSystems.get(systemUID);
-//                    if (systemRegInfo == null)
-//                        systemRegInfo = registerSystem(foiAddedEvent.getSystemID(), currentSystem);
-//
-//                    registerSamplingFeature(currentFeatureEntry.getKey().getInternalID(), systemRegInfo.systemID, currentFeatureEntry.getValue());
-//                }
-//            });
-//        }
+        else if (e instanceof FoiAddedEvent foiAddedEvent)
+        {
+            CompletableFuture.runAsync(() -> {
+                var foi = foiAddedEvent.getFoi();
+                var systemUID = foiAddedEvent.getSystemUID();
+                if(foi != null && systemUID != null)
+                {
+                    // Check attached system is part of our filtered db view
+                    var currentSystem = dataBaseView.getSystemDescStore().getCurrentVersion(foiAddedEvent.getSystemID());
+                    if (currentSystem == null)
+                        return;
+                    // Check FOI is part of our filtered db view
+                    var currentFeatureEntry = dataBaseView.getFoiStore().getCurrentVersionEntry(foiAddedEvent.getFoiUID());
+                    if (currentFeatureEntry == null)
+                        return;
+                    // Check if registered at remote (and tracked locally)
+                    SystemRegInfo systemRegInfo = registeredSystems.get(systemUID);
+                    if (systemRegInfo == null)
+                        systemRegInfo = registerSystem(foiAddedEvent.getSystemID(), currentSystem);
+
+                    registerSamplingFeature(currentFeatureEntry.getKey().getInternalID(), systemRegInfo.systemID, currentFeatureEntry.getValue());
+                }
+            });
+        }
     }
 
 }
