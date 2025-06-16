@@ -46,7 +46,6 @@ import org.sensorhub.ui.api.IModuleAdminPanel;
 import org.sensorhub.ui.api.IModuleConfigForm;
 import org.sensorhub.ui.filter.DatabaseFilterConfigForm;
 import org.sensorhub.ui.filter.DatabaseViewConfigForm;
-import com.vaadin.server.VaadinServlet;
 
 
 public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> implements IEventListener
@@ -60,7 +59,7 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
     protected static final int HEARTBEAT_INTERVAL = 10; // in seconds
     
     VaadinServlet adminUIServlet;
-    VaadinServlet sensorhubViewServlet;
+    VaadinServlet vaaadinResourcesServlet;
     VaadinServlet landingServlet;
 
     AdminUISecurity securityHandler;
@@ -154,7 +153,7 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
         LogManager.getLogManager().reset();//.getLogger("org.atmosphere").setLevel(Level.OFF);
         
         adminUIServlet = new AdminUIServlet(getSecurityHandler(), getLogger());
-        sensorhubViewServlet = new SensorHubViewServlet(this, getLogger());
+        vaaadinResourcesServlet = new VaadinResourcesServlet(this, getLogger());
         landingServlet = new LandingServlet(this, getSecurityHandler(), getLogger());
 
         Map<String, String> initParams = new HashMap<>();
@@ -181,16 +180,16 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
 
 
         httpServer.deployServlet(adminUIServlet, initParams, "/admin/*");
-        httpServer.deployServlet(sensorhubViewServlet, initParams, "/VAADIN/*");
+        httpServer.deployServlet(vaaadinResourcesServlet, initParams, "/VAADIN/*");
 
 
         System.setErr(oldStdErr);
 
         adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
-        sensorhubViewServlet.getServletContext().setAttribute(VIEW_SERVLET_PARAM_MODULE, this);
+        vaaadinResourcesServlet.getServletContext().setAttribute(VIEW_SERVLET_PARAM_MODULE, this);
 
 
-        if(config.enableLandingServlet){
+        if(config.enableLandingPage){
             httpServer.deployServlet(landingServlet, initLandingParams, "/*");
             landingServlet.getServletContext().setAttribute(LANDING_SERVLET_PARAM_MODULE, this);
             httpServer.addServletSecurity("/*", true);
@@ -220,9 +219,9 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             landingServlet = null;
         }
 
-        if(sensorhubViewServlet != null){
-            httpServer.undeployServlet(sensorhubViewServlet);
-            sensorhubViewServlet = null;
+        if(vaaadinResourcesServlet != null){
+            httpServer.undeployServlet(vaaadinResourcesServlet);
+            vaaadinResourcesServlet = null;
         }
         setState(ModuleState.STOPPED);
     }

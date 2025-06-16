@@ -3,7 +3,6 @@ package org.sensorhub.ui;
 
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.Title;
-import com.vaadin.annotations.Widgetset;
 import com.vaadin.server.*;
 import com.vaadin.shared.ui.ContentMode;
 import com.vaadin.ui.*;
@@ -11,18 +10,16 @@ import com.vaadin.ui.themes.ValoTheme;
 import com.vaadin.v7.ui.themes.Reindeer;
 import org.sensorhub.api.ISensorHub;
 import org.sensorhub.api.security.IPermission;
+import org.sensorhub.api.service.HttpServiceConfig;
 import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.service.consys.ConSysApiService;
 import org.sensorhub.impl.service.sos.SOSService;
-import org.sensorhub.ui.AdminUIModule;
-import org.sensorhub.ui.SOSAdminPanel;
 import org.slf4j.Logger;
+
 import javax.servlet.ServletContext;
+import javax.servlet.http.HttpSession;
 import java.util.ArrayList;
 import java.util.concurrent.Flow;
-import com.vaadin.server.VaadinService;
-import com.vaadin.server.VaadinServletRequest;
-import javax.servlet.http.HttpSession;
 
 /**
  * @author Kalyn Stricklin
@@ -114,9 +111,6 @@ public class LandingUI extends UI{
                             System.out.println("log out session: "+ getUI().getSession());
                             getUI().getSession().close();
 
-//                            getParentModule().getSecurityHandler().clearCurrentUser();
-
-
                             //set page to /sensorhub/logout
                             getUI().getPage().setLocation("/sensorhub/logout");
 
@@ -178,12 +172,13 @@ public class LandingUI extends UI{
                         }
                     }
                     if(!allowedPermissionsList.isEmpty()){
-                        grid.addComponent(createPanel("Admin Panel", Endpoints.ADMIN.getPath(), allowedPermissionsList.toString()));
+
+                        grid.addComponent(createPanel("Admin Panel", "/admin", allowedPermissionsList.toString()));
                         hasWebAdmin = true;
                     }
 
                 }
-                else if (permissionName.contains("discoveryService") && !hasDiscovery && module.getName().contains("Discovery")) {
+                else if (permissionName.contains("discoveryService") && !hasDiscovery && module.getClass().getSimpleName().equals("DiscoveryService")) {
                     var permissionsList = permission.getChildren().values();
 
                     var allowedPermissionsList = new ArrayList();
@@ -199,15 +194,13 @@ public class LandingUI extends UI{
                         }
                     }
                     if(!allowedPermissionsList.isEmpty()){
-                        grid.addComponent(createPanel("Discovery Service", Endpoints.DISCOVERY.getPath(), allowedPermissionsList.toString()));
+                        String path = ((HttpServiceConfig) module.getConfiguration()).endPoint;
+
+                        grid.addComponent(createPanel("Discovery Service", path, allowedPermissionsList.toString()));
                         hasDiscovery = true;
                     }
                 }
                 else if (permissionName.contains("sos") && !hasSos && module instanceof SOSService) {
-//                String permissionsList = permission.getChildren().values().toString();
-//                log.debug("permission list: {}", permissionsList);
-//                grid.addComponent(createPanel("SOS Service", Endpoints.SOS.getPath(), permissionsList));
-//                hasSos = true;
                     var permissionsList = permission.getChildren().values();
 
                     var allowedPermissionsList = new ArrayList();
@@ -224,7 +217,8 @@ public class LandingUI extends UI{
 
                     }
                     if(!allowedPermissionsList.isEmpty()){
-                        grid.addComponent(createPanel("SOS Service", Endpoints.SOS.getPath(), allowedPermissionsList.toString()));
+                        String path = ((SOSService) module).getConfiguration().endPoint;
+                        grid.addComponent(createPanel("SOS Service", path, allowedPermissionsList.toString()));
                         hasSos = true;
                     }
 
@@ -253,7 +247,8 @@ public class LandingUI extends UI{
 
                     }
                     if(!allowedPermissionsList.isEmpty()){
-                        grid.addComponent(createPanel("Connected Systems", Endpoints.API.getPath(), allowedPermissionsList.toString()));
+                        String path = ((ConSysApiService) module).getConfiguration().endPoint;
+                        grid.addComponent(createPanel("Connected Systems", path, allowedPermissionsList.toString()));
                         hasCsapi = true;
                     }
                 }
