@@ -37,11 +37,15 @@ public class AdminUIConfig extends ModuleConfig
 
     @DisplayInfo(desc="A human readable friendly identifier for the deployment")
     public String deploymentName = null;
-    
+
+    @DisplayInfo(label="Enable Landing Page", desc="Enable Landing Servlet to redirect users to landing page")
+    public Boolean enableLandingPage;
+
     public AdminUIConfig()
     {
         this.name = "Admin UI";
         this.moduleClass = AdminUIModule.class.getCanonicalName();
+        this.enableLandingPage = true;
     }
 
 }
