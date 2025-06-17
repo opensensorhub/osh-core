@@ -51,10 +51,7 @@ import org.sensorhub.ui.filter.DatabaseViewConfigForm;
 public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> implements IEventListener
 {
     protected static final String SERVLET_PARAM_UI_CLASS = "UI";
-    protected static final String LANDING_SERVLET_PARAM_UI_CLASS = "LANDING_UI";
     protected static final String SERVLET_PARAM_MODULE = "module_instance";
-    protected static final String VIEW_SERVLET_PARAM_MODULE = "view_instance";
-    protected static final String LANDING_SERVLET_PARAM_MODULE = "landing_instance";
     protected static final String WIDGETSET = "widgetset";
     protected static final int HEARTBEAT_INTERVAL = 10; // in seconds
     
@@ -163,9 +160,8 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
         initParams.put("productionMode", "true");  // set to false to compile theme on-the-fly
         initParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
 
-
         Map<String, String> initLandingParams = new HashMap<>();
-        initLandingParams.put(LANDING_SERVLET_PARAM_UI_CLASS, LandingUI.class.getCanonicalName());
+        initLandingParams.put(SERVLET_PARAM_UI_CLASS, LandingUI.class.getCanonicalName());
         initLandingParams.put("productionMode", "true");  // set to false to compile theme on-the-fly
         initLandingParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
 
@@ -179,27 +175,24 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
         }));
 
 
-        httpServer.deployServlet(adminUIServlet, initParams, "/admin/*");
-        httpServer.deployServlet(vaaadinResourcesServlet, initParams, "/VAADIN/*");
-
-
-        System.setErr(oldStdErr);
-
-        adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
-        vaaadinResourcesServlet.getServletContext().setAttribute(VIEW_SERVLET_PARAM_MODULE, this);
-
-
-        if(config.enableLandingPage){
+        if (config.enableLandingPage){
+            httpServer.deployServlet(vaaadinResourcesServlet, initParams, "/VAADIN/*");
+            httpServer.deployServlet(adminUIServlet, initParams, "/admin/*");
             httpServer.deployServlet(landingServlet, initLandingParams, "/*");
-            landingServlet.getServletContext().setAttribute(LANDING_SERVLET_PARAM_MODULE, this);
+            adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
+            landingServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
             httpServer.addServletSecurity("/*", true);
         }
-
+        else {
+            httpServer.deployServlet(adminUIServlet, initParams, "/admin/*", "/VAADIN/*");
+            adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
+        }
+        
+        System.setErr(oldStdErr);
 
         // setup security
         httpServer.addServletSecurity("/admin/*", true);
         httpServer.addServletSecurity("/VAADIN/*", true);
-
 
         setState(ModuleState.STARTED);
     }

@@ -46,7 +46,7 @@ public class LandingUI extends UI{
 
         try{
             ServletContext servletContext = VaadinServlet.getCurrent().getServletContext();
-            this.service = (AdminUIModule) servletContext.getAttribute(AdminUIModule.LANDING_SERVLET_PARAM_MODULE);
+            this.service = (AdminUIModule) servletContext.getAttribute(AdminUIModule.SERVLET_PARAM_MODULE);
             this.hub = service.getParentHub();
             this.log = service.getLogger();
             this.moduleRegistry = hub.getModuleRegistry();
