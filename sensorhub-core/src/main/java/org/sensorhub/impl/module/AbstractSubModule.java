@@ -18,6 +18,7 @@ import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.module.IModule;
 import org.sensorhub.api.module.ISubModule;
 import org.sensorhub.api.module.SubModuleConfig;
+import org.slf4j.Logger;
 import org.vast.util.Asserts;
 
 
@@ -47,7 +48,7 @@ public abstract class AbstractSubModule<T extends SubModuleConfig> implements IS
     @Override
     public IModule<?> getParentModule()
     {
-        return parentModule;
+        return Asserts.checkNotNull(parentModule, "parentModule");
     }
 
 
@@ -71,5 +72,11 @@ public abstract class AbstractSubModule<T extends SubModuleConfig> implements IS
     public T getConfiguration()
     {
         return config;
+    }
+    
+    
+    protected Logger getLogger()
+    {
+        return getParentModule().getLogger();
     }
 }
