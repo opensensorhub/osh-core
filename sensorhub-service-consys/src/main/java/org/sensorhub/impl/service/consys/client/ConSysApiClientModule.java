@@ -547,7 +547,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 try {
                     startStream(registeredDataStream);
                 } catch (ClientException ex) {
-                    throw new RuntimeException(ex);
+                    getLogger().error(ex.getMessage());
                 }
             });
         }
