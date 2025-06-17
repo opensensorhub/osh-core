@@ -19,6 +19,8 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.LogManager;
+
+import com.vaadin.server.VaadinServlet;
 import org.sensorhub.api.comm.CommProviderConfig;
 import org.sensorhub.api.comm.NetworkConfig;
 import org.sensorhub.api.common.SensorHubException;
@@ -44,17 +46,22 @@ import org.sensorhub.ui.api.IModuleAdminPanel;
 import org.sensorhub.ui.api.IModuleConfigForm;
 import org.sensorhub.ui.filter.DatabaseFilterConfigForm;
 import org.sensorhub.ui.filter.DatabaseViewConfigForm;
-import com.vaadin.server.VaadinServlet;
 
 
 public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> implements IEventListener
 {
     protected static final String SERVLET_PARAM_UI_CLASS = "UI";
+    protected static final String LANDING_SERVLET_PARAM_UI_CLASS = "LANDING_UI";
     protected static final String SERVLET_PARAM_MODULE = "module_instance";
+    protected static final String VIEW_SERVLET_PARAM_MODULE = "view_instance";
+    protected static final String LANDING_SERVLET_PARAM_MODULE = "landing_instance";
     protected static final String WIDGETSET = "widgetset";
     protected static final int HEARTBEAT_INTERVAL = 10; // in seconds
     
-    VaadinServlet vaadinServlet;
+    VaadinServlet adminUIServlet;
+    VaadinServlet vaaadinResourcesServlet;
+    VaadinServlet landingServlet;
+
     AdminUISecurity securityHandler;
     Map<String, Class<? extends IModuleConfigForm>> customForms = new HashMap<>();
     Map<String, Class<? extends IModuleAdminPanel<?>>> customPanels = new HashMap<>();
@@ -145,14 +152,23 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
         // reset java util logging config so we don't get annoying atmosphere logs
         LogManager.getLogManager().reset();//.getLogger("org.atmosphere").setLevel(Level.OFF);
         
-        vaadinServlet = new AdminUIServlet(getSecurityHandler(), getLogger());
+        adminUIServlet = new AdminUIServlet(getSecurityHandler(), getLogger());
+        vaaadinResourcesServlet = new VaadinResourcesServlet(this, getLogger());
+        landingServlet = new LandingServlet(this, getSecurityHandler(), getLogger());
+
         Map<String, String> initParams = new HashMap<>();
         initParams.put(SERVLET_PARAM_UI_CLASS, AdminUI.class.getCanonicalName());
         if (config.widgetSet != null)
             initParams.put(WIDGETSET, config.widgetSet);
         initParams.put("productionMode", "true");  // set to false to compile theme on-the-fly
         initParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
-        
+
+
+        Map<String, String> initLandingParams = new HashMap<>();
+        initLandingParams.put(LANDING_SERVLET_PARAM_UI_CLASS, LandingUI.class.getCanonicalName());
+        initLandingParams.put("productionMode", "true");  // set to false to compile theme on-the-fly
+        initLandingParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
+
         // deploy servlet
         // HACK: we have to disable std err to hide message due to Vaadin duplicate implementation of SL4J
         // Note that this may hide error messages in other modules now that startup sequence is multithreaded
@@ -161,14 +177,30 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             @Override
             public void write(int b) { }
         }));
-        httpServer.deployServlet(vaadinServlet, initParams, "/admin/*", "/VAADIN/*");
+
+
+        httpServer.deployServlet(adminUIServlet, initParams, "/admin/*");
+        httpServer.deployServlet(vaaadinResourcesServlet, initParams, "/VAADIN/*");
+
+
         System.setErr(oldStdErr);
-        vaadinServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
-        
+
+        adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
+        vaaadinResourcesServlet.getServletContext().setAttribute(VIEW_SERVLET_PARAM_MODULE, this);
+
+
+        if(config.enableLandingPage){
+            httpServer.deployServlet(landingServlet, initLandingParams, "/*");
+            landingServlet.getServletContext().setAttribute(LANDING_SERVLET_PARAM_MODULE, this);
+            httpServer.addServletSecurity("/*", true);
+        }
+
+
         // setup security
         httpServer.addServletSecurity("/admin/*", true);
         httpServer.addServletSecurity("/VAADIN/*", true);
-        
+
+
         setState(ModuleState.STARTED);
     }
     
@@ -176,12 +208,21 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
     @Override
     protected void doStop() throws SensorHubException
     {
-        if (vaadinServlet != null)
+        if (adminUIServlet != null)
         {
-            httpServer.undeployServlet(vaadinServlet);
-            vaadinServlet = null;
+            httpServer.undeployServlet(adminUIServlet);
+            adminUIServlet = null;
         }
-        
+
+        if(landingServlet != null){
+            httpServer.undeployServlet(landingServlet);
+            landingServlet = null;
+        }
+
+        if(vaaadinResourcesServlet != null){
+            httpServer.undeployServlet(vaaadinResourcesServlet);
+            vaaadinResourcesServlet = null;
+        }
         setState(ModuleState.STOPPED);
     }
     
