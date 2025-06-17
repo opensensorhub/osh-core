@@ -210,7 +210,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     private String tryUpdateSamplingFeature(IFeature feature)
     {
         try {
-            var oldSamplingFeature = client.getSamplingFeatureByUID(feature.getUniqueIdentifier(), ResourceFormat.JSON).get();
+            var oldSamplingFeature = client.getSamplingFeatureByUid(feature.getUniqueIdentifier(), ResourceFormat.JSON).get();
             String samplingFeatureId;
             if (oldSamplingFeature != null) {
                 samplingFeatureId = oldSamplingFeature.getId();

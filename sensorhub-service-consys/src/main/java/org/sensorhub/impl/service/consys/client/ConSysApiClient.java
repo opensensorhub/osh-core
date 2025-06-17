@@ -563,7 +563,7 @@ public class ConSysApiClient
         });
     }
 
-    public CompletableFuture<IFeature> getSamplingFeatureByUID(String uid, ResourceFormat format)
+    public CompletableFuture<IFeature> getSamplingFeatureByUid(String uid, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
             try
