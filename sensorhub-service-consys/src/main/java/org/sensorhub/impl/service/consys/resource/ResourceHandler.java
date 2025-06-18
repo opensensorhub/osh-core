@@ -14,15 +14,16 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.resource;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
-import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase.FeatureFilterBaseBuilder;
 import org.sensorhub.api.datastore.resource.IResourceStore;
 import org.sensorhub.api.resource.ResourceFilter;
 import org.sensorhub.api.resource.ResourceFilter.ResourceFilterBuilder;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
+import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext.ResourceRef;
 import org.sensorhub.api.resource.ResourceKey;
@@ -52,9 +53,9 @@ public abstract class ResourceHandler<
     public static final int NO_PARENT = 0;
     
     
-    protected ResourceHandler(S dataStore, IdEncoder idEncoder, IdEncoders allIdEncoders, ResourcePermissions permissions)
+    protected ResourceHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(dataStore, idEncoder, allIdEncoders, permissions);
+        super(dataStore, idEncoder, db, permissions);
     }
     
     
@@ -64,7 +65,7 @@ public abstract class ResourceHandler<
     @Override
     protected K getKey(final RequestContext ctx, final String id) throws InvalidRequestException
     {
-        var decodedID = decodeID(ctx, id);
+        var decodedID = decodeID(id);
         return getKey(decodedID);
     }
         
@@ -106,8 +107,16 @@ public abstract class ResourceHandler<
         var resourceIds = parseResourceIdsOrUids("id", queryParams, idEncoder);
         if (resourceIds != null && !resourceIds.isEmpty())
         {
-            if (resourceIds.isUids() && builder instanceof FeatureFilterBaseBuilder)
-                ((FeatureFilterBaseBuilder<?,?,?>)builder).withUniqueIDs(resourceIds.getUids());
+            if (resourceIds.isUids()) {
+                if (builder instanceof FeatureFilterBaseBuilder)
+                    ((FeatureFilterBaseBuilder<?,?,?>)builder).withUniqueIDs(resourceIds.getUids());
+                else {
+                    var internalIDs = new LinkedHashSet<BigId>();
+                    for (var uid: resourceIds.getUids())
+                        internalIDs.add(decodeID(uid));
+                    builder.withInternalIDs(internalIDs);
+                }
+            }
             else
                 builder.withInternalIDs(resourceIds.getBigIds());
         }

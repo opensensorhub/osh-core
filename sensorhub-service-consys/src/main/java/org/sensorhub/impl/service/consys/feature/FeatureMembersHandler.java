@@ -16,10 +16,10 @@ package org.sensorhub.impl.service.consys.feature;
 
 import java.io.IOException;
 import java.util.Map;
-import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.database.IFeatureDatabase;
 import org.sensorhub.api.datastore.feature.FeatureFilter;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
+import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.RequestContext.ResourceRef;
@@ -31,9 +31,9 @@ public class FeatureMembersHandler extends FeatureHandler
     public static final String[] NAMES = { "members" };
     
     
-    public FeatureMembersHandler(IFeatureDatabase db, IdEncoders idEncoders, ResourcePermissions permissions)
+    public FeatureMembersHandler(IFeatureDatabase db, ObsSystemDbWrapper dbWrapper, ResourcePermissions permissions)
     {
-        super(db, idEncoders, permissions);
+        super(db, dbWrapper, permissions);
     }
     
     

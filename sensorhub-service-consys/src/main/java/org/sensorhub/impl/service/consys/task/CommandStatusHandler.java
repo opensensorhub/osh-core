@@ -71,7 +71,7 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
     
     public CommandStatusHandler(IEventBus eventBus, ObsSystemDbWrapper db, ScheduledExecutorService threadPool, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getCommandStatusStore(), db.getCommandIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getReadDb().getCommandStatusStore(), db.getCommandIdEncoder(), db, permissions);
         
         this.eventBus = eventBus;
         this.db = db.getReadDb();
@@ -223,7 +223,7 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
     @Override
     protected BigId getKey(RequestContext ctx, String id) throws InvalidRequestException
     {
-        return decodeID(ctx, id);
+        return decodeID(id);
     }
     
     

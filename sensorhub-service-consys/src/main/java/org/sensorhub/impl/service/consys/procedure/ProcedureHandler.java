@@ -45,7 +45,7 @@ public class ProcedureHandler extends AbstractFeatureHandler<IProcedureWithDesc,
     
     public ProcedureHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(db.getProcedureStore(), db.getProcedureIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getProcedureStore(), db.getProcedureIdEncoder(), db, permissions);
         this.eventBus = eventBus;
         this.db = db;
         

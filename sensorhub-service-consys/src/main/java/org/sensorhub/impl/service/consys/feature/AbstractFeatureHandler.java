@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 import javax.xml.namespace.QName;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
-import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase;
 import org.sensorhub.api.datastore.feature.FeatureKey;
@@ -32,6 +31,7 @@ import org.sensorhub.api.datastore.feature.IFeatureStoreBase;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase.FeatureFilterBaseBuilder;
 import org.sensorhub.impl.security.ItemWithIdPermission;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
+import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -50,11 +50,11 @@ public abstract class AbstractFeatureHandler<
     static final int MIN_UID_CHARS = 12;
     
     
-    protected AbstractFeatureHandler(S dataStore, IdEncoder idEncoder, IdEncoders allIdEncoders, ResourcePermissions permissions)
+    protected AbstractFeatureHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(dataStore, idEncoder, allIdEncoders, permissions);
+        super(dataStore, idEncoder, db, permissions);
     }
-
+    
 
     @Override
     protected void buildFilter(final ResourceRef parent, final Map<String, String[]> queryParams, final B builder) throws InvalidRequestException

@@ -37,7 +37,7 @@ public class FoiHistoryHandler extends AbstractFeatureHistoryHandler<IFeature, F
     
     public FoiHistoryHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getFoiStore(), db.getFoiIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getReadDb().getFoiStore(), db.getFoiIdEncoder(), db, permissions);
         this.db = db.getReadDb();
     }
 

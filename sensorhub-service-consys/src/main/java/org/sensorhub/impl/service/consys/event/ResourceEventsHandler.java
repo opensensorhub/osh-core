@@ -44,15 +44,14 @@ public abstract class ResourceEventsHandler<T extends Event> extends BaseHandler
     
     protected final String resourceType;
     protected final IEventBus eventBus;
-    protected final IdEncoders idEncoders;
     protected final ResourcePermissions permissions;
     
     
     protected ResourceEventsHandler(String resourceType, IEventBus eventBus, IdEncoders idEncoders, ResourcePermissions permissions)
     {
+        super(idEncoders);
         this.resourceType = resourceType;
         this.eventBus = eventBus;
-        this.idEncoders = idEncoders;
         this.permissions = permissions;
     }
     

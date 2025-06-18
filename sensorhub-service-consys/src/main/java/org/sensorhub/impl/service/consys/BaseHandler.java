@@ -24,6 +24,7 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
 import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.datastore.TemporalFilter;
+import org.sensorhub.impl.service.consys.feature.AbstractFeatureHandler;
 import org.sensorhub.impl.service.consys.resource.IResourceHandler;
 import org.sensorhub.impl.service.consys.resource.PropertyFilter;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -43,6 +44,7 @@ public abstract class BaseHandler implements IResourceHandler
     
     protected final Map<String, IResourceHandler> subResources = new HashMap<>();
     protected final IdEncoders idEncoders;
+    protected final CurieResolver curieResolver;
     
     
     @SuppressWarnings("serial")
@@ -69,17 +71,32 @@ public abstract class BaseHandler implements IResourceHandler
             return (Collection<String>)col;
         }
     }
-
+    
     
     public BaseHandler()
     {
         this.idEncoders = null;
+        this.curieResolver = null;
     }
     
     
     public BaseHandler(IdEncoders idEncoders)
     {
+        this.idEncoders = idEncoders;
+        this.curieResolver = null;
+    }
+    
+    
+    public BaseHandler(IdEncoders idEncoders, CurieResolver curieResolver)
+    {
         this.idEncoders = Asserts.checkNotNull(idEncoders, IdEncoders.class);
+        this.curieResolver = Asserts.checkNotNull(curieResolver, IdEncoders.class);
+    }
+    
+    
+    protected BigId decodeID(final String id) throws InvalidRequestException
+    {
+        throw new UnsupportedOperationException();
     }
     
 
@@ -184,22 +201,19 @@ public abstract class BaseHandler implements IResourceHandler
     {
         var allValues = new ArrayList<BigId>();
         
-        var paramValues = queryParams.get(paramName);
+        var paramValues = parseMultiValuesArg(paramName, queryParams);
         if (paramValues != null)
         {
-            for (String val: paramValues)
+            for (String id: paramValues)
             {
-                for (String id: val.split(","))
+                try
                 {
-                    try
-                    {
-                        var internalID = idEncoder.decodeID(id);
-                        allValues.add(internalID);
-                    }
-                    catch (IllegalArgumentException e)
-                    {
-                        throw ServiceErrors.badRequest("Invalid resource ID: " + id);
-                    }
+                    var internalID = decodeID(id);
+                    allValues.add(internalID);
+                }
+                catch (IllegalArgumentException e)
+                {
+                    throw ServiceErrors.badRequest("Invalid resource ID: " + id);
                 }
             }
         }
@@ -247,7 +261,25 @@ public abstract class BaseHandler implements IResourceHandler
                     }
                 }
                 else
-                    allValues.add(id);
+                {
+                    if (this instanceof AbstractFeatureHandler)
+                    {
+                        // expand CURIEs if needed
+                        if (curieResolver != null)
+                        {
+                            var uri = curieResolver.maybeExpand(id);
+                            allValues.add(uri);
+                        }
+                        else
+                            allValues.add(id);
+                    }
+                    else
+                    {
+                        // this handler filter cannot handle UIDs natively so try to lookup internal ID
+                        var internalID = idEncoder.decodeID(id);
+                        allValues.add(internalID);
+                    }
+                }
             }
         }
         
@@ -433,8 +465,6 @@ public abstract class BaseHandler implements IResourceHandler
         
         return links;
     }
-    
-    
     
 
 }

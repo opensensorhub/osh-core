@@ -61,7 +61,7 @@ public class SystemHandler extends AbstractFeatureHandler<ISystemWithDesc, Syste
     
     public SystemHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getSystemDescStore(), db.getSystemIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getReadDb().getSystemDescStore(), db.getSystemIdEncoder(), db, permissions);
         this.db = db.getReadDb();
         this.eventBus = eventBus;
         this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
