@@ -20,12 +20,12 @@ import java.time.format.DateTimeParseException;
 import java.util.Map;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
-import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.feature.IFeatureStoreBase;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase.FeatureFilterBaseBuilder;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
+import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.IResourceHandler;
@@ -49,9 +49,9 @@ public abstract class AbstractFeatureHistoryHandler<
     public static final String[] NAMES = { "history" };
     
     
-    public AbstractFeatureHistoryHandler(S dataStore, IdEncoder idEncoder, IdEncoders allIdEncoders, ResourcePermissions permissions)
+    public AbstractFeatureHistoryHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(dataStore, idEncoder, allIdEncoders, permissions);
+        super(dataStore, idEncoder, db, permissions);
     }
     
     

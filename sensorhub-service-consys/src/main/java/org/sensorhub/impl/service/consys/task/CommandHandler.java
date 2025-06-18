@@ -81,7 +81,7 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
     
     public CommandHandler(IEventBus eventBus, ObsSystemDbWrapper db, ScheduledExecutorService threadPool, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getCommandStore(), db.getCommandIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getReadDb().getCommandStore(), db.getCommandIdEncoder(), db, permissions);
         
         this.eventBus = eventBus;
         this.db = db.getReadDb();
@@ -103,7 +103,7 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
             return null;
         
         // decode internal ID for nested resource
-        var internalID = decodeID(ctx, id);
+        var internalID = decodeID(id);
         
         // check that resource ID valid
         if (!db.getCommandStore().containsKey(internalID))
@@ -142,7 +142,7 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
             String foiArg = ctx.getParameter("foi");
             if (foiArg != null)
             {
-                var foiID = decodeID(ctx, foiArg);
+                var foiID = decodeID(foiArg);
                 if (!db.getFoiStore().contains(foiID))
                     throw ServiceErrors.badRequest("Invalid FOI ID");
                 contextData.foiId = foiID;
@@ -288,7 +288,7 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
     @Override
     protected BigId getKey(RequestContext ctx, String id) throws InvalidRequestException
     {
-        return decodeID(ctx, id);
+        return decodeID(id);
     }
     
     

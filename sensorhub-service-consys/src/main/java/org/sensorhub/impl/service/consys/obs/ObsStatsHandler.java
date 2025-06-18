@@ -58,7 +58,7 @@ public class ObsStatsHandler extends BaseHandler
     
     public ObsStatsHandler(ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(db.getIdEncoders());
+        super(db.getIdEncoders(), db.getCurieResolver());
         this.db = db.getReadDb();
         this.permissions = permissions;
     }
@@ -228,5 +228,12 @@ public class ObsStatsHandler extends BaseHandler
     public String[] getNames()
     {
         return NAMES;
+    }
+
+
+    @Override
+    protected BigId decodeID(String id) throws InvalidRequestException
+    {
+        throw ServiceErrors.notFound(id);
     }
 }

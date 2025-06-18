@@ -29,7 +29,9 @@ import org.sensorhub.api.datastore.procedure.IProcedureStore;
 import org.sensorhub.api.datastore.property.IPropertyStore;
 import org.sensorhub.api.datastore.system.ISystemDescStore;
 import org.sensorhub.impl.service.consys.deployment.DeploymentStoreWrapper;
+import org.sensorhub.impl.service.consys.feature.FeatureIdEncoder;
 import org.sensorhub.impl.service.consys.feature.FoiStoreWrapper;
+import org.sensorhub.impl.service.consys.obs.DataStreamIdEncoder;
 import org.sensorhub.impl.service.consys.obs.DataStreamStoreWrapper;
 import org.sensorhub.impl.service.consys.obs.ObsStoreWrapper;
 import org.sensorhub.impl.service.consys.procedure.ProcedureStoreWrapper;
@@ -44,21 +46,22 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
 {
     static final String NOT_WRITABLE_MSG = "Database is not writable";
     
-    IObsSystemDatabase readDb;
-    IObsSystemDatabase writeDb;
-    IPropertyStore propertyStore;
-    IProcedureStore procedureStore;
-    ISystemDescStore systemStore;
-    IDeploymentStore deploymentStore;
-    IFoiStore foiStore;
-    IDataStreamStore dataStreamStore;
-    IObsStore obsStore;
-    ICommandStreamStore commandStreamStore;
-    ICommandStore commandStore;
-    IdEncoders idEncoders;
+    final IObsSystemDatabase readDb;
+    final IObsSystemDatabase writeDb;
+    final IPropertyStore propertyStore;
+    final IProcedureStore procedureStore;
+    final ISystemDescStore systemStore;
+    final IDeploymentStore deploymentStore;
+    final IFoiStore foiStore;
+    final IDataStreamStore dataStreamStore;
+    final IObsStore obsStore;
+    final ICommandStreamStore commandStreamStore;
+    final ICommandStore commandStore;
+    final IdEncoders idEncoders;
+    final CurieResolver curieResolver;
     
     
-    public ObsSystemDbWrapper(IObsSystemDatabase readDb, IObsSystemDatabase writeDb, IdEncoders idEncoders)
+    public ObsSystemDbWrapper(IObsSystemDatabase readDb, IObsSystemDatabase writeDb, IdEncoders idEncoders, CurieResolver curieResolver)
     {
         this.readDb = Asserts.checkNotNull(readDb);
         this.writeDb = Asserts.checkNotNull(writeDb);
@@ -103,8 +106,14 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
                 writeDb != null && writeDb instanceof IProcedureDatabase ?
                     ((IProcedureDatabase)writeDb).getPropertyStore() : null);
         }
+        else
+        {
+            this.procedureStore = null;
+            this.propertyStore = null;
+        }
         
         this.idEncoders = Asserts.checkNotNull(idEncoders);
+        this.curieResolver = curieResolver;
     }
 
 
@@ -229,31 +238,46 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
     
     public IdEncoder getProcedureIdEncoder()
     {
-        return idEncoders.getProcedureIdEncoder();
+        return new FeatureIdEncoder(
+            idEncoders.getProcedureIdEncoder(), 
+            curieResolver,
+            procedureStore);
     }
     
     
     public IdEncoder getSystemIdEncoder()
     {
-        return idEncoders.getSystemIdEncoder();
+        return new FeatureIdEncoder(
+            idEncoders.getSystemIdEncoder(), 
+            curieResolver,
+            systemStore);
     }
     
     
     public IdEncoder getDeploymentIdEncoder()
     {
-        return idEncoders.getDeploymentIdEncoder();
+        return new FeatureIdEncoder(
+            idEncoders.getDeploymentIdEncoder(), 
+            curieResolver,
+            deploymentStore);
     }
     
     
     public IdEncoder getFoiIdEncoder()
     {
-        return idEncoders.getFoiIdEncoder();
+        return new FeatureIdEncoder(
+            idEncoders.getSystemIdEncoder(), 
+            curieResolver,
+            foiStore);
     }
     
     
     public IdEncoder getDataStreamIdEncoder()
     {
-        return idEncoders.getDataStreamIdEncoder();
+        return new DataStreamIdEncoder(
+            idEncoders.getDataStreamIdEncoder(),
+            curieResolver,
+            dataStreamStore);
     }
     
     
@@ -278,6 +302,18 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
     public IdEncoder getPropertyIdEncoder()
     {
         return idEncoders.getPropertyIdEncoder();
+    }
+    
+    
+    public IdEncoder getFeatureIdEncoder()
+    {
+        return idEncoders.getFeatureIdEncoder();
+    }
+    
+    
+    public CurieResolver getCurieResolver()
+    {
+        return curieResolver;
     }
 
 }

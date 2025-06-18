@@ -23,7 +23,6 @@ import java.util.Map.Entry;
 import java.util.stream.Stream;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
-import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.IDataStore;
 import org.sensorhub.api.datastore.IQueryFilter;
@@ -33,6 +32,7 @@ import org.sensorhub.impl.module.ModuleSecurity;
 import org.sensorhub.impl.security.PermissionSetting;
 import org.sensorhub.impl.service.consys.BaseHandler;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
+import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -68,9 +68,9 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
     protected boolean readOnly = false;
     
     
-    protected BaseResourceHandler(S dataStore, IdEncoder idEncoder, IdEncoders allIdEncoders, ResourcePermissions permissions)
+    protected BaseResourceHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(allIdEncoders);
+        super(db.getIdEncoders(), db.getCurieResolver());
         this.dataStore = Asserts.checkNotNull(dataStore, IDataStore.class);
         this.idEncoder = Asserts.checkNotNull(idEncoder, IdEncoder.class);
         this.permissions = Asserts.checkNotNull(permissions, ResourcePermissions.class);
@@ -490,7 +490,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
             return null;
         
         // decode internal ID for nested resource
-        var internalID = decodeID(ctx, id);
+        var internalID = decodeID(id);
         
         // check that resource ID valid
         if (!isValidID(internalID))
@@ -510,7 +510,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
     }
     
     
-    protected BigId decodeID(final RequestContext ctx, final String id) throws InvalidRequestException
+    protected BigId decodeID(final String id) throws InvalidRequestException
     {
         try
         {

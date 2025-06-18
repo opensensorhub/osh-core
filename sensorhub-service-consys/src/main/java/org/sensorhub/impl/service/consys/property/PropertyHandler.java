@@ -45,7 +45,7 @@ public class PropertyHandler extends ResourceHandler<PropertyKey, IDerivedProper
     
     public PropertyHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(db.getPropertyStore(), db.getPropertyIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getPropertyStore(), db.getPropertyIdEncoder(), db, permissions);
         this.db = db;
     }
     
@@ -105,7 +105,7 @@ public class PropertyHandler extends ResourceHandler<PropertyKey, IDerivedProper
     {
         try
         {
-            var decodedID = decodeID(ctx, id);
+            var decodedID = decodeID(id);
             return getKey(decodedID);
         }
         catch (InvalidRequestException e)

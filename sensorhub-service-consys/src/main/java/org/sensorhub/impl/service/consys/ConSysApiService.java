@@ -183,8 +183,17 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
             }
         }
         
+        // init short URI resolver
+        var curieResolver = new CurieResolver();
+        for (var mapping: config.uriPrefixMap) {
+            var parts = mapping.split(" |,");
+            if (parts.length != 2)
+                throw new SensorHubException("Invalid CURIE mapping: " + mapping);
+            curieResolver.addPrefix(parts[0], parts[1]);
+        }
+        
         // create obs db read/write wrapper
-        var db = new ObsSystemDbWrapper(readDb, writeDb, getParentHub().getIdEncoders());
+        var db = new ObsSystemDbWrapper(readDb, writeDb, getParentHub().getIdEncoders(), curieResolver);
         var eventBus = getParentHub().getEventBus();
         var security = (ConSysApiSecurity)this.securityHandler;
         var readOnly = writeDb == null || writeDb.isReadOnly();

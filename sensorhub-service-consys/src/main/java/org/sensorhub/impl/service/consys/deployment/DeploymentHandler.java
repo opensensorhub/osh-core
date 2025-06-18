@@ -47,7 +47,7 @@ public class DeploymentHandler extends AbstractFeatureHandler<IDeploymentWithDes
     
     public DeploymentHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
     {
-        super(db.getDeploymentStore(), db.getDeploymentIdEncoder(), db.getIdEncoders(), permissions);
+        super(db.getDeploymentStore(), db.getDeploymentIdEncoder(), db, permissions);
         this.eventBus = eventBus;
         this.db = db;
         

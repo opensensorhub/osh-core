@@ -73,6 +73,10 @@ public class ConSysApiServiceConfig extends OGCServiceConfig
     
     @DisplayInfo(desc="Default live time-out for new offerings created via SOS-T")
     public double defaultLiveTimeout = 600.0;
+    
+    
+    @DisplayInfo(label="URI Prefix Map", desc="Mappings used by CURIE to URI resolver")
+    public List<String> uriPrefixMap = new ArrayList<>();
 
 
     public ConSysApiServiceConfig()
