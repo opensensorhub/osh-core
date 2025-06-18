@@ -17,6 +17,7 @@ package org.sensorhub.impl.service.consys.resource;
 import java.io.IOException;
 import java.util.Collection;
 import org.sensorhub.api.common.IdEncoders;
+import org.sensorhub.impl.common.IdEncodersBase32;
 import org.vast.util.Asserts;
 
 
@@ -43,7 +44,7 @@ public abstract class ResourceBinding<K, V>
     protected ResourceBinding(RequestContext ctx, IdEncoders idEncoders)
     {
         this.ctx = Asserts.checkNotNull(ctx, RequestContext.class);
-        this.idEncoders = idEncoders;
+        this.idEncoders = idEncoders != null ? idEncoders : new IdEncodersBase32();
     }
     
     
