@@ -31,7 +31,7 @@ import org.sensorhub.api.datastore.feature.IFeatureStoreBase;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase.FeatureFilterBaseBuilder;
 import org.sensorhub.impl.security.ItemWithIdPermission;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -50,9 +50,9 @@ public abstract class AbstractFeatureHandler<
     static final int MIN_UID_CHARS = 12;
     
     
-    protected AbstractFeatureHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    protected AbstractFeatureHandler(S dataStore, IdEncoder idEncoder, HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(dataStore, idEncoder, db, permissions);
+        super(dataStore, idEncoder, ctx, permissions);
     }
     
 

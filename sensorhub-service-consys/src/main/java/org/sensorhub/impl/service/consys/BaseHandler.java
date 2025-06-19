@@ -24,7 +24,7 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
 import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.datastore.TemporalFilter;
-import org.sensorhub.impl.service.consys.feature.AbstractFeatureHandler;
+import org.sensorhub.impl.service.consys.feature.FeatureIdEncoder;
 import org.sensorhub.impl.service.consys.resource.IResourceHandler;
 import org.sensorhub.impl.service.consys.resource.PropertyFilter;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -80,17 +80,10 @@ public abstract class BaseHandler implements IResourceHandler
     }
     
     
-    public BaseHandler(IdEncoders idEncoders)
+    public BaseHandler(HandlerContext ctx)
     {
-        this.idEncoders = idEncoders;
-        this.curieResolver = null;
-    }
-    
-    
-    public BaseHandler(IdEncoders idEncoders, CurieResolver curieResolver)
-    {
-        this.idEncoders = Asserts.checkNotNull(idEncoders, IdEncoders.class);
-        this.curieResolver = Asserts.checkNotNull(curieResolver, IdEncoders.class);
+        this.idEncoders = Asserts.checkNotNull(ctx, HandlerContext.class);
+        this.curieResolver = Asserts.checkNotNull(ctx.getCurieResolver(), IdEncoders.class);
     }
     
     
@@ -244,7 +237,10 @@ public abstract class BaseHandler implements IResourceHandler
             
             if (hasUris && hasBigIds)
                 throw ServiceErrors.badRequest("The ID list cannot mix unique IDs (URIs) and local IDs");
-            allValues.isUids = hasUris;
+            
+            // create UID collection only if features are selected
+            // anything else will need a list of internal IDs
+            allValues.isUids = hasUris && idEncoder instanceof FeatureIdEncoder;
             
             for (String id: paramValues)
             {
@@ -262,23 +258,14 @@ public abstract class BaseHandler implements IResourceHandler
                 }
                 else
                 {
-                    if (this instanceof AbstractFeatureHandler)
+                    // expand CURIEs if needed
+                    if (curieResolver != null)
                     {
-                        // expand CURIEs if needed
-                        if (curieResolver != null)
-                        {
-                            var uri = curieResolver.maybeExpand(id);
-                            allValues.add(uri);
-                        }
-                        else
-                            allValues.add(id);
+                        var uri = curieResolver.maybeExpand(id);
+                        allValues.add(uri);
                     }
                     else
-                    {
-                        // this handler filter cannot handle UIDs natively so try to lookup internal ID
-                        var internalID = idEncoder.decodeID(id);
-                        allValues.add(internalID);
-                    }
+                        allValues.add(id);
                 }
             }
         }

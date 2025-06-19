@@ -193,8 +193,9 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         }
         
         // create obs db read/write wrapper
-        var db = new ObsSystemDbWrapper(readDb, writeDb, getParentHub().getIdEncoders(), curieResolver);
+        var idEncoders = getParentHub().getIdEncoders();
         var eventBus = getParentHub().getEventBus();
+        var handlerCtx = new HandlerContext(readDb, writeDb, eventBus, idEncoders, curieResolver);
         var security = (ConSysApiSecurity)this.securityHandler;
         var readOnly = writeDb == null || writeDb.isReadOnly();
         
@@ -204,90 +205,90 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         rootHandler.addSubResource(new ConformanceHandler(CONF_CLASSES));
         
         // procedures
-        if (db.getProcedureStore() != null)
+        if (handlerCtx.getProcedureStore() != null)
         {
-            var procHandler = new ProcedureHandler(eventBus, db, security.procedure_permissions);
+            var procHandler = new ProcedureHandler(handlerCtx, security.procedure_permissions);
             rootHandler.addSubResource(procHandler);
         }
         
         // properties
-        if (db.getPropertyStore() != null)
+        if (handlerCtx.getPropertyStore() != null)
         {
-            var propHandler = new PropertyHandler(eventBus, db, security.property_permissions);
+            var propHandler = new PropertyHandler(handlerCtx, security.property_permissions);
             rootHandler.addSubResource(propHandler);
         }
         
         // systems and sub-resources
-        var systemsHandler = new SystemHandler(eventBus, db, security.system_permissions);
+        var systemsHandler = new SystemHandler(handlerCtx, security.system_permissions);
         rootHandler.addSubResource(systemsHandler);
         
-        var sysMembersHandler = new SystemMembersHandler(eventBus, db, security.system_permissions);
+        var sysMembersHandler = new SystemMembersHandler(handlerCtx, security.system_permissions);
         systemsHandler.addSubResource(sysMembersHandler);
         sysMembersHandler.addSubResource(sysMembersHandler);
         
-        var sysHistoryHandler = new SystemHistoryHandler(eventBus, db, security.system_permissions);
+        var sysHistoryHandler = new SystemHistoryHandler(handlerCtx, security.system_permissions);
         systemsHandler.addSubResource(sysHistoryHandler);
         sysMembersHandler.addSubResource(sysHistoryHandler);
         
         // deployments
-        if (db.getDeploymentStore() != null)
+        if (handlerCtx.getDeploymentStore() != null)
         {
-            var deplHandler = new DeploymentHandler(eventBus, db, security.deployment_permissions);
+            var deplHandler = new DeploymentHandler(handlerCtx, security.deployment_permissions);
             rootHandler.addSubResource(deplHandler);
             
-            var deplMembersHandler = new DeploymentMembersHandler(eventBus, db, security.deployment_permissions);
+            var deplMembersHandler = new DeploymentMembersHandler(handlerCtx, security.deployment_permissions);
             deplHandler.addSubResource(deplMembersHandler);
             deplMembersHandler.addSubResource(deplMembersHandler);
         }
         
         // features of interest and sub-resources
-        var foiHandler = new FoiHandler(eventBus, db, security.foi_permissions);
+        var foiHandler = new FoiHandler(handlerCtx, security.foi_permissions);
         rootHandler.addSubResource(foiHandler);
         systemsHandler.addSubResource(foiHandler);
         sysMembersHandler.addSubResource(foiHandler);
         
-        var foiHistoryHandler = new FoiHistoryHandler(eventBus, db, security.foi_permissions);
+        var foiHistoryHandler = new FoiHistoryHandler(handlerCtx, security.foi_permissions);
         foiHandler.addSubResource(foiHistoryHandler);
         
         // datastreams
-        var dataStreamHandler = new DataStreamHandler(eventBus, db, security.datastream_permissions, customFormats);
+        var dataStreamHandler = new DataStreamHandler(handlerCtx, security.datastream_permissions, customFormats);
         rootHandler.addSubResource(dataStreamHandler);
         systemsHandler.addSubResource(dataStreamHandler);
         sysMembersHandler.addSubResource(dataStreamHandler);
-        var dataSchemaHandler = new DataStreamSchemaHandler(eventBus, db, security.datastream_permissions);
+        var dataSchemaHandler = new DataStreamSchemaHandler(handlerCtx, security.datastream_permissions);
         dataStreamHandler.addSubResource(dataSchemaHandler);
         
         // observations
-        var obsHandler = new ObsHandler(eventBus, db, threadPool, security.obs_permissions, customFormats);
+        var obsHandler = new ObsHandler(handlerCtx, threadPool, security.obs_permissions, customFormats);
         rootHandler.addSubResource(obsHandler);
         dataStreamHandler.addSubResource(obsHandler);
         foiHandler.addSubResource(obsHandler);
         
         // obs statistics
-        var obsStatsHandler = new ObsStatsHandler(db, security.datastream_permissions);
+        var obsStatsHandler = new ObsStatsHandler(handlerCtx, security.datastream_permissions);
         //rootHandler.addSubResource(obsStatsHandler);
         dataStreamHandler.addSubResource(obsStatsHandler);
         //foiHandler.addSubResource(obsStatsHandler);
         
         // command streams
-        var cmdStreamHandler = new CommandStreamHandler(eventBus, db, security.commandstream_permissions);
+        var cmdStreamHandler = new CommandStreamHandler(handlerCtx, security.commandstream_permissions);
         rootHandler.addSubResource(cmdStreamHandler);
         systemsHandler.addSubResource(cmdStreamHandler);
         sysMembersHandler.addSubResource(cmdStreamHandler);
-        var cmdSchemaHandler = new CommandStreamSchemaHandler(eventBus, db, security.commandstream_permissions);
+        var cmdSchemaHandler = new CommandStreamSchemaHandler(handlerCtx, security.commandstream_permissions);
         cmdStreamHandler.addSubResource(cmdSchemaHandler);
         
         // commands
-        var cmdHandler = new CommandHandler(eventBus, db, threadPool, security.command_permissions);
+        var cmdHandler = new CommandHandler(handlerCtx, threadPool, security.command_permissions);
         cmdStreamHandler.addSubResource(cmdHandler);
         
         // command status
-        var statusHandler = new CommandStatusHandler(eventBus, db, threadPool, security.command_permissions);
+        var statusHandler = new CommandStatusHandler(handlerCtx, threadPool, security.command_permissions);
         cmdHandler.addSubResource(statusHandler);
         cmdStreamHandler.addSubResource(statusHandler);
         
         // command result
-        var resultHandler = new CommandResultHandler(eventBus, db, threadPool, security.command_permissions);
+        var resultHandler = new CommandResultHandler(handlerCtx, threadPool, security.command_permissions);
         cmdHandler.addSubResource(resultHandler);
         
         // collections

@@ -20,9 +20,8 @@ import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.system.ISystemDescStore;
 import org.sensorhub.api.datastore.system.SystemFilter;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.ISystemWithDesc;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.feature.AbstractFeatureHistoryHandler;
@@ -36,10 +35,10 @@ public class SystemHistoryHandler extends AbstractFeatureHistoryHandler<ISystemW
     final IObsSystemDatabase db;
     
     
-    public SystemHistoryHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public SystemHistoryHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getSystemDescStore(), db.getSystemIdEncoder(), db, permissions);
-        this.db = db.getReadDb();
+        super(ctx.getReadDb().getSystemDescStore(), ctx.getSystemIdEncoder(), ctx, permissions);
+        this.db = ctx.getReadDb();
     }
 
 

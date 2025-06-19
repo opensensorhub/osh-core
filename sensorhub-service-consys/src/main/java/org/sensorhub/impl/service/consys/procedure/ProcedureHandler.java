@@ -21,10 +21,9 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.procedure.IProcedureStore;
 import org.sensorhub.api.datastore.procedure.ProcedureFilter;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -38,18 +37,16 @@ public class ProcedureHandler extends AbstractFeatureHandler<IProcedureWithDesc,
 {
     public static final String[] NAMES = { "procedures" };
     
-    final IEventBus eventBus;
     final IProcedureDatabase db;
     final ProcedureEventsHandler eventsHandler;
     
     
-    public ProcedureHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public ProcedureHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getProcedureStore(), db.getProcedureIdEncoder(), db, permissions);
-        this.eventBus = eventBus;
-        this.db = db;
+        super(ctx.getProcedureStore(), ctx.getProcedureIdEncoder(), ctx, permissions);
+        this.db = ctx;
         
-        this.eventsHandler = new ProcedureEventsHandler(eventBus, db, permissions);
+        this.eventsHandler = new ProcedureEventsHandler(ctx, permissions);
         addSubResource(eventsHandler);
     }
 

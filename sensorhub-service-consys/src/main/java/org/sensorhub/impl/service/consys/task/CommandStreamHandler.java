@@ -23,11 +23,10 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.command.CommandStreamFilter;
 import org.sensorhub.api.datastore.command.CommandStreamKey;
 import org.sensorhub.api.datastore.command.ICommandStreamStore;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.security.ItemWithIdPermission;
 import org.sensorhub.impl.security.ItemWithParentPermission;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ConSysApiSecurity;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -45,19 +44,17 @@ public class CommandStreamHandler extends ResourceHandler<CommandStreamKey, ICom
     public static final String[] NAMES = { "controlstreams" };
     
     final IObsSystemDatabase db;
-    final IEventBus eventBus;
     final SystemDatabaseTransactionHandler transactionHandler;
     final CommandStreamEventsHandler eventsHandler;
     
     
-    public CommandStreamHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public CommandStreamHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getCommandStreamStore(), db.getCommandStreamIdEncoder(), db, permissions);
-        this.db = db.getReadDb();
-        this.eventBus = eventBus;
-        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        super(ctx.getReadDb().getCommandStreamStore(), ctx.getCommandStreamIdEncoder(), ctx, permissions);
+        this.db = ctx.getReadDb();
+        this.transactionHandler = new SystemDatabaseTransactionHandler(ctx.getEventBus(), ctx.getWriteDb());
         
-        this.eventsHandler = new CommandStreamEventsHandler(eventBus, db, permissions);
+        this.eventsHandler = new CommandStreamEventsHandler(ctx, permissions);
         addSubResource(eventsHandler);
     }
     

@@ -23,11 +23,10 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IDataStreamStore;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.security.ItemWithIdPermission;
 import org.sensorhub.impl.security.ItemWithParentPermission;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ConSysApiSecurity;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -46,21 +45,19 @@ public class DataStreamHandler extends ResourceHandler<DataStreamKey, IDataStrea
     public static final String[] NAMES = { "datastreams" };
     
     final IObsSystemDatabase db;
-    final IEventBus eventBus;
     final SystemDatabaseTransactionHandler transactionHandler;
     final Map<String, CustomObsFormat> customFormats;
     final DataStreamEventsHandler eventsHandler;
     
     
-    public DataStreamHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
+    public DataStreamHandler(HandlerContext ctx, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
     {
-        super(db.getReadDb().getDataStreamStore(), db.getDataStreamIdEncoder(), db, permissions);
-        this.db = db.getReadDb();
-        this.eventBus = eventBus;
-        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        super(ctx.getReadDb().getDataStreamStore(), ctx.getDataStreamIdEncoder(), ctx, permissions);
+        this.db = ctx.getReadDb();
+        this.transactionHandler = new SystemDatabaseTransactionHandler(ctx.getEventBus(), ctx.getWriteDb());
         this.customFormats = Asserts.checkNotNull(customFormats, "customFormats");
         
-        this.eventsHandler = new DataStreamEventsHandler(eventBus, db, permissions);
+        this.eventsHandler = new DataStreamEventsHandler(ctx, permissions);
         addSubResource(eventsHandler);
     }
     

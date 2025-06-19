@@ -15,27 +15,26 @@ Copyright (C) 2022 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service.consys.system;
 
 import java.io.IOException;
+import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.event.EventUtils;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.event.ResourceEventsHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
-import org.vast.util.Asserts;
 
 
 public class SystemEventsHandler extends ResourceEventsHandler<SystemEvent>
 {
-    final ObsSystemDbWrapper db;
+    final IObsSystemDatabase db;
     boolean onlyMembers = false;
     
     
-    protected SystemEventsHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    protected SystemEventsHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super("system", eventBus, db.getIdEncoders(), permissions);
-        this.db = Asserts.checkNotNull(db, ObsSystemDbWrapper.class);
+        super("system", ctx, permissions);
+        this.db = ctx.getReadDb();
     }
     
 
@@ -55,7 +54,7 @@ public class SystemEventsHandler extends ResourceEventsHandler<SystemEvent>
         if (ctx.getParentID() != null)
         {
             var sysId = ctx.getParentID();
-            sysUid = db.getReadDb().getSystemDescStore().getCurrentVersion(sysId).getUniqueIdentifier();
+            sysUid = db.getSystemDescStore().getCurrentVersion(sysId).getUniqueIdentifier();
             topic = EventUtils.getSystemStatusTopicID(sysUid);
         }
         else

@@ -21,9 +21,8 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.datastore.command.CommandStreamFilter;
 import org.sensorhub.api.datastore.command.CommandStreamKey;
 import org.sensorhub.api.datastore.command.ICommandStreamStore;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -39,9 +38,9 @@ public class CommandStreamSchemaHandler extends ResourceHandler<CommandStreamKey
     public static final String[] NAMES = { "schema" };
     
     
-    public CommandStreamSchemaHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public CommandStreamSchemaHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getCommandStreamStore(), db.getCommandStreamIdEncoder(), db, permissions);
+        super(ctx.getReadDb().getCommandStreamStore(), ctx.getCommandStreamIdEncoder(), ctx, permissions);
     }
     
     

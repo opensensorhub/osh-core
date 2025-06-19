@@ -20,8 +20,7 @@ import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.feature.IFoiStore;
-import org.sensorhub.api.event.IEventBus;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -35,10 +34,10 @@ public class FoiHistoryHandler extends AbstractFeatureHistoryHandler<IFeature, F
     final IObsSystemDatabase db;
     
     
-    public FoiHistoryHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public FoiHistoryHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getFoiStore(), db.getFoiIdEncoder(), db, permissions);
-        this.db = db.getReadDb();
+        super(ctx.getReadDb().getFoiStore(), ctx.getFoiIdEncoder(), ctx, permissions);
+        this.db = ctx.getReadDb();
     }
 
 

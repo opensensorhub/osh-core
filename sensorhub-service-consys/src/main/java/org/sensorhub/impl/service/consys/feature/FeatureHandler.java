@@ -23,7 +23,7 @@ import org.sensorhub.api.datastore.feature.IFeatureStore;
 import org.sensorhub.api.datastore.feature.FeatureFilter.Builder;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -42,9 +42,9 @@ public class FeatureHandler extends AbstractFeatureHandler<IFeature, FeatureFilt
     final IFeatureDatabase db;
     
     
-    public FeatureHandler(IFeatureDatabase db, ObsSystemDbWrapper dbWrapper, ResourcePermissions permissions)
+    public FeatureHandler(IFeatureDatabase db, HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getFeatureStore(), dbWrapper.getFeatureIdEncoder(), dbWrapper, permissions);
+        super(db.getFeatureStore(), ctx.getFeatureIdEncoder(), ctx, permissions);
         this.db = db;
     }
 

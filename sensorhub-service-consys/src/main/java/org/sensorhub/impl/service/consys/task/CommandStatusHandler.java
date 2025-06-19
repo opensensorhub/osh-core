@@ -34,7 +34,7 @@ import org.sensorhub.api.datastore.command.ICommandStatusStore;
 import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.BaseResourceHandler;
@@ -69,13 +69,13 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
     }
     
     
-    public CommandStatusHandler(IEventBus eventBus, ObsSystemDbWrapper db, ScheduledExecutorService threadPool, ResourcePermissions permissions)
+    public CommandStatusHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getCommandStatusStore(), db.getCommandIdEncoder(), db, permissions);
+        super(ctx.getReadDb().getCommandStatusStore(), ctx.getCommandIdEncoder(), ctx, permissions);
         
-        this.eventBus = eventBus;
-        this.db = db.getReadDb();
-        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        this.eventBus = ctx.getEventBus();
+        this.db = ctx.getReadDb();
+        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, ctx.getWriteDb());
         this.threadPool = threadPool;
     }
     

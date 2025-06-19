@@ -15,7 +15,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service.consys.feature;
 
 import org.sensorhub.api.database.IFeatureDatabase;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.vast.ogc.gml.IFeature;
 
@@ -23,9 +23,9 @@ import org.vast.ogc.gml.IFeature;
 public class FeatureHistoryHandler extends FeatureHandler
 {
     
-    public FeatureHistoryHandler(IFeatureDatabase db, ObsSystemDbWrapper dbWrapper, ResourcePermissions permissions)
+    public FeatureHistoryHandler(IFeatureDatabase db, HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db, dbWrapper, permissions);
+        super(db, ctx, permissions);
     }
 
 

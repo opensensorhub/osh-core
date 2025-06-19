@@ -23,7 +23,7 @@ import org.sensorhub.api.datastore.resource.IResourceStore;
 import org.sensorhub.api.resource.ResourceFilter;
 import org.sensorhub.api.resource.ResourceFilter.ResourceFilterBuilder;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext.ResourceRef;
 import org.sensorhub.api.resource.ResourceKey;
@@ -53,9 +53,9 @@ public abstract class ResourceHandler<
     public static final int NO_PARENT = 0;
     
     
-    protected ResourceHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    protected ResourceHandler(S dataStore, IdEncoder idEncoder, HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(dataStore, idEncoder, db, permissions);
+        super(dataStore, idEncoder, ctx, permissions);
     }
     
     
