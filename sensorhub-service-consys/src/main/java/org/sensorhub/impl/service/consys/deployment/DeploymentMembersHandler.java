@@ -19,10 +19,9 @@ import java.util.Map;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.deployment.DeploymentFilter;
 import org.sensorhub.api.datastore.feature.FeatureKey;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.IDeploymentWithDesc;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -34,9 +33,9 @@ public class DeploymentMembersHandler extends DeploymentHandler
     public static final String[] NAMES = { "subdeployments", "members" };
     
     
-    public DeploymentMembersHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public DeploymentMembersHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(eventBus, db, permissions);
+        super(ctx, permissions);
         eventsHandler.onlyMembers = true;
     }
     

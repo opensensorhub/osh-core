@@ -28,6 +28,7 @@ import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.datastore.procedure.IProcedureStore;
 import org.sensorhub.api.datastore.property.IPropertyStore;
 import org.sensorhub.api.datastore.system.ISystemDescStore;
+import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.deployment.DeploymentStoreWrapper;
 import org.sensorhub.impl.service.consys.feature.FeatureIdEncoder;
 import org.sensorhub.impl.service.consys.feature.FoiStoreWrapper;
@@ -42,10 +43,11 @@ import org.sensorhub.impl.service.consys.task.CommandStreamStoreWrapper;
 import org.vast.util.Asserts;
 
 
-public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabase
+public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, IdEncoders
 {
     static final String NOT_WRITABLE_MSG = "Database is not writable";
     
+    final IEventBus eventBus;
     final IObsSystemDatabase readDb;
     final IObsSystemDatabase writeDb;
     final IPropertyStore propertyStore;
@@ -61,10 +63,11 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
     final CurieResolver curieResolver;
     
     
-    public ObsSystemDbWrapper(IObsSystemDatabase readDb, IObsSystemDatabase writeDb, IdEncoders idEncoders, CurieResolver curieResolver)
+    public HandlerContext(IObsSystemDatabase readDb, IObsSystemDatabase writeDb, IEventBus eventBus, IdEncoders idEncoders, CurieResolver curieResolver)
     {
         this.readDb = Asserts.checkNotNull(readDb);
         this.writeDb = Asserts.checkNotNull(writeDb);
+        this.eventBus = Asserts.checkNotNull(eventBus, IEventBus.class);
         
         this.systemStore = new SystemStoreWrapper(
             readDb.getSystemDescStore(),
@@ -126,6 +129,12 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
     public IObsSystemDatabase getWriteDb()
     {
         return writeDb;
+    }
+
+
+    public IEventBus getEventBus()
+    {
+        return eventBus;
     }
 
 
@@ -227,12 +236,6 @@ public class ObsSystemDbWrapper implements IObsSystemDatabase, IProcedureDatabas
     public ICommandStore getCommandStore()
     {
         return commandStore;
-    }
-    
-    
-    public IdEncoders getIdEncoders()
-    {
-        return idEncoders;
     }
     
     

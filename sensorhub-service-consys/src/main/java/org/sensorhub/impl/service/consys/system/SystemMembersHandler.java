@@ -19,10 +19,9 @@ import java.util.Map;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.system.SystemFilter;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -36,9 +35,9 @@ public class SystemMembersHandler extends SystemHandler
     public static final String[] NAMES = { "subsystems", "members" };
     
     
-    public SystemMembersHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public SystemMembersHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(eventBus, db, permissions);
+        super(ctx, permissions);
         eventsHandler.onlyMembers = true;
     }
     

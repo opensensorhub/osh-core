@@ -15,10 +15,9 @@ Copyright (C) 2022 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service.consys.procedure;
 
 import java.io.IOException;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.event.ResourceEventsHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -27,9 +26,9 @@ import org.sensorhub.impl.service.consys.resource.RequestContext;
 public class ProcedureEventsHandler extends ResourceEventsHandler<SystemEvent>
 {
     
-    protected ProcedureEventsHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    protected ProcedureEventsHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super("procedure", eventBus, db.getIdEncoders(), permissions);
+        super("procedure", ctx, permissions);
     }
     
 

@@ -22,9 +22,8 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.feature.IFoiStore;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -44,11 +43,11 @@ public class FoiHandler extends AbstractFeatureHandler<IFeature, FoiFilter, FoiF
     final SystemDatabaseTransactionHandler transactionHandler;
     
     
-    public FoiHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public FoiHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getFoiStore(), db.getFoiIdEncoder(), db, permissions);
-        this.db = db.getReadDb();
-        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        super(ctx.getFoiStore(), ctx.getFoiIdEncoder(), ctx, permissions);
+        this.db = ctx.getReadDb();
+        this.transactionHandler = new SystemDatabaseTransactionHandler(ctx.getEventBus(), ctx.getWriteDb());
     }
 
 

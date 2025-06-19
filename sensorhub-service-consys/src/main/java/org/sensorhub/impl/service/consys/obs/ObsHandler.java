@@ -30,6 +30,7 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.data.ObsEvent;
+import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.SpatialFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
@@ -38,7 +39,7 @@ import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.BaseResourceHandler;
@@ -61,7 +62,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
     public static final String[] NAMES = { "observations" };
     
     final IEventBus eventBus;
-    final ObsSystemDbWrapper db;
+    final IObsSystemDatabase db;
     final SystemDatabaseTransactionHandler transactionHandler;
     final ScheduledExecutorService threadPool;
     final Map<String, CustomObsFormat> customFormats;
@@ -76,13 +77,13 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
     }
     
     
-    public ObsHandler(IEventBus eventBus, ObsSystemDbWrapper db, ScheduledExecutorService threadPool, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
+    public ObsHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
     {
-        super(db.getReadDb().getObservationStore(), db.getObsIdEncoder(), db, permissions);
+        super(ctx.getReadDb().getObservationStore(), ctx.getObsIdEncoder(), ctx, permissions);
         
-        this.eventBus = eventBus;
-        this.db = db;
-        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        this.eventBus = ctx.getEventBus();
+        this.db = ctx;
+        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, ctx.getWriteDb());
         this.threadPool = threadPool;
         this.customFormats = Asserts.checkNotNull(customFormats);
     }
@@ -498,9 +499,9 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         }
         
         // datastream param
-        var dsIDs = parseResourceIds("dataStream", queryParams, idEncoders.getDataStreamIdEncoder());
+        var dsIDs = parseResourceIdsOrUids("dataStream", queryParams, idEncoders.getDataStreamIdEncoder());
         if (dsIDs != null && !dsIDs.isEmpty())
-            builder.withDataStreams(dsIDs);
+            builder.withDataStreams(dsIDs.getBigIds());
 
         // observedProperty param
         var obsProps = parseMultiValuesArg("observedProperty", queryParams);

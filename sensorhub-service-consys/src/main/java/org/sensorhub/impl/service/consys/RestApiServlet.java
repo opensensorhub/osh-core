@@ -226,12 +226,13 @@ public abstract class RestApiServlet extends HttpServlet
                         resp.setStatus(SC_CREATED);
                         
                         // prepare to write JSON response
-                        JsonWriter writer = new JsonWriter(new OutputStreamWriter(resp.getOutputStream()));
-                        writer.beginArray();
-                        for (var uri: uriList)
-                            writer.value(uri);
-                        writer.endArray();
-                        writer.flush();
+                        try (var writer = new JsonWriter(new OutputStreamWriter(resp.getOutputStream())))
+                        {
+                            writer.beginArray();
+                            for (var uri: uriList)
+                                writer.value(uri);
+                            writer.endArray();
+                        }
                     }
                 }
                 catch (InvalidRequestException e)

@@ -32,7 +32,7 @@ import org.sensorhub.impl.module.ModuleSecurity;
 import org.sensorhub.impl.security.PermissionSetting;
 import org.sensorhub.impl.service.consys.BaseHandler;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -68,9 +68,9 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
     protected boolean readOnly = false;
     
     
-    protected BaseResourceHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    protected BaseResourceHandler(S dataStore, IdEncoder idEncoder, HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getIdEncoders(), db.getCurieResolver());
+        super(ctx);
         this.dataStore = Asserts.checkNotNull(dataStore, IDataStore.class);
         this.idEncoder = Asserts.checkNotNull(idEncoder, IdEncoder.class);
         this.permissions = Asserts.checkNotNull(permissions, ResourcePermissions.class);

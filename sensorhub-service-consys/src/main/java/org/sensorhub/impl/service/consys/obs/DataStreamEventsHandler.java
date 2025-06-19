@@ -18,9 +18,8 @@ import java.io.IOException;
 import org.sensorhub.api.data.DataStreamEvent;
 import org.sensorhub.api.datastore.system.ISystemDescStore;
 import org.sensorhub.api.event.EventUtils;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.event.ResourceEventsHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -31,10 +30,10 @@ public class DataStreamEventsHandler extends ResourceEventsHandler<DataStreamEve
     final ISystemDescStore sysStore;
     
     
-    protected DataStreamEventsHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    protected DataStreamEventsHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super("datastream", eventBus, db.getIdEncoders(), permissions);
-        this.sysStore = db.getReadDb().getSystemDescStore();
+        super("datastream", ctx, permissions);
+        this.sysStore = ctx.getReadDb().getSystemDescStore();
     }
     
 

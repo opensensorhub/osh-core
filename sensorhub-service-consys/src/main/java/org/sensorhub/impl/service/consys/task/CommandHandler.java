@@ -42,7 +42,7 @@ import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.ConSysApiSecurity;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
 import org.sensorhub.impl.service.consys.InvalidRequestException.ErrorCode;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.BaseResourceHandler;
@@ -79,18 +79,18 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
     }
     
     
-    public CommandHandler(IEventBus eventBus, ObsSystemDbWrapper db, ScheduledExecutorService threadPool, ResourcePermissions permissions)
+    public CommandHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getCommandStore(), db.getCommandIdEncoder(), db, permissions);
+        super(ctx.getReadDb().getCommandStore(), ctx.getCommandIdEncoder(), ctx, permissions);
         
-        this.eventBus = eventBus;
-        this.db = db.getReadDb();
+        this.eventBus = ctx.getEventBus();
+        this.db = ctx.getReadDb();
         this.threadPool = threadPool;
         
         // I know the doc says otherwise but we need to use the federated DB for command transactions here
         // because we don't write to DB directly but rather send commands to systems that can be in other databases
-        this.readOnlyTxHandler = new SystemDatabaseTransactionHandler(eventBus, db.getReadDb());
-        this.fullTxHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        this.readOnlyTxHandler = new SystemDatabaseTransactionHandler(eventBus, ctx.getReadDb());
+        this.fullTxHandler = new SystemDatabaseTransactionHandler(eventBus, ctx.getWriteDb());
     }
     
     

@@ -22,10 +22,9 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.deployment.DeploymentFilter;
 import org.sensorhub.api.datastore.deployment.IDeploymentStore;
 import org.sensorhub.api.datastore.feature.FeatureKey;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.IDeploymentWithDesc;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -40,18 +39,16 @@ public class DeploymentHandler extends AbstractFeatureHandler<IDeploymentWithDes
 {
     public static final String[] NAMES = { "deployments" };
     
-    final IEventBus eventBus;
     final IObsSystemDatabase db;
     final DeploymentEventsHandler eventsHandler;
     
     
-    public DeploymentHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public DeploymentHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getDeploymentStore(), db.getDeploymentIdEncoder(), db, permissions);
-        this.eventBus = eventBus;
-        this.db = db;
+        super(ctx.getDeploymentStore(), ctx.getDeploymentIdEncoder(), ctx, permissions);
+        this.db = ctx;
         
-        this.eventsHandler = new DeploymentEventsHandler(eventBus, db, permissions);
+        this.eventsHandler = new DeploymentEventsHandler(ctx, permissions);
         addSubResource(eventsHandler);
     }
 

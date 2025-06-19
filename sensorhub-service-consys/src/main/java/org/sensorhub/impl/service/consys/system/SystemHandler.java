@@ -22,12 +22,11 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.system.ISystemDescStore;
 import org.sensorhub.api.datastore.system.SystemFilter;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.security.ItemWithIdPermission;
 import org.sensorhub.impl.security.ItemWithParentPermission;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.ConSysApiSecurity;
 import org.sensorhub.impl.service.consys.ServiceErrors;
@@ -53,20 +52,18 @@ public class SystemHandler extends AbstractFeatureHandler<ISystemWithDesc, Syste
     public static final String REL_CONTROLSTREAMS = "controlstreams";
     public static final String REL_HISTORY = "history";
     
-    final IEventBus eventBus;
     final IObsSystemDatabase db;
     final SystemDatabaseTransactionHandler transactionHandler;
     final SystemEventsHandler eventsHandler;
     
     
-    public SystemHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public SystemHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getSystemDescStore(), db.getSystemIdEncoder(), db, permissions);
-        this.db = db.getReadDb();
-        this.eventBus = eventBus;
-        this.transactionHandler = new SystemDatabaseTransactionHandler(eventBus, db.getWriteDb());
+        super(ctx.getReadDb().getSystemDescStore(), ctx.getSystemIdEncoder(), ctx, permissions);
+        this.db = ctx.getReadDb();
+        this.transactionHandler = new SystemDatabaseTransactionHandler(ctx.getEventBus(), ctx.getWriteDb());
         
-        this.eventsHandler = new SystemEventsHandler(eventBus, db, permissions);
+        this.eventsHandler = new SystemEventsHandler(ctx, permissions);
         addSubResource(eventsHandler);
     }
 

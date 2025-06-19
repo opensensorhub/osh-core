@@ -21,9 +21,8 @@ import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IDataStreamStore;
-import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -39,9 +38,9 @@ public class DataStreamSchemaHandler extends ResourceHandler<DataStreamKey, IDat
     public static final String[] NAMES = { "schema" };
     
     
-    public DataStreamSchemaHandler(IEventBus eventBus, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public DataStreamSchemaHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getReadDb().getDataStreamStore(), db.getDataStreamIdEncoder(), db, permissions);
+        super(ctx.getReadDb().getDataStreamStore(), ctx.getDataStreamIdEncoder(), ctx, permissions);
     }
     
     

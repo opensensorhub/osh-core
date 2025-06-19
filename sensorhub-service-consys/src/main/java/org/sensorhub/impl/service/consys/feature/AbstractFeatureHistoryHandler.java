@@ -25,7 +25,7 @@ import org.sensorhub.api.datastore.feature.FeatureKey;
 import org.sensorhub.api.datastore.feature.IFeatureStoreBase;
 import org.sensorhub.api.datastore.feature.FeatureFilterBase.FeatureFilterBaseBuilder;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
-import org.sensorhub.impl.service.consys.ObsSystemDbWrapper;
+import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
 import org.sensorhub.impl.service.consys.resource.IResourceHandler;
@@ -49,9 +49,9 @@ public abstract class AbstractFeatureHistoryHandler<
     public static final String[] NAMES = { "history" };
     
     
-    public AbstractFeatureHistoryHandler(S dataStore, IdEncoder idEncoder, ObsSystemDbWrapper db, ResourcePermissions permissions)
+    public AbstractFeatureHistoryHandler(S dataStore, IdEncoder idEncoder, HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(dataStore, idEncoder, db, permissions);
+        super(dataStore, idEncoder, ctx, permissions);
     }
     
     
