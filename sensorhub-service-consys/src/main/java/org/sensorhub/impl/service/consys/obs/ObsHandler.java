@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Flow.Subscriber;
@@ -39,6 +40,7 @@ import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
+import org.sensorhub.impl.datastore.DataStoreUtils;
 import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
@@ -268,6 +270,10 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         var dsInfo = ((ObsHandlerContextData)ctx.getData()).dsInfo;
         var streamHandler = ctx.getStreamHandler();
         
+        // if FOI filter present, lookup acceptable feature IDs
+        var foiIDs = filter.getFoiFilter() != null ?
+            DataStoreUtils.selectFeatureIDs(db.getFoiStore(), filter.getFoiFilter()).collect(Collectors.toSet()) : null;
+        
         // create subscriber
         var subscriber = new Subscriber<ObsEvent>() {
             volatile Subscription subscription;
@@ -285,6 +291,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
                 {
                     db.getObservationStore().select(new ObsFilter.Builder()
                         .withDataStreams(dsID)
+                        .withFois(filter.getFoiFilter())
                         .withLatestResult()
                         .build()).findFirst().ifPresent(latestObs -> {
                             latestObsTime = latestObs.getResultTime();
@@ -307,7 +314,10 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
             public void onNext(ObsEvent event)
             {
                 for (var obs: event.getObservations())
-                    sendObs(obs);
+                {
+                    if (foiIDs == null || foiIDs.contains(obs.getFoiID()))
+                        sendObs(obs);
+                }
             }
             
             protected void sendObs(IObsData obs)
