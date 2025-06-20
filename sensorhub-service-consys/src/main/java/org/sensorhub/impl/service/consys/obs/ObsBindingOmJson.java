@@ -245,7 +245,21 @@ public class ObsBindingOmJson extends ResourceBindingJson<BigId, IObsData>
     @Override
     public void startCollection() throws IOException
     {
-        startJsonCollection(writer);
+        if (reader != null) {
+            // if we're reading, just skip to the items array
+            // calls to deserialize() will take it from there
+            // TODO generalize this to all bindings
+            reader.beginObject();
+            while (reader.hasNext()) {
+                var propName = reader.nextName();
+                if (propName.equals(getItemsPropertyName()))
+                    return;
+                else
+                    reader.skipValue();
+            }
+        }
+        else
+            startJsonCollection(writer);
     }
 
 
