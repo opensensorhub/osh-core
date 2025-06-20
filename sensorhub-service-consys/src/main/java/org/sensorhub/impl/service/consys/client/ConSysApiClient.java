@@ -27,6 +27,7 @@ import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -34,40 +35,50 @@ import java.net.http.HttpResponse.BodyHandler;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpResponse.BodySubscriber;
 import java.net.http.HttpResponse.BodySubscribers;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.Spliterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import java.util.function.Function;
-
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStreamInfo;
+import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.DataStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.ISystemWithDesc;
+import org.sensorhub.impl.common.IdEncodersBase32;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.feature.FoiBindingGeoJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingOmJson;
+import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingSweCommon;
 import org.sensorhub.impl.service.consys.procedure.ProcedureBindingGeoJson;
 import org.sensorhub.impl.service.consys.procedure.ProcedureBindingSmlJson;
 import org.sensorhub.impl.service.consys.property.PropertyBindingJson;
+import org.sensorhub.api.datastore.TemporalFilter;
+import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.impl.service.consys.obs.ObsBindingOmJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingSweCommon;
 import org.sensorhub.impl.service.consys.obs.ObsHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
+import org.sensorhub.impl.service.consys.resource.ResourceBindingJson;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.system.SystemBindingGeoJson;
@@ -81,6 +92,7 @@ import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -611,7 +623,7 @@ public class ConSysApiClient
         
         if (fetchSchema)
         {
-            return cf1.thenCombine(getDatastreamSchema(id, ResourceFormat.JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
+            return cf1.thenCombine(getDatastreamSchema(id, ResourceFormat.SWE_JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
                 
                 schemaInfo.getRecordStructure().setName(dsInfo.getOutputName());
                 
@@ -629,11 +641,16 @@ public class ConSysApiClient
     
     public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id + "/schema?obsFormat="+obsFormat), format, body -> {
+        var obsFormatStr = URLEncoder.encode(obsFormat.getMimeType(), StandardCharsets.UTF_8);
+        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id + "/schema?obsFormat="+obsFormatStr), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
-                var binding = new DataStreamSchemaBindingOmJson(ctx, null, true);
+                ResourceBindingJson<DataStreamKey, IDataStreamInfo> binding;
+                if (obsFormat.getMimeType().startsWith(ResourceFormat.SWE_FORMAT_PREFIX))
+                    binding = new DataStreamSchemaBindingSweCommon(obsFormat, ctx, null, true);
+                else
+                    binding = new DataStreamSchemaBindingOmJson(ctx, null, true);
                 return binding.deserialize();
             }
             catch (IOException e)
@@ -839,6 +856,7 @@ public class ConSysApiClient
     {
         return pushObs(dataStreamId, dataStream, obs, obsStore, null);
     }
+    
 
     public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore, String foiId)
     {
@@ -877,6 +895,85 @@ public class ConSysApiClient
         {
             throw new IllegalStateException("Error initializing binding", e);
         }
+    }
+    
+    
+    public CompletableFuture<Stream<IObsData>> getObservations(String dsId, IDataStreamInfo dsInfo, TemporalFilter timeFilter, Set<String> foiIds, ResourceFormat format)
+    {
+        var request = DATASTREAMS_COLLECTION + "/" + dsId + "/observations?f=" + format + "&limit=10000";
+                
+        if (foiIds != null)
+            request += "&foi=" + String.join(",", foiIds);
+        
+        if (timeFilter != null)
+        {
+            if (timeFilter.isLatestTime())
+                request += "&resultTime=latest";
+        }
+        
+        return sendGetRequest(endpoint.resolve(request), format, body -> {
+            try
+            {
+                body.mark(100000);
+                ByteStreams.copy(body, System.out);
+                body.reset();
+                
+                var ctx = new RequestContext(body);
+                var contextData = new ObsHandler.ObsHandlerContextData();
+                contextData.dsID = BigId.NONE;
+                contextData.dsInfo = dsInfo;
+                ctx.setData(contextData);
+                var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), true, null);
+                binding.startCollection();
+                
+                return StreamSupport.stream(new Spliterator<IObsData>() {
+
+                    @Override
+                    public int characteristics()
+                    {
+                        return Spliterator.ORDERED | Spliterator.DISTINCT;
+                    }
+
+                    @Override
+                    public long estimateSize()
+                    {
+                        return Long.MAX_VALUE;
+                    }
+
+                    @Override
+                    public boolean tryAdvance(Consumer<? super IObsData> consumer)
+                    {
+                        try
+                        {
+                            var obs = binding.deserialize();
+                            if (obs != null)
+                            {
+                                consumer.accept(obs);
+                                return true;
+                            }
+                            
+                            return false;
+                        }
+                        catch (IOException e)
+                        {
+                            throw new IllegalStateException("Error parsing obsservation", e);
+                        }
+                    }
+
+                    @Override
+                    public Spliterator<IObsData> trySplit()
+                    {
+                        return null;
+                    }
+                    
+                }, false);
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
     }
 
 
