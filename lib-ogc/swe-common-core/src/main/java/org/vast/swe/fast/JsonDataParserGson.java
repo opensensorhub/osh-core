@@ -194,20 +194,25 @@ public class JsonDataParserGson extends AbstractDataParser
         @Override
         public void readValue(DataBlock data, int index) throws IOException
         {
-            var str = reader.nextString();
-            double val = 0.0;
-            
-            if (str == null || "NaN".equals(str))
-                val = Double.NaN;
-            else if ("+INF".equals(str) || "INF".equals(str))
-                val = Double.POSITIVE_INFINITY;
-            else if ("-INF".equals(str))
-                val = Double.NEGATIVE_INFINITY;
-            else
+            double val = Double.NaN;
+            if (reader.peek() != JsonToken.NULL)
             {
-                try { val = timeFormat.parseIso(str); }
-                catch (Exception e) { throw new ReaderException(e.getMessage()); }
+                var str = reader.nextString();
+                
+                if (str == null || "NaN".equals(str))
+                    val = Double.NaN;
+                else if ("+INF".equals(str) || "INF".equals(str))
+                    val = Double.POSITIVE_INFINITY;
+                else if ("-INF".equals(str))
+                    val = Double.NEGATIVE_INFINITY;
+                else
+                {
+                    try { val = timeFormat.parseIso(str); }
+                    catch (Exception e) { throw new ReaderException(e.getMessage()); }
+                }
             }
+            else
+                reader.nextNull();
             
             data.setDoubleValue(index, val);
         }
