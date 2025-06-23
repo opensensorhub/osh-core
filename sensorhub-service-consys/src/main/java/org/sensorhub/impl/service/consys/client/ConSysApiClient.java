@@ -49,8 +49,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
@@ -73,7 +71,6 @@ import org.sensorhub.impl.service.consys.procedure.ProcedureBindingSmlJson;
 import org.sensorhub.impl.service.consys.property.PropertyBindingJson;
 import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
-import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.impl.service.consys.obs.ObsBindingOmJson;
 import org.sensorhub.impl.service.consys.obs.ObsBindingSweCommon;
 import org.sensorhub.impl.service.consys.obs.ObsHandler;
@@ -852,38 +849,26 @@ public class ConSysApiClient
     /* Observations */
     /*--------------*/
     // TODO: Be able to push different kinds of observations such as video
-    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore)
-    {
-        return pushObs(dataStreamId, dataStream, obs, obsStore, null);
-    }
-    
-
-    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore, String foiId)
+    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs)
     {
         try
         {
-            ObsHandler.ObsHandlerContextData contextData = new ObsHandler.ObsHandlerContextData();
-            contextData.dsInfo = dataStream;
-
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
+            ctx.setParent(null, dataStreamId, obs.getDataStreamID());
+            ObsHandler.ObsHandlerContextData contextData = new ObsHandler.ObsHandlerContextData();
+            contextData.dsInfo = dataStream;
+            ctx.setData(contextData);
 
-            if(dataStream != null && dataStream.getRecordEncoding() instanceof BinaryEncoding) {
+            if (dataStream != null && dataStream.getRecordEncoding() instanceof BinaryEncoding) {
                 ctx.setData(contextData);
                 ctx.setFormat(ResourceFormat.SWE_BINARY);
-                var binding = new ObsBindingSweCommon(ctx, null, false, obsStore);
+                var binding = new ObsBindingSweCommon(ctx, new IdEncodersBase32(), false, null);
                 binding.serialize(null, obs, false);
             } else {
                 ctx.setFormat(ResourceFormat.OM_JSON);
-                var binding = new ObsBindingOmJson(ctx, null, false, obsStore);
+                var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), false, null);
                 binding.serialize(null, obs, false);
-            }
-
-            if (foiId != null) {
-                JsonObject payload = JsonParser.parseString(buffer.toString()).getAsJsonObject();
-                payload.addProperty("foi@id", foiId);
-                buffer.reset();
-                buffer.write(payload.toString().getBytes());
             }
 
             return sendPostRequest(
