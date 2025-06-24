@@ -37,8 +37,7 @@ public class JarStaticResourceHandler extends BaseHandler
     public void doGet(RequestContext ctx) throws InvalidRequestException, IOException, SecurityException
     {
         var path = ctx.getRequestPath();
-        System.out.println(path);
-        
+                
         path = path.replaceFirst("/static", "");
         var is = getClass().getResourceAsStream(path);
         if (is == null)
