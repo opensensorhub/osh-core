@@ -360,6 +360,7 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             public void clear()
             {
                 array.clearData();
+                arrayData = null;
             }
         };
     }
