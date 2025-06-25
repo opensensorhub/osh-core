@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  */
 public class CurieResolver
 {
-    static Pattern CURIE_PATTERN = Pattern.compile("^\\[([a-zA-Z_][\\w._-]*)(:([\\w._:*-]+))?\\]$");
+    static Pattern CURIE_PATTERN = Pattern.compile("^\\[(([a-zA-Z_][\\w._-]*)(:([\\w._:*-]+))?)\\]$");
     Map<String, String> prefixMap = new HashMap<>();
     
     
@@ -49,21 +49,28 @@ public class CurieResolver
         if (!m.matches())
             return null;
         
-        var prefix = m.group(1);
-        var uriPrefix = prefixMap.get(prefix);
-        if (uriPrefix == null)
-            return null;
-        
-        var ref = m.group(2);
-        if (ref != null)
+        // first try to map the entire id
+        var curie = m.group(1);
+        var uri = prefixMap.get(curie);
+        if (uri == null)
         {
-            var separator = uriPrefix.contains("/") ? "/" : ":";
-            if (!uriPrefix.endsWith(separator))
-                uriPrefix += separator;
-            return uriPrefix + ref.substring(1);
+            // if nothing found try to map the prefix only
+            var prefix = m.group(2);
+            uri = prefixMap.get(prefix);
+            if (uri == null)
+                return null;
+        
+            var ref = m.group(3);
+            if (ref != null)
+            {
+                var separator = uri.contains("/") ? "/" : ":";
+                if (!uri.endsWith(separator))
+                    uri += separator;
+                return uri + ref.substring(1);
+            }
         }
         
-        return uriPrefix;
+        return uri;
     }
     
     
