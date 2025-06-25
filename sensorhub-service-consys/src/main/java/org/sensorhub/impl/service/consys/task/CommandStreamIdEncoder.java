@@ -55,7 +55,7 @@ public class CommandStreamIdEncoder implements IdEncoder
     {
         // if it's a UID or CURIE, lookup the corresponding internal ID
         // controlstream CURIEs must be of the form [prefix:sysName:controlInputName]
-        if (encodedID.contains(":")) {
+        if (encodedID.contains(":") || encodedID.contains("[")) {
             
             String uri = curieResolver.maybeExpand(encodedID);
             var lastSep = uri.lastIndexOf(':');
