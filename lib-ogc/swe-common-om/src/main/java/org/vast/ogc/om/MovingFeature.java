@@ -15,10 +15,10 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 package org.vast.ogc.om;
 
 import javax.xml.namespace.QName;
-import org.vast.ogc.gml.GenericFeatureImpl;
+import org.vast.ogc.gml.GenericTemporalFeatureImpl;
 
 
-public class MovingFeature extends GenericFeatureImpl
+public class MovingFeature extends GenericTemporalFeatureImpl
 {
     private static final long serialVersionUID = 3975647873045316629L;
     
