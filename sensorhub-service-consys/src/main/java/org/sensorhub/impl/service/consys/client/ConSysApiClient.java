@@ -89,7 +89,6 @@ import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
-import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -272,10 +271,11 @@ public class ConSysApiClient
                 
                 // use modified binding since the response contains a feature collection
                 var binding = new ProcedureBindingGeoJson(ctx, null, null, true) {
-                    public IProcedureWithDesc deserialize(JsonReader reader) throws IOException
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
                     {
+                        var reader = super.getJsonReader(is);
                         skipToCollectionItems(reader);
-                        return super.deserialize(reader);
+                        return reader;
                     }
                 };
                 
@@ -385,10 +385,11 @@ public class ConSysApiClient
                 
                 // use modified binding since the response contains a feature collection
                 var binding = new SystemBindingGeoJson(ctx, null, null, true) {
-                    public ISystemWithDesc deserialize(JsonReader reader) throws IOException
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
                     {
+                        var reader = super.getJsonReader(is);
                         skipToCollectionItems(reader);
-                        return super.deserialize(reader);
+                        return reader;
                     }
                 };
                 
@@ -572,6 +573,77 @@ public class ConSysApiClient
         });
     }
 
+    public CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String systemId, ResourceFormat format)
+    {
+        var request = SYSTEMS_COLLECTION + "/" + systemId + "/" + SF_COLLECTION + "?f=" + format + "&limit=10000";
+        
+        return sendGetRequest(endpoint.resolve(request), format, body -> {
+            try
+            {
+                /*body.mark(100000);
+                ByteStreams.copy(body, System.out);
+                body.reset();*/
+                
+                var ctx = new RequestContext(body);
+                var binding = new FoiBindingGeoJson(ctx, new IdEncodersBase32(), null, true) {
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
+                    {
+                        var reader = super.getJsonReader(is);
+                        skipToCollectionItems(reader);
+                        return reader;
+                    }
+                };
+                
+                return StreamSupport.stream(new Spliterator<IFeature>() {
+
+                    @Override
+                    public int characteristics()
+                    {
+                        return Spliterator.ORDERED | Spliterator.DISTINCT;
+                    }
+
+                    @Override
+                    public long estimateSize()
+                    {
+                        return Long.MAX_VALUE;
+                    }
+
+                    @Override
+                    public boolean tryAdvance(Consumer<? super IFeature> consumer)
+                    {
+                        try
+                        {
+                            var f = binding.deserialize();
+                            if (f != null)
+                            {
+                                consumer.accept(f);
+                                return true;
+                            }
+                            
+                            return false;
+                        }
+                        catch (IOException e)
+                        {
+                            throw new IllegalStateException("Error parsing feature", e);
+                        }
+                    }
+
+                    @Override
+                    public Spliterator<IFeature> trySplit()
+                    {
+                        return null;
+                    }
+                    
+                }, false);
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+
     public CompletableFuture<IFeature> getSamplingFeatureByUid(String uid, ResourceFormat format)
     {
         return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
@@ -581,10 +653,11 @@ public class ConSysApiClient
 
                 // use modified binding since the response contains a feature collection
                 var binding = new FoiBindingGeoJson(ctx, null, null, true) {
-                    public IFeature deserialize(JsonReader reader) throws IOException
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
                     {
+                        var reader = super.getJsonReader(is);
                         skipToCollectionItems(reader);
-                        return super.deserialize(reader);
+                        return reader;
                     }
                 };
 
@@ -899,9 +972,9 @@ public class ConSysApiClient
         return sendGetRequest(endpoint.resolve(request), format, body -> {
             try
             {
-                body.mark(100000);
+                /*body.mark(100000);
                 ByteStreams.copy(body, System.out);
-                body.reset();
+                body.reset();*/
                 
                 var ctx = new RequestContext(body);
                 var contextData = new ObsHandler.ObsHandlerContextData();
@@ -941,7 +1014,7 @@ public class ConSysApiClient
                         }
                         catch (IOException e)
                         {
-                            throw new IllegalStateException("Error parsing obsservation", e);
+                            throw new IllegalStateException("Error parsing observation", e);
                         }
                     }
 
