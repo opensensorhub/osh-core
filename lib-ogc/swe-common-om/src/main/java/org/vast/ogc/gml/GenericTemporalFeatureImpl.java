@@ -10,6 +10,7 @@
 package org.vast.ogc.gml;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import javax.xml.namespace.QName;
 import org.vast.util.TimeExtent;
 import net.opengis.gml.v32.AbstractTimeGeometricPrimitive;
@@ -25,6 +26,13 @@ public class GenericTemporalFeatureImpl extends GenericFeatureImpl
     public static final QName PROP_VALID_TIME = new QName(GMLStaxBindings.NS_URI, "validTime", GMLStaxBindings.NS_PREFIX_GML);
     
 
+    // constructor to be called by subclasses when overriding getType directly
+    protected GenericTemporalFeatureImpl()
+    {
+        this.properties = new LinkedHashMap<>();
+    }
+    
+    
     public GenericTemporalFeatureImpl(String type)
     {
         super(type);
