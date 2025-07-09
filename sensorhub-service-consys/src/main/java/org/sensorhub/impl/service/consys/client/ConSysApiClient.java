@@ -375,6 +375,7 @@ public class ConSysApiClient
             }
         });
     }
+    
 
     public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format) throws ExecutionException, InterruptedException
     {
@@ -424,6 +425,7 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
+    
 
     public CompletableFuture<Integer> updateSystem(String systemID, ISystemWithDesc system)
     {
@@ -445,6 +447,7 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
+    
 
     public CompletableFuture<String> addSubSystem(String systemID, ISystemWithDesc system)
     {
@@ -466,6 +469,7 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
+    
 
     public CompletableFuture<Set<String>> addSystems(ISystemWithDesc... systems)
     {
@@ -532,6 +536,7 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
+    
 
     public CompletableFuture<Integer> updateSamplingFeature(String featureId, IFeature feature)
     {
@@ -553,6 +558,7 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
+    
 
     public CompletableFuture<IFeature> getSamplingFeatureById(String featureId)
     {
@@ -572,10 +578,58 @@ public class ConSysApiClient
             }
         });
     }
+    
+
+    public CompletableFuture<IFeature> getSamplingFeatureByUid(String uid, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+
+                // use modified binding since the response contains a feature collection
+                var binding = new FoiBindingGeoJson(ctx, null, null, true) {
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
+                    {
+                        var reader = super.getJsonReader(is);
+                        skipToCollectionItems(reader);
+                        return reader;
+                    }
+                };
+
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                throw new CompletionException(e);
+            }
+        });
+    }    
+    
 
     public CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String systemId, ResourceFormat format)
     {
-        var request = SYSTEMS_COLLECTION + "/" + systemId + "/" + SF_COLLECTION + "?f=" + format + "&limit=10000";
+        return getSystemSamplingFeatures(systemId, format, 100);
+    }
+    
+    
+    public CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String systemId, ResourceFormat format, int maxPageSize)
+    {
+        return getResourcesWithPaging((pageSize, offset) -> {
+            try {
+                return getSystemSamplingFeatures(systemId, format, pageSize, offset).get();
+            }
+            catch (Exception e) {
+                throw new IOException("Error loading sampling features", e);
+            }
+        }, maxPageSize);
+    }
+    
+    
+    protected CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String systemId, ResourceFormat format, int pageSize, int offset)
+    {
+        var request = SYSTEMS_COLLECTION + "/" + systemId + "/" + SF_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        log.debug("{}", request);
         
         return sendGetRequest(endpoint.resolve(request), format, body -> {
             try
@@ -644,32 +698,6 @@ public class ConSysApiClient
         });
     }
 
-    public CompletableFuture<IFeature> getSamplingFeatureByUid(String uid, ResourceFormat format)
-    {
-        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
-            try
-            {
-                var ctx = new RequestContext(body);
-
-                // use modified binding since the response contains a feature collection
-                var binding = new FoiBindingGeoJson(ctx, null, null, true) {
-                    protected JsonReader getJsonReader(InputStream is) throws IOException
-                    {
-                        var reader = super.getJsonReader(is);
-                        skipToCollectionItems(reader);
-                        return reader;
-                    }
-                };
-
-                return binding.deserialize();
-            }
-            catch (IOException e)
-            {
-                throw new CompletionException(e);
-            }
-        });
-    }
-
 
     /*-------------*/
     /* Datastreams */
@@ -709,6 +737,7 @@ public class ConSysApiClient
         
     }
     
+    
     public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
         var obsFormatStr = URLEncoder.encode(obsFormat.getMimeType(), StandardCharsets.UTF_8);
@@ -730,6 +759,7 @@ public class ConSysApiClient
             }
         });
     }
+    
 
     public CompletableFuture<String> addDataStream(String systemId, IDataStreamInfo datastream)
     {
@@ -955,10 +985,28 @@ public class ConSysApiClient
         }
     }
     
-    
+
     public CompletableFuture<Stream<IObsData>> getObservations(String dsId, IDataStreamInfo dsInfo, TemporalFilter timeFilter, Set<String> foiIds, ResourceFormat format)
     {
-        var request = DATASTREAMS_COLLECTION + "/" + dsId + "/observations?f=" + format + "&limit=10000";
+        return getObservations(dsId, dsInfo, timeFilter, foiIds, format, 100);
+    }
+    
+    
+    public CompletableFuture<Stream<IObsData>> getObservations(String dsId, IDataStreamInfo dsInfo, TemporalFilter timeFilter, Set<String> foiIds, ResourceFormat format, int maxPageSize)
+    {
+        return getResourcesWithPaging((pageSize, offset) -> {
+            try {
+                return getObservations(dsId, dsInfo, timeFilter, foiIds, format, pageSize, offset).get();
+            }
+            catch (Exception e) {
+                throw new IOException("Error loading observations", e);
+            }
+        }, maxPageSize);
+    }
+    
+    protected CompletableFuture<Stream<IObsData>> getObservations(String dsId, IDataStreamInfo dsInfo, TemporalFilter timeFilter, Set<String> foiIds, ResourceFormat format, int pageSize, int offset)
+    {
+        var request = DATASTREAMS_COLLECTION + "/" + dsId + "/observations?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
                 
         if (foiIds != null)
             request += "&foi=" + String.join(",", foiIds);
@@ -1313,6 +1361,70 @@ public class ConSysApiClient
                 }
             }
         });
+    }
+    
+    
+    interface PageLoadFunction<T>
+    {
+        Stream<T> loadPage(int offset, int pageSize) throws IOException;
+    }
+    
+    
+    protected <T> CompletableFuture<Stream<T>> getResourcesWithPaging(PageLoadFunction<T> pageLoader, int pageSize)
+    {
+        var resourceStream = StreamSupport.stream(new Spliterator<T>() {
+            Spliterator<T> currentBatch;
+            int offset = 0;
+            
+            @Override
+            public int characteristics()
+            {
+                return Spliterator.ORDERED | Spliterator.DISTINCT;
+            }
+
+            @Override
+            public long estimateSize()
+            {
+                return Long.MAX_VALUE;
+            }
+
+            @Override
+            public boolean tryAdvance(Consumer<? super T> consumer)
+            {
+                boolean hasNext = false;
+                if (currentBatch != null)
+                    hasNext = currentBatch.tryAdvance(consumer);
+                
+                if (!hasNext)
+                {
+                    try {
+                        log.debug("Loading batch {}={}", offset, offset+pageSize);
+                        var batch = pageLoader.loadPage(pageSize, offset);
+                        if (batch == null)
+                            return false;
+                    
+                        offset += pageSize;
+                        currentBatch = batch.spliterator();
+                        hasNext = currentBatch.tryAdvance(consumer);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new IllegalStateException("Error loading next page", e);
+                    }
+                }
+                
+                return hasNext;
+            }
+
+            @Override
+            public Spliterator<T> trySplit()
+            {
+                return null;
+            }
+            
+        }, false);
+        
+        return CompletableFuture.completedFuture(resourceStream);
     }
     
     
