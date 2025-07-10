@@ -490,7 +490,7 @@ public class DatabaseStreamPanel extends VerticalLayout
     protected void updateTable()
     {
         obsDataContainer.updateTimeRange(zoomTimeRange);
-        table.setContainerDataSource(obsDataContainer);
+        //table.setContainerDataSource(obsDataContainer);
         table.setCurrentPage(1);
                 
         var cols = new ArrayList<Object>(table.getContainerPropertyIds());
@@ -506,9 +506,10 @@ public class DatabaseStreamPanel extends VerticalLayout
         tableLayout.setMargin(false);
         tableLayout.setSpacing(true);
         
+        var pageSize = 10;
         table = new PagedTable();
         table.setWidth(100, Unit.PERCENTAGE);
-        table.setPageLength(10);
+        table.setPageLength(pageSize);
         table.addStyleName(UIConstants.STYLE_SMALL);
         tableLayout.addComponent(table);
         
@@ -524,7 +525,7 @@ public class DatabaseStreamPanel extends VerticalLayout
         // add custom container for lazy loading from DB
         List<ScalarIndexer> indexers = new ArrayList<>();
         var foiIdEncoder = ((AdminUI)UI.getCurrent()).getParentHub().getIdEncoders().getFoiIdEncoder();
-        obsDataContainer = new LazyLoadingObsContainer(db, foiIdEncoder, dataStreamID, foiIDs, indexers);
+        obsDataContainer = new LazyLoadingObsContainer(db, foiIdEncoder, dataStreamID, foiIDs, indexers, pageSize);
         obsDataContainer.updateTimeRange(zoomTimeRange);
         table.setContainerDataSource(obsDataContainer);
         table.addListener(new PageChangeListener() {

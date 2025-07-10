@@ -115,7 +115,7 @@ public class PagedTable extends Table {
                     setColumnWidth(columnId, -1);
                 }
             }
-            firePagedChangedEvent();
+            //firePagedChangedEvent(); // already called in containerItemSetChange
         }
     }
 
