@@ -149,7 +149,8 @@ public abstract class AbstractRecordImpl<ComponentType extends DataComponent> ex
     	{
     		for (int i = 0; i < fieldList.size(); i++)
     		{
-    			AbstractDataBlock childBlock = ((DataBlockParallel)dataBlock).blockArray[i];
+    			AbstractDataBlock childBlock = ((DataBlockParallel)dataBlock).blockArray[i].copy();
+    			childBlock.startIndex = ((DataBlockParallel)dataBlock).startIndex;
     			((AbstractDataComponentImpl)fieldList.get(i)).setData(childBlock);
     		}
     	}
