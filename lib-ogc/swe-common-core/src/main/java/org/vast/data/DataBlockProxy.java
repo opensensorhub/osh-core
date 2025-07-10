@@ -344,7 +344,7 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
                     {
                         var elt = array.getComponent(idx++);
                         var accessor = createElementProxy(clazz, array.getElementType());
-                        accessor.wrap(elt.getData());
+                        accessor.wrap(elt.getData().copy());
                         return accessor;
                     }
                 };

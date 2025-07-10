@@ -72,12 +72,7 @@ public class DataBlockParallel extends AbstractDataBlock
 	{
 		DataBlockParallel newBlock = new DataBlockParallel();
 		newBlock.startIndex = this.startIndex;
-		newBlock.blockArray = new AbstractDataBlock[blockArray.length];
-		
-        // shallow copy all blocks in the array
-		for (int i=0; i<blockArray.length; i++)
-			newBlock.blockArray[i] = this.blockArray[i].copy();
-		
+		newBlock.blockArray = this.blockArray;
 		newBlock.atomCount = this.atomCount;
 		return newBlock;
 	}
