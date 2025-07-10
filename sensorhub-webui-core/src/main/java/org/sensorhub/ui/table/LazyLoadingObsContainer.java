@@ -34,18 +34,20 @@ public class LazyLoadingObsContainer extends IndexedContainer
     final BigId dataStreamID;
     final Set<BigId> foiIDs;
     final List<ScalarIndexer> indexers;
+    final int pageSize;
     int startIndexCache = -1;
     int size = -1;
     TimeExtent timeRange;
+        
     
-    
-    public LazyLoadingObsContainer(IObsSystemDatabase db, IdEncoder foiIdEncoder, BigId dataStreamID, Set<BigId> foiIDs, List<ScalarIndexer> indexers)
+    public LazyLoadingObsContainer(IObsSystemDatabase db, IdEncoder foiIdEncoder, BigId dataStreamID, Set<BigId> foiIDs, List<ScalarIndexer> indexers, int pageSize)
     {
         this.db = db;
         this.foiIdEncoder = foiIdEncoder;
         this.dataStreamID = dataStreamID;
         this.foiIDs = foiIDs;
         this.indexers = indexers;
+        this.pageSize = pageSize;
     }
     
     
@@ -60,7 +62,6 @@ public class LazyLoadingObsContainer extends IndexedContainer
     public void onPageChanged()
     {
         this.startIndexCache = -1;
-        removeAllItems();
     }
     
         
@@ -79,10 +80,13 @@ public class LazyLoadingObsContainer extends IndexedContainer
                 filter.withFois(foiIDs);
             
             // prefetch range from DB
+            removeAllItems();
             AtomicInteger count = new AtomicInteger(startIndex);
             db.getObservationStore().select(filter.build())
                 .skip(startIndex)
+                .limit(10)
                 .forEach(obs -> {
+                    //System.out.println(obs.getResultTime());
                     var dataBlk = obs.getResult();
                     Item item = addItem(count.getAndIncrement());
                     if (item != null)
