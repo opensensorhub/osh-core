@@ -87,7 +87,8 @@ public class DataBlockList extends AbstractDataBlock
         newBlock.startIndex = this.startIndex;
         newBlock.blockAtomCount = this.blockAtomCount;
         newBlock.equalBlockSize = this.equalBlockSize;
-        newBlock.blockList = this.blockList;       
+        newBlock.blockList = this.blockList;
+        newBlock.atomCount = this.atomCount;
         return newBlock;
     }
     
