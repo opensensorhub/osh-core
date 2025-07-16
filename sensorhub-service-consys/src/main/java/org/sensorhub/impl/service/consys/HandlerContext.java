@@ -17,11 +17,13 @@ package org.sensorhub.impl.service.consys;
 import java.util.concurrent.Callable;
 import org.sensorhub.api.common.IdEncoder;
 import org.sensorhub.api.common.IdEncoders;
+import org.sensorhub.api.database.IFeatureDatabase;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.database.IProcedureDatabase;
 import org.sensorhub.api.datastore.command.ICommandStore;
 import org.sensorhub.api.datastore.command.ICommandStreamStore;
 import org.sensorhub.api.datastore.deployment.IDeploymentStore;
+import org.sensorhub.api.datastore.feature.IFeatureStore;
 import org.sensorhub.api.datastore.feature.IFoiStore;
 import org.sensorhub.api.datastore.obs.IDataStreamStore;
 import org.sensorhub.api.datastore.obs.IObsStore;
@@ -31,6 +33,7 @@ import org.sensorhub.api.datastore.system.ISystemDescStore;
 import org.sensorhub.api.event.IEventBus;
 import org.sensorhub.impl.service.consys.deployment.DeploymentStoreWrapper;
 import org.sensorhub.impl.service.consys.feature.FeatureIdEncoder;
+import org.sensorhub.impl.service.consys.feature.FeatureStoreWrapper;
 import org.sensorhub.impl.service.consys.feature.FoiStoreWrapper;
 import org.sensorhub.impl.service.consys.obs.DataStreamIdEncoder;
 import org.sensorhub.impl.service.consys.obs.DataStreamStoreWrapper;
@@ -43,7 +46,7 @@ import org.sensorhub.impl.service.consys.task.CommandStreamStoreWrapper;
 import org.vast.util.Asserts;
 
 
-public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, IdEncoders
+public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, IFeatureDatabase, IdEncoders
 {
     static final String NOT_WRITABLE_MSG = "Database is not writable";
     
@@ -59,6 +62,7 @@ public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, I
     final IObsStore obsStore;
     final ICommandStreamStore commandStreamStore;
     final ICommandStore commandStore;
+    final IFeatureStore featureStore;
     final IdEncoders idEncoders;
     final CurieResolver curieResolver;
     
@@ -113,6 +117,18 @@ public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, I
         {
             this.procedureStore = null;
             this.propertyStore = null;
+        }
+        
+        if (readDb instanceof IFeatureDatabase)
+        {
+            this.featureStore = new FeatureStoreWrapper(
+                ((IFeatureDatabase)readDb).getFeatureStore(),
+                writeDb != null && writeDb instanceof IFeatureDatabase ?
+                    ((IFeatureDatabase)writeDb).getFeatureStore() : null);
+        }
+        else
+        {
+            this.featureStore = null;
         }
         
         this.idEncoders = Asserts.checkNotNull(idEncoders);
@@ -317,6 +333,13 @@ public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, I
     public CurieResolver getCurieResolver()
     {
         return curieResolver;
+    }
+
+
+    @Override
+    public IFeatureStore getFeatureStore()
+    {
+        return featureStore;
     }
 
 }

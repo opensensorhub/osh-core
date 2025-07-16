@@ -207,7 +207,7 @@ public class FederatedDatabase implements IFederatedDatabase
     @Override
     public IFeatureStore getFeatureStore()
     {
-        return null;
+        return featureStore;
     }
     
     
