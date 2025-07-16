@@ -119,6 +119,9 @@ public class MaxAgeAutoPurgePolicy implements IObsSystemDbAutoPurgePolicy
             if (resultTimeRange != null)
             {
                 var oldestResultTime = resultTimeRange.end().minusSeconds((long)config.maxRecordAge);
+                if (oldestResultTime.isAfter(oldestRecordTime))
+                    oldestResultTime = oldestRecordTime;
+                
                 numObsRemoved += db.getObservationStore().removeEntries(new ObsFilter.Builder()
                     .withDataStreams(dsID)
                     .withResultTimeDuring(Instant.MIN, oldestResultTime)
