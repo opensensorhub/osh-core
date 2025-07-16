@@ -30,6 +30,7 @@ import org.sensorhub.impl.module.ModuleRegistry;
 import org.sensorhub.impl.service.AbstractHttpServiceModule;
 import org.sensorhub.impl.service.consys.deployment.DeploymentHandler;
 import org.sensorhub.impl.service.consys.deployment.DeploymentMembersHandler;
+import org.sensorhub.impl.service.consys.feature.FeatureHandler;
 import org.sensorhub.impl.service.consys.feature.FoiHandler;
 import org.sensorhub.impl.service.consys.feature.FoiHistoryHandler;
 import org.sensorhub.impl.service.consys.home.CollectionHandler;
@@ -203,6 +204,13 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         var homePage = new HomePageHandler(config);
         var rootHandler = new RootHandler(homePage, readOnly);
         rootHandler.addSubResource(new ConformanceHandler(CONF_CLASSES));
+        
+        // static features
+        if (handlerCtx.getFeatureStore() != null)
+        {
+            var featureHandler = new FeatureHandler(handlerCtx, security.procedure_permissions);
+            rootHandler.addSubResource(featureHandler);
+        }
         
         // procedures
         if (handlerCtx.getProcedureStore() != null)

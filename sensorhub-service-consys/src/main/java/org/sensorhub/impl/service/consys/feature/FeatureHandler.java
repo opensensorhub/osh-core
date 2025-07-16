@@ -42,10 +42,10 @@ public class FeatureHandler extends AbstractFeatureHandler<IFeature, FeatureFilt
     final IFeatureDatabase db;
     
     
-    public FeatureHandler(IFeatureDatabase db, HandlerContext ctx, ResourcePermissions permissions)
+    public FeatureHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db.getFeatureStore(), ctx.getFeatureIdEncoder(), ctx, permissions);
-        this.db = db;
+        super(ctx.getFeatureStore(), ctx.getFeatureIdEncoder(), ctx, permissions);
+        this.db = ctx;
     }
 
 

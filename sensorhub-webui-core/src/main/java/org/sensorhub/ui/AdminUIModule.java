@@ -25,6 +25,7 @@ import org.sensorhub.api.comm.CommProviderConfig;
 import org.sensorhub.api.comm.NetworkConfig;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.database.DatabaseConfig;
+import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.command.CommandFilter;
 import org.sensorhub.api.datastore.command.CommandStreamFilter;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
@@ -32,6 +33,7 @@ import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.module.IModule;
+import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.processing.ProcessConfig;
 import org.sensorhub.api.sensor.SensorConfig;
@@ -121,7 +123,7 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             // load default panel builders
             customPanels.put(SensorConfig.class.getCanonicalName(), SensorAdminPanel.class);
             customPanels.put(ProcessConfig.class.getCanonicalName(), ProcessAdminPanel.class);
-            customPanels.put(DatabaseConfig.class.getCanonicalName(), DatabaseAdminPanel.class);
+            customPanels.put(IObsSystemDatabase.class.getCanonicalName(), DatabaseAdminPanel.class);
             customPanels.put(NetworkConfig.class.getCanonicalName(), NetworkAdminPanel.class);
             customPanels.put(SOSServiceConfig.class.getCanonicalName(), SOSAdminPanel.class);
             customPanels.put(SPSServiceConfig.class.getCanonicalName(), SPSAdminPanel.class);
@@ -221,19 +223,31 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
     
     
     @SuppressWarnings("unchecked")
-    protected IModuleAdminPanel<IModule<?>> generatePanel(Class<?> clazz)
+    protected IModuleAdminPanel<IModule<?>> generatePanel(IModule<?> m)
     {
         IModuleAdminPanel<IModule<?>> panel = null;
         
         try
         {
             Class<IModuleAdminPanel<IModule<?>>> uiClass = null;
+            Class<?> configClass = m.getConfiguration().getClass();
             
             // check if there is a custom panel registered, if not use default
-            while (uiClass == null && clazz != null)
+            while (uiClass == null && configClass != null)
             {
-                uiClass = (Class<IModuleAdminPanel<IModule<?>>>)customPanels.get(clazz.getCanonicalName());
-                clazz = clazz.getSuperclass();
+                uiClass = (Class<IModuleAdminPanel<IModule<?>>>)customPanels.get(configClass.getCanonicalName());
+                configClass = configClass.getSuperclass();
+            }
+            
+            // also lookup using module class
+            if (uiClass == null)
+            {
+                var moduleClass = m.getClass();
+                for (var entry: customPanels.entrySet()) {
+                    var classForKey = Class.forName(entry.getKey());
+                    if (classForKey.isAssignableFrom(moduleClass))
+                        uiClass = (Class<IModuleAdminPanel<IModule<?>>>)entry.getValue();
+                }
             }
             
             if (uiClass != null)

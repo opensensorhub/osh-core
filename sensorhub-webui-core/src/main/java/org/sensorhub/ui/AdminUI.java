@@ -1241,8 +1241,7 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         configArea.removeAllComponents();
         
         // get panel for this config object
-        Class<?> configClass = beanItem.getBean().getClass();
-        IModuleAdminPanel<IModule<?>> panel = adminModule.generatePanel(configClass);
+        IModuleAdminPanel<IModule<?>> panel = adminModule.generatePanel(module);
         panel.build(beanItem, module);
         
         // generate module admin panel

@@ -16,7 +16,6 @@ package org.sensorhub.impl.service.consys.feature;
 
 import java.io.IOException;
 import java.util.Map;
-import org.sensorhub.api.database.IFeatureDatabase;
 import org.sensorhub.api.datastore.feature.FeatureFilter;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
 import org.sensorhub.impl.service.consys.HandlerContext;
@@ -31,9 +30,9 @@ public class FeatureMembersHandler extends FeatureHandler
     public static final String[] NAMES = { "members" };
     
     
-    public FeatureMembersHandler(IFeatureDatabase db, HandlerContext ctx, ResourcePermissions permissions)
+    public FeatureMembersHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(db, ctx, permissions);
+        super(ctx, permissions);
     }
     
     
