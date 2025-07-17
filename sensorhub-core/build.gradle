@@ -6,10 +6,10 @@ dependencies {
   embeddedApi project(':swe-common-om')
   embeddedApi project(':sensorml-core')
   api 'org.osgi:org.osgi.framework:1.10.0'
-  embeddedApi 'org.eclipse.jetty:jetty-servlet:9.4.53.v20231009'
-  embeddedApi 'org.eclipse.jetty:jetty-servlets:9.4.53.v20231009'
-  embeddedApi 'org.eclipse.jetty.websocket:websocket-server:9.4.53.v20231009'
-  embeddedApi 'org.eclipse.jetty:jetty-xml:9.4.53.v20231009'
+  embeddedApi 'org.eclipse.jetty:jetty-servlet:9.4.57.v20241219'
+  embeddedApi 'org.eclipse.jetty:jetty-servlets:9.4.57.v20241219'
+  embeddedApi 'org.eclipse.jetty.websocket:websocket-server:9.4.57.v20241219'
+  embeddedApi 'org.eclipse.jetty:jetty-xml:9.4.57.v20241219'
   embeddedApi 'javax.validation:validation-api:2.0.1.Final'
   embeddedApi 'dev.failsafe:failsafe:3.3.2'
   
