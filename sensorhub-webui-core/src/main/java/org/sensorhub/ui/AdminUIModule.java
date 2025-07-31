@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.logging.LogManager;
 
 import com.vaadin.server.VaadinServlet;
+import org.eclipse.jetty.servlet.ErrorPageErrorHandler;
 import org.sensorhub.api.comm.CommProviderConfig;
 import org.sensorhub.api.comm.NetworkConfig;
 import org.sensorhub.api.common.SensorHubException;
@@ -41,6 +42,7 @@ import org.sensorhub.impl.database.system.SystemDriverDatabaseConfig;
 import org.sensorhub.impl.datastore.view.ObsSystemDatabaseViewConfig;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig;
 import org.sensorhub.impl.service.AbstractHttpServiceModule;
+import org.sensorhub.impl.service.HttpServer;
 import org.sensorhub.impl.service.HttpServerConfig;
 import org.sensorhub.impl.service.sos.SOSServiceConfig;
 import org.sensorhub.impl.service.sps.SPSServiceConfig;
@@ -164,12 +166,13 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
 
         Map<String, String> initLandingParams = new HashMap<>();
         initLandingParams.put(SERVLET_PARAM_UI_CLASS, LandingUI.class.getCanonicalName());
+        if (config.widgetSet != null) initLandingParams.put(WIDGETSET, config.widgetSet);
         initLandingParams.put("productionMode", "true");  // set to false to compile theme on-the-fly
         initLandingParams.put("heartbeatInterval", Integer.toString(HEARTBEAT_INTERVAL));
 
         // deploy servlet
         // HACK: we have to disable std err to hide message due to Vaadin duplicate implementation of SL4J
-        // Note that this may hide error messages in other modules now that startup sequence is multithreaded
+        // Note that this may hide error messages in oth er modules now that startup sequence is multithreaded
         PrintStream oldStdErr = System.err;
         System.setErr(new PrintStream(new OutputStream() {
             @Override
@@ -184,6 +187,15 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             adminUIServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
             landingServlet.getServletContext().setAttribute(SERVLET_PARAM_MODULE, this);
             httpServer.addServletSecurity("/*", true);
+
+            var server = getParentHub().getModuleRegistry().getModuleByType(HttpServer.class);
+
+            ErrorPageErrorHandler errorHandler = new ErrorPageErrorHandler();
+            errorHandler.addErrorPage(400, "/error/invalid");
+            errorHandler.addErrorPage(403, "/error/forbidden");
+            errorHandler.addErrorPage(404, "/error/notfound");
+
+            server.getServletHandler().setErrorHandler(errorHandler);
         }
         else {
             httpServer.deployServlet(adminUIServlet, initParams, "/admin/*", "/VAADIN/*");
