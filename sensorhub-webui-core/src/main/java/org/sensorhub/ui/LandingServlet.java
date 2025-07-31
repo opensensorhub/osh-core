@@ -58,7 +58,7 @@ public class LandingServlet extends VaadinServlet {
             }
 
             if (!isIgnored(uri) && !hasAccess(request)) {
-                log.debug("Access Denied: Redirecting to " + redirectURL);
+                log.warn("Access Denied: Redirecting to " + redirectURL);
                 response.sendRedirect(redirectURL);
                 return;
             }
@@ -68,7 +68,7 @@ public class LandingServlet extends VaadinServlet {
 
 
         } catch (SecurityException e) {
-            log.debug("Access Forbidden: " + e.getMessage());
+            log.warn("Access Forbidden: " + e.getMessage());
             response.sendRedirect(redirectURL);
         } finally {
             securityHandler.clearCurrentUser();
@@ -103,7 +103,7 @@ public class LandingServlet extends VaadinServlet {
         log.debug("Verifying permissions for "+ path);
 
         if (path.equals("/sensorhub/sos") && request.getQueryString() == null) {
-            log.debug("Blocked direct access to /sensorhub/sos with no query parameters.");
+            log.warn("Blocked direct access to /sensorhub/sos with no query parameters.");
             return false;
         }
 
