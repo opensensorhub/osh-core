@@ -116,7 +116,10 @@ public abstract class SWEEditForm extends SWECommonForm
                 final ComboBox f = new ComboBox();
                 f.addStyleName(UIConstants.STYLE_SMALL);
                 f.addItems(((Category) component).getConstraint().getValueList());
-                //f.setValue(component.getData().getStringValue());
+                if (!component.hasData() || component.getData().getStringValue() == null) {
+                    component.assignNewDataBlock();
+                }
+                f.setValue(component.getData().getStringValue());
                 layout.addComponent(f);
                 f.addValueChangeListener(new ValueChangeListener() {
                     private static final long serialVersionUID = 1L;
@@ -131,6 +134,9 @@ public abstract class SWEEditForm extends SWECommonForm
             {
                 final TextField f = new TextField();
                 f.addStyleName(UIConstants.STYLE_SMALL);
+                if (!component.hasData() || component.getData().getStringValue() == null) {
+                    component.assignNewDataBlock();
+                }
                 f.setValue(component.getData().getStringValue());
                 layout.addComponent(f);
                 f.addValueChangeListener(new ValueChangeListener() {

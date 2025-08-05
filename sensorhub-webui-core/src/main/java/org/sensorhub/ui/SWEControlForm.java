@@ -40,9 +40,8 @@ public class SWEControlForm extends SWEEditForm
     
     public SWEControlForm(final IStreamingControlInterface controlInput)
     {
-        super(controlInput.getCommandDescription().copy());
+        super(controlInput.getCommandDescription());
         this.controlInput = controlInput;
-        this.component.assignNewDataBlock();
         buildForm();
     }
     
