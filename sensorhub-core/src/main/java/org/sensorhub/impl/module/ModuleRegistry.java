@@ -81,6 +81,7 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
     private static final String TIMEOUT_MSG = " in the requested time frame";
     public static final String EVENT_GROUP_ID = "urn:osh:modules";
     public static final long DEFAULT_TIMEOUT_MS = 5000L;
+    public static final long DB_STARTUP_TIMEOUT_MS = 60000L;
     public static final long SHUTDOWN_TIMEOUT_MS = 10000L;
     
 
@@ -180,7 +181,7 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
             var numStartedDatabases = waitFutures.size();
             CompletableFuture.allOf(
                 waitFutures.toArray(new CompletableFuture[numStartedDatabases]))
-                .get(DEFAULT_TIMEOUT_MS*4, TimeUnit.MILLISECONDS);
+                .get(DB_STARTUP_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         }
         catch (InterruptedException e)
         {
