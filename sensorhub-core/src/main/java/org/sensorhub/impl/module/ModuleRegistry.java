@@ -489,6 +489,7 @@ public class ModuleRegistry implements IModuleManager<IModule<?>>, IEventListene
             {
                 ((ModuleConfig)config).id = UUID.randomUUID().toString();
                 ((ModuleConfig)config).name = "New " + provider.getModuleName();
+                ((ModuleConfig)config).version = provider.getModuleVersion();
                 ((ModuleConfig)config).autoStart = false;
             }
             
