@@ -46,6 +46,7 @@ public class ModuleUtils
     public static final String MODULE_DEPS = "OSH-Dependencies";
     
     public static final String LOG_MODULE_ID = "MODULE_ID";
+    public static final String LOG_MODULE_NAME = "MODULE_NAME";
     public static final String NO_ID_FLAG = "NO_ID";
 
     /**
@@ -232,6 +233,7 @@ public class ModuleUtils
             LoggerContext logContext = new LoggerContext();
             logContext.setName(FileUtils.safeFileName(moduleID));
             logContext.putProperty(LOG_MODULE_ID, FileUtils.safeFileName(moduleID));
+            logContext.putProperty(LOG_MODULE_NAME, module.getName());
             new ContextInitializer(logContext).autoConfig();
             return logContext.getLogger(module.getClass().getCanonicalName() + ":" + instanceID);
         }

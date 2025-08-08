@@ -193,7 +193,7 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
             {
                 this.state = newState;
                 stateLock.notifyAll();
-                getLogger().info("Module {}", newState);
+                //getLogger().debug("Module {}", newState);
                 
                 if (eventHandler != null)
                 {
