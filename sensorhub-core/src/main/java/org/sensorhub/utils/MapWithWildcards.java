@@ -43,24 +43,23 @@ public class MapWithWildcards<V> extends ConcurrentSkipListMap<String, V>
     {
         var key = (String)obj;
         
-        var e = floorEntry(key);
-        if (e == null)
-            return null;
-        
-        var floorKey = e.getKey();
-        
-        // case of wildcard match
-        if (floorKey.endsWith(END_PREFIX_CHAR))
-        {
-            String prefix = floorKey.substring(0, floorKey.length()-1);
-            if (key.startsWith(prefix))
-                return e.getValue(); 
-        }
-        
         // case of exact match
-        else if (floorKey.equals(key))
+        var v = super.get(key);
+        if (v != null)
+            return v;
+        
+        // else look for most specific wildcard match
+        // iterate through previous entries in descending order until we find a matching prefix
+        var prevEntries = headMap(key).descendingMap().entrySet();
+        for (var e: prevEntries)
         {
-            return e.getValue();
+            var nextKey = e.getKey();
+            if (nextKey.endsWith(END_PREFIX_CHAR))
+            {
+                var prefix = nextKey.substring(0, nextKey.length()-1);
+                if (key.startsWith(prefix))
+                    return e.getValue();
+            }
         }
         
         return null;
