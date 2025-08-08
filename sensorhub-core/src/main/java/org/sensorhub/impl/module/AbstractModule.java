@@ -397,6 +397,10 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
         {
             try
             {
+                // need to create logger on init because some modules access the logger
+                // class variable directly instead of calling getLogger() (should have made it private!)
+                getLogger();
+                
                 beforeInit();
                 doInit();
                 afterInit();
