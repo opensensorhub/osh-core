@@ -1126,6 +1126,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
         
         // get panel for this config object
         IModuleAdminPanel<IModule<?>> panel = adminModule.generatePanel(module);
+        Label moduleVersion = new Label("<b>Version: </b>" + getModuleVersion(module), ContentMode.HTML);
+        panel.addComponent(moduleVersion);
         panel.build(beanItem, module);
         
         // generate module admin panel
@@ -1377,5 +1379,9 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
     public Logger getOshLogger()
     {
         return adminModule.getLogger();
+    }
+
+    protected String getModuleVersion(IModule<?> module){
+        return ModuleUtils.getModuleInfo(module.getClass()).getModuleVersion();
     }
 }
