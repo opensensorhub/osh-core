@@ -25,7 +25,7 @@ import java.util.concurrent.Flow;
  * @author Kalyn Stricklin
  * @since Feb 2025
  */
-@Theme("valo")
+@Theme("sensorhub")
 @Title("OpenSensorHub Landing Page")
 public class LandingUI extends UI{
 
