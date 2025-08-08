@@ -45,8 +45,6 @@ public class ModuleConfig extends ModuleConfigBase
     @SerializedName(value="autoStart", alternate={"enabled"})
     public boolean autoStart = false;
 
-    @DisplayInfo(label="Version", desc="Version of the driver")
-    public String version;
     
     @Override
     public ModuleConfig clone()
