@@ -187,7 +187,7 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
         }
         
         // log store info if debug is enabled
-        if (getLogger().isDebugEnabled() && new File(config.storagePath).exists())
+        if (config.printDebugInfoOnClose && getLogger().isDebugEnabled() && new File(config.storagePath).exists())
         {
             // log summary info
             var strWriter = new StringWriter();
