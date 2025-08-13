@@ -17,7 +17,6 @@ package org.sensorhub.impl.service.sos;
 import java.util.stream.Collectors;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.datastore.obs.ObsFilter;
-import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.impl.service.swe.SWEService;
 import org.vast.ows.sos.SOSServiceCapabilities;
 import com.google.common.base.Strings;
@@ -94,8 +93,6 @@ public class SOSService extends SWEService<SOSServiceConfig>
         // deploy servlet
         servlet = new SOSServlet(this, (SOSSecurity)this.securityHandler, getLogger());
         deploy();
-
-        setState(ModuleState.STARTED);
     }
 
 
