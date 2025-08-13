@@ -23,7 +23,6 @@ import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.procedure.ProcedureFilter;
 import org.sensorhub.api.event.IEventListener;
-import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.service.IServiceModule;
 import org.sensorhub.impl.database.registry.FilteredFederatedDatabase;
 import org.sensorhub.impl.module.ModuleRegistry;
@@ -310,8 +309,6 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         // deploy servlet
         servlet = new ConSysApiServlet(this, (ConSysApiSecurity)securityHandler, rootHandler, getLogger());
         deploy();
-
-        setState(ModuleState.STARTED);
     }
 
 
@@ -334,8 +331,6 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         // stop thread pool
         if (threadPool != null)
             threadPool.shutdown();
-
-        setState(ModuleState.STOPPED);
     }
 
 
