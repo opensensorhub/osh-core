@@ -534,4 +534,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
     {
         return config.authMethod != AuthMethod.NONE;
     }
+
+    public ServletContextHandler getServletHandler() {
+        return servletHandler;
+    }
 }
