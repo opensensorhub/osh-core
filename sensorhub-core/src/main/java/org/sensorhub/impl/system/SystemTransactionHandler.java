@@ -535,17 +535,20 @@ public class SystemTransactionHandler
     {
         DataStoreUtils.checkFeatureObject(foi);
         
-        var fk = getFoiStore().add(sysKey.getInternalID(), foi);
-        log.debug("Added FOI {}", foi.getUniqueIdentifier());
-        
-        publishSystemEvent(new FoiAddedEvent(
-            System.currentTimeMillis(),
-            sysUID,
-            foi.getUniqueIdentifier(),
-            Instant.now()));
-        
-        foiIdMap.put(foi.getUniqueIdentifier(), fk.getInternalID());
-        return fk;
+        var foiStore = getFoiStore();
+        synchronized (foiStore) {
+            var fk = getFoiStore().add(sysKey.getInternalID(), foi);
+            log.debug("Added FOI {}", foi.getUniqueIdentifier());
+            
+            publishSystemEvent(new FoiAddedEvent(
+                System.currentTimeMillis(),
+                sysUID,
+                foi.getUniqueIdentifier(),
+                Instant.now()));
+            
+            foiIdMap.put(foi.getUniqueIdentifier(), fk.getInternalID());
+            return fk;
+        }
     }
     
     
@@ -554,17 +557,21 @@ public class SystemTransactionHandler
         DataStoreUtils.checkFeatureObject(foi);
         
         // add or update if feature with same ID and valid time exists
-        FeatureKey fk = rootHandler.db.getFoiStore().getCurrentVersionKey(foi.getUniqueIdentifier());
-        if (fk != null &&
-           (foi.getValidTime() == null || Objects.equals(foi.getValidTime().begin(), fk.getValidStartTime())))
-        {
-            getFoiStore().put(fk, foi);
-            log.debug("Updated FOI {}", foi.getUniqueIdentifier());
+        var foiStore = getFoiStore();
+        synchronized (foiStore) {
+            FeatureKey fk = foiStore.getCurrentVersionKey(foi.getUniqueIdentifier());
+            if (fk != null &&
+               (foi.getValidTime() == null || Objects.equals(foi.getValidTime().begin(), fk.getValidStartTime())))
+            {
+                foiStore.put(fk, foi);
+                foiIdMap.put(foi.getUniqueIdentifier(), fk.getInternalID());
+                log.debug("Updated FOI {}", foi.getUniqueIdentifier());
+            }
+            else
+                fk = addFoi(foi);
+            
+            return fk;
         }
-        else
-            fk = addFoi(foi);
-        
-        return fk;
     }
     
     
