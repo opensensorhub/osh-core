@@ -40,6 +40,8 @@ import org.sensorhub.api.processing.ProcessConfig;
 import org.sensorhub.api.sensor.SensorConfig;
 import org.sensorhub.impl.database.system.SystemDriverDatabaseConfig;
 import org.sensorhub.impl.datastore.view.ObsSystemDatabaseViewConfig;
+import org.sensorhub.impl.processing.ProcessChainConfig;
+import org.sensorhub.impl.processing.SMLProcessConfig;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig;
 import org.sensorhub.impl.service.AbstractHttpServiceModule;
 import org.sensorhub.impl.service.HttpServer;
@@ -101,7 +103,11 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             customForms.put(CommandStreamFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(ObsFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(CommandFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
-            
+            // SML Stream Process forms
+            customForms.put(ProcessChainConfig.ParameterConfig.class.getCanonicalName(), SMLProcessConfigForm.class);
+            customForms.put(ProcessChainConfig.class.getCanonicalName(), SMLProcessConfigForm.class);
+
+
             // custom form builders defined in config
             for (CustomUIConfig customForm: config.customForms)
             {
