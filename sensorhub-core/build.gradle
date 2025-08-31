@@ -1,5 +1,4 @@
 plugins {
-  id 'java-library'
   id 'java-test-fixtures'
 }
 description = 'OSH Core APIs & Components'
