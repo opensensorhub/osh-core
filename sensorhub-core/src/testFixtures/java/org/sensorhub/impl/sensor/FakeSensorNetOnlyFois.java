@@ -14,16 +14,18 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.sensor;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import javax.xml.namespace.QName;
 import net.opengis.gml.v32.AbstractFeature;
 import net.opengis.gml.v32.Point;
 import net.opengis.gml.v32.impl.GMLFactory;
 import org.sensorhub.api.common.SensorHubException;
+import org.sensorhub.impl.sensor.FakeSensor;
 import org.vast.ogc.gml.GenericFeatureImpl;
 import org.vast.ogc.gml.IFeature;
+
+import javax.xml.namespace.QName;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 
 public class FakeSensorNetOnlyFois extends FakeSensor

@@ -14,44 +14,33 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore;
 
-import static org.junit.Assert.*;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
-import java.time.temporal.ChronoUnit;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.Set;
-import org.junit.Before;
-import org.junit.Test;
-import org.sensorhub.api.datastore.DataStoreException;
-import org.sensorhub.api.datastore.command.CommandStreamFilter;
-import org.sensorhub.api.datastore.command.CommandStreamKey;
-import org.sensorhub.api.datastore.command.CommandFilter;
-import org.sensorhub.api.datastore.command.CommandStatusFilter;
-import org.sensorhub.api.datastore.command.ICommandStore;
-import org.sensorhub.api.feature.FeatureId;
-import org.sensorhub.api.command.CommandStreamInfo;
-import org.sensorhub.api.command.ICommandStreamInfo;
-import org.sensorhub.api.common.BigId;
-import org.sensorhub.api.command.ICommandStatus.CommandStatusCode;
-import org.sensorhub.api.command.ICommandData;
-import org.sensorhub.api.command.ICommandStatus;
-import org.sensorhub.api.command.CommandStatus;
-import org.sensorhub.api.command.CommandData;
-import org.vast.data.DataBlockDouble;
-import org.vast.data.TextEncodingImpl;
-import org.vast.swe.SWEHelper;
-import org.vast.util.TimeExtent;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import net.opengis.swe.v20.DataComponent;
+import org.junit.Before;
+import org.junit.Test;
+import org.sensorhub.api.command.*;
+import org.sensorhub.api.command.ICommandStatus.CommandStatusCode;
+import org.sensorhub.api.common.BigId;
+import org.sensorhub.api.datastore.DataStoreException;
+import org.sensorhub.api.datastore.command.*;
+import org.sensorhub.api.feature.FeatureId;
+import org.vast.data.DataBlockDouble;
+import org.vast.data.TextEncodingImpl;
+import org.vast.swe.SWEHelper;
+import org.vast.util.TimeExtent;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.junit.Assert.*;
 
 
 /**
@@ -85,7 +74,7 @@ public abstract class AbstractTestCommandStore<StoreType extends ICommandStore>
     public void init() throws Exception
     {
         this.cmdStore = initStore();
-        
+
     }
 
 

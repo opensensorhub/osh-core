@@ -14,8 +14,7 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore;
 
-import java.time.Instant;
-import java.util.LinkedHashMap;
+import net.opengis.sensorml.v20.AbstractProcess;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -26,10 +25,13 @@ import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IDataStreamStore;
+import org.sensorhub.impl.datastore.AbstractTestDataStreamStore;
 import org.sensorhub.impl.system.wrapper.SystemWrapper;
 import org.vast.sensorML.SMLHelper;
 import org.vast.util.TimeExtent;
-import net.opengis.sensorml.v20.AbstractProcess;
+
+import java.time.Instant;
+import java.util.LinkedHashMap;
 
 
 @Ignore

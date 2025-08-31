@@ -14,25 +14,19 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.sensor;
 
+import net.opengis.swe.v20.*;
+import org.sensorhub.api.data.DataEvent;
+import org.sensorhub.api.data.IDataProducer;
+import org.vast.data.BinaryComponentImpl;
+import org.vast.data.DataBlockByte;
+import org.vast.ogc.gml.IFeature;
+import org.vast.swe.SWEHelper;
+
 import java.time.Instant;
 import java.util.NavigableMap;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
-import net.opengis.swe.v20.BinaryEncoding;
-import net.opengis.swe.v20.ByteEncoding;
-import net.opengis.swe.v20.ByteOrder;
-import net.opengis.swe.v20.DataArray;
-import net.opengis.swe.v20.DataBlock;
-import net.opengis.swe.v20.DataComponent;
-import net.opengis.swe.v20.DataEncoding;
-import net.opengis.swe.v20.DataType;
-import org.sensorhub.api.data.IDataProducer;
-import org.sensorhub.api.data.DataEvent;
-import org.vast.data.BinaryComponentImpl;
-import org.vast.data.DataBlockByte;
-import org.vast.ogc.gml.IFeature;
-import org.vast.swe.SWEHelper;
 
 
 /**

@@ -14,56 +14,53 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore;
 
-import static org.junit.Assert.*;
-import java.io.ByteArrayOutputStream;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.Set;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import net.opengis.swe.v20.DataComponent;
 import org.junit.Before;
 import org.junit.Test;
+import org.sensorhub.api.command.CommandStreamInfo;
+import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
-import org.sensorhub.api.data.DataStreamInfo;
-import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.TemporalFilter;
-import org.sensorhub.api.datastore.obs.DataStreamFilter;
-import org.sensorhub.api.datastore.obs.DataStreamKey;
-import org.sensorhub.api.datastore.obs.IDataStreamStore;
+import org.sensorhub.api.datastore.command.CommandStreamFilter;
+import org.sensorhub.api.datastore.command.CommandStreamKey;
+import org.sensorhub.api.datastore.command.ICommandStreamStore;
 import org.sensorhub.api.feature.FeatureId;
 import org.vast.data.TextEncodingImpl;
 import org.vast.swe.SWEHelper;
 import org.vast.swe.SWEUtils;
 import org.vast.util.TimeExtent;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import net.opengis.swe.v20.DataComponent;
+
+import java.io.ByteArrayOutputStream;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.junit.Assert.*;
 
 
 /**
  * <p>
- * Abstract base for testing implementations of IDataStreamStore.
+ * Abstract base for testing implementations of ICommandStreamStore.
  * </p>
  *
  * @author Alex Robin
  * @param <StoreType> Type of store under test
- * @since Apr 14, 2018
+ * @since Mar 28, 2021
  */
-public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamStore>
+public abstract class AbstractTestCommandStreamStore<StoreType extends ICommandStreamStore>
 {
-    protected static int DATABASE_NUM = 2;
+    protected static int DATABASE_NUM = 5;
     protected static String PROC_UID_PREFIX = "urn:osh:test:sensor:";
     
-    protected StoreType dataStreamStore;
-    protected Map<DataStreamKey, IDataStreamInfo> allDataStreams = new LinkedHashMap<>();
-    protected Map<DataStreamKey, IDataStreamInfo> expectedResults = new LinkedHashMap<>();
+    protected StoreType cmdStreamStore;
+    protected Map<CommandStreamKey, ICommandStreamInfo> allCmdStreams = new LinkedHashMap<>();
+    protected Map<CommandStreamKey, ICommandStreamInfo> expectedResults = new LinkedHashMap<>();
     protected boolean needValidTimeAdjustment = true;
 
     protected abstract StoreType initStore() throws Exception;
@@ -73,13 +70,13 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @Before
     public void init() throws Exception
     {
-        this.dataStreamStore = initStore();
+        this.cmdStreamStore = initStore();
     }
     
 
-    protected DataStreamKey addDataStream(FeatureId sysID, DataComponent recordStruct, TimeExtent validTime) throws DataStoreException
+    protected CommandStreamKey addCommandStream(FeatureId sysID, DataComponent recordStruct, TimeExtent validTime) throws DataStoreException
     {
-        var builder = new DataStreamInfo.Builder()
+        var builder = new CommandStreamInfo.Builder()
             .withName(recordStruct.getName())
             .withSystem(sysID)
             .withRecordDescription(recordStruct)
@@ -89,13 +86,13 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             builder.withValidTime(validTime);
                 
         var dsInfo = builder.build();
-        var key = dataStreamStore.add(dsInfo);
-        allDataStreams.put(key, dsInfo);
+        var key = cmdStreamStore.add(dsInfo);
+        allCmdStreams.put(key, dsInfo);
         return key;
     }
     
     
-    protected void addToExpectedResults(Entry<DataStreamKey, IDataStreamInfo> entry)
+    protected void addToExpectedResults(Entry<CommandStreamKey, ICommandStreamInfo> entry)
     {
         expectedResults.put(entry.getKey(), entry.getValue());
     }
@@ -105,13 +102,13 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     {
         for (int idx: entryIdxList)
         {
-            var entryList = Lists.newArrayList(allDataStreams.entrySet());
+            var entryList = Lists.newArrayList(allCmdStreams.entrySet());
             addToExpectedResults(entryList.get(idx));
         }
     }
 
 
-    protected DataStreamKey addSimpleDataStream(FeatureId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
+    protected CommandStreamKey addSimpleCommandStream(FeatureId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
     {
         SWEHelper fac = new SWEHelper();
         var dataStruct = fac.createRecord()
@@ -124,26 +121,26 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             .addField("txt5", fac.createText().build())
             .build();
         
-        return addDataStream(sysID, dataStruct, validTime);
+        return addCommandStream(sysID, dataStruct, validTime);
     }
     
     
-    protected DataStreamKey addSimpleDataStream(BigId sysID, String outputName, TimeExtent validTime) throws DataStoreException
+    protected CommandStreamKey addSimpleCommandStream(BigId sysID, String outputName, TimeExtent validTime) throws DataStoreException
     {
-        return addSimpleDataStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, "datastream description", validTime);
+        return addSimpleCommandStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, "command stream description", validTime);
     }
     
     
-    protected DataStreamKey addSimpleDataStream(BigId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
+    protected CommandStreamKey addSimpleCommandStream(BigId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
     {
-        return addSimpleDataStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, description, validTime);
+        return addSimpleCommandStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, description, validTime);
     }
 
 
-    protected void checkDataStreamEqual(IDataStreamInfo ds1, IDataStreamInfo ds2)
+    protected void checkCommandStreamEqual(ICommandStreamInfo ds1, ICommandStreamInfo ds2)
     {
         assertEquals(ds1.getSystemID(), ds2.getSystemID());
-        assertEquals(ds1.getOutputName(), ds2.getOutputName());
+        assertEquals(ds1.getControlInputName(), ds2.getControlInputName());
         assertEquals(ds1.getName(), ds2.getName());
         assertEquals(ds1.getDescription(), ds2.getDescription());
         checkDataComponentEquals(ds1.getRecordStructure(), ds2.getRecordStructure());
@@ -169,10 +166,6 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         }        
 
         assertArrayEquals(os1.toByteArray(), os2.toByteArray());
-        
-        // also check that parent references are set properly
-        for (int i = 0; i < c2.getComponentCount(); i++)
-            assertTrue(c2.getComponent(i).getParent() == c2);
     }
     
     
@@ -182,19 +175,19 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     }
 
 
-    protected void checkSelectedEntries(Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream, Map<DataStreamKey, IDataStreamInfo> expectedResults, DataStreamFilter filter)
+    protected void checkSelectedEntries(Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream, Map<CommandStreamKey, ICommandStreamInfo> expectedResults, CommandStreamFilter filter)
     {
-        System.out.println("Select datastreams with " + filter);
+        System.out.println("Select command streams with " + filter);
         
         if (needValidTimeAdjustment)
         {
             // close validTime periods when appropriate in expected results
             expectedResults = Maps.transformValues(expectedResults, v -> {
-                IDataStreamInfo nextDs = null;
-                for (var dsInfo: allDataStreams.values())
+                ICommandStreamInfo nextDs = null;
+                for (var dsInfo: allCmdStreams.values())
                 {
                     if (v.getSystemID().equals(dsInfo.getSystemID()) &&
-                        v.getOutputName().equals(dsInfo.getOutputName()))
+                        v.getControlInputName().equals(dsInfo.getControlInputName()))
                     {
                         if (v.getValidTime().endsNow() && v.getValidTime().begin().isBefore(dsInfo.getValidTime().begin()))
                         {
@@ -208,7 +201,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
                 if (nextDs != null)
                 {
                     var newValidTime = TimeExtent.period(v.getValidTime().begin(), nextDs.getValidTime().begin());
-                    var newDs = DataStreamInfo.Builder.from(v).withValidTime(newValidTime);
+                    var newDs = CommandStreamInfo.Builder.from(v).withValidTime(newValidTime);
                     return newDs.build();
                 }
                 
@@ -220,9 +213,9 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     }
     
     
-    protected void checkSelectedEntries(Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream, Map<DataStreamKey, IDataStreamInfo> expectedResults)
+    protected void checkSelectedEntries(Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream, Map<CommandStreamKey, ICommandStreamInfo> expectedResults)
     {
-        Map<DataStreamKey, IDataStreamInfo> resultMap = resultStream
+        Map<CommandStreamKey, ICommandStreamInfo> resultMap = resultStream
                 //.peek(e -> System.out.println(e.getKey()))
                 //.peek(e -> System.out.println(Arrays.toString((double[])e.getValue().getResult().getUnderlyingObject())))
                 .collect(Collectors.toMap(e->e.getKey(), e->e.getValue()));
@@ -231,7 +224,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         resultMap.forEach((k, v) -> {
             assertEquals("Invalid scope", DATABASE_NUM, k.getInternalID().getScope());
             assertTrue("Result set contains extra key "+k, expectedResults.containsKey(k));
-            checkDataStreamEqual(expectedResults.get(k), v);
+            checkCommandStreamEqual(expectedResults.get(k), v);
         });
 
         expectedResults.forEach((k, v) -> {
@@ -243,32 +236,23 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @Test
     public void testAddAndGetByKey() throws Exception
     {
-        // add N different datastreams
+        // add N different command streams
         var now = TimeExtent.beginAt(Instant.now());
-        int numDs = 50;
-        for (int i = 1; i <= numDs; i++)
+        int numDs = 100;
+        for (int i = 1; i < numDs; i++)
         {
             var sysID = bigId(i);
-            addSimpleDataStream(sysID, "test1", now);
+            addSimpleCommandStream(sysID, "test1", now);
         }
-        dataStreamStore.commit();
+        cmdStreamStore.commit();
         
-        // get and check
-        for (Entry<DataStreamKey, IDataStreamInfo> entry: allDataStreams.entrySet())
-        {
-            IDataStreamInfo dsInfo = dataStreamStore.get(entry.getKey());
-            assertEquals(entry.getValue().getSystemID(), dsInfo.getSystemID());
-            assertEquals(entry.getValue().getOutputName(), dsInfo.getOutputName());
-            checkDataComponentEquals(entry.getValue().getRecordStructure(), dsInfo.getRecordStructure());
-        }
-        
-        // read back and check again
+        // read back and check
         forceReadBackFromStorage();
-        for (Entry<DataStreamKey, IDataStreamInfo> entry: allDataStreams.entrySet())
+        for (Entry<CommandStreamKey, ICommandStreamInfo> entry: allCmdStreams.entrySet())
         {
-            IDataStreamInfo dsInfo = dataStreamStore.get(entry.getKey());
+            ICommandStreamInfo dsInfo = cmdStreamStore.get(entry.getKey());
             assertEquals(entry.getValue().getSystemID(), dsInfo.getSystemID());
-            assertEquals(entry.getValue().getOutputName(), dsInfo.getOutputName());
+            assertEquals(entry.getValue().getControlInputName(), dsInfo.getControlInputName());
             checkDataComponentEquals(entry.getValue().getRecordStructure(), dsInfo.getRecordStructure());
         }
     }
@@ -277,53 +261,53 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @Test
     public void testGetWrongKey() throws Exception
     {
-        assertNull(dataStreamStore.get(new DataStreamKey(0, 1L)));
-        assertNull(dataStreamStore.get(new DataStreamKey(0, 21L)));
+        assertNull(cmdStreamStore.get(new CommandStreamKey(0, 1L)));
+        assertNull(cmdStreamStore.get(new CommandStreamKey(0, 21L)));
         
-        // add N different datastreams
+        // add N different command streams
         var idList = new ArrayList<BigId>();
         var now = TimeExtent.beginAt(Instant.now());
         for (int i = 1; i < 5; i++)
         {
             var sysID = bigId(i);
-            var k = addSimpleDataStream(sysID, "test1", now);
+            var k = addSimpleCommandStream(sysID, "test1", now);
             idList.add(k.getInternalID());
         }
-        dataStreamStore.commit();
+        cmdStreamStore.commit();
         
-        assertNotNull(dataStreamStore.get(new DataStreamKey(idList.get(0))));
-        assertNull(dataStreamStore.get(new DataStreamKey(0, 21L)));
+        assertNotNull(cmdStreamStore.get(new CommandStreamKey(idList.get(0))));
+        assertNull(cmdStreamStore.get(new CommandStreamKey(0, 21L)));
         forceReadBackFromStorage();
-        assertNull(dataStreamStore.get(new DataStreamKey(0, 11L)));
-        assertNotNull(dataStreamStore.get(new DataStreamKey(idList.get(3))));
+        assertNull(cmdStreamStore.get(new CommandStreamKey(0, 11L)));
+        assertNotNull(cmdStreamStore.get(new CommandStreamKey(idList.get(3))));
         
     }
 
 
-    private void checkMapKeySet(Set<DataStreamKey> keySet)
+    private void checkMapKeySet(Set<CommandStreamKey> keySet)
     {
         keySet.forEach(k -> {
-            if (!allDataStreams.containsKey(k))
+            if (!allCmdStreams.containsKey(k))
                 fail("No matching key in reference list: " + k);
         });
 
-        allDataStreams.keySet().forEach(k -> {
+        allCmdStreams.keySet().forEach(k -> {
             if (!keySet.contains(k))
                 fail("No matching key in datastore: " + k);
         });
     }
 
 
-    private void checkMapValues(Collection<IDataStreamInfo> mapValues)
+    private void checkMapValues(Collection<ICommandStreamInfo> mapValues)
     {
         mapValues.forEach(ds -> {
             boolean found = false;
-            for (IDataStreamInfo truth: allDataStreams.values()) {
-                try { checkDataStreamEqual(ds, truth); found = true; break; }
+            for (ICommandStreamInfo truth: allCmdStreams.values()) {
+                try { checkCommandStreamEqual(ds, truth); found = true; break; }
                 catch (Throwable e) {}
             }
             if (!found)
-                fail("Invalid datastream: " + ds);
+                fail("Invalid command stream: " + ds);
         });
     }
 
@@ -331,103 +315,103 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @Test
     public void testAddAndCheckMapKeysAndValues() throws Exception
     {
-        // add N different datastreams
+        // add N different command streams
         var now = TimeExtent.beginAt(Instant.now());
         int numDs = 56;
         for (int i = numDs; i < numDs*2; i++)
         {
             var sysID = bigId(i);
-            addSimpleDataStream(sysID, "out" + (int)(Math.random()*10), now);
+            addSimpleCommandStream(sysID, "out" + (int)(Math.random()*10), now);
         }
-        dataStreamStore.commit();
+        cmdStreamStore.commit();
         
         // read back and check
         forceReadBackFromStorage();
-        checkMapKeySet(dataStreamStore.keySet());
-        checkMapValues(dataStreamStore.values());
+        checkMapKeySet(cmdStreamStore.keySet());
+        checkMapValues(cmdStreamStore.values());
     }
 
 
     @Test
     public void testAddAndRemoveByKey() throws Exception
     {
-        // add N different datastreams
+        // add N different command streams
         var now = TimeExtent.beginAt(Instant.now());
         int numDs = 56;
         for (int i = numDs; i < numDs*2; i++)
         {
             var sysID = bigId(i);
-            addSimpleDataStream(sysID, "out" + (int)(Math.random()*10), now);
+            addSimpleCommandStream(sysID, "out" + (int)(Math.random()*10), now);
         }
-        dataStreamStore.commit();
+        cmdStreamStore.commit();
         
-        assertEquals(numDs, dataStreamStore.getNumRecords());
+        assertEquals(numDs, cmdStreamStore.getNumRecords());
         
         int i = 0;
-        for (var id: allDataStreams.keySet())
+        for (var id: allCmdStreams.keySet())
         {
-            var ds = dataStreamStore.remove(id);
-            checkDataStreamEqual(allDataStreams.get(id), ds);
+            var ds = cmdStreamStore.remove(id);
+            checkCommandStreamEqual(allCmdStreams.get(id), ds);
             
             if (i % 5 == 0)
                 forceReadBackFromStorage();
             
             i++;
-            assertEquals(numDs-i, dataStreamStore.getNumRecords());
+            assertEquals(numDs-i, cmdStreamStore.getNumRecords());
         }
         
         // check that there is nothing left
-        assertEquals(0, dataStreamStore.getNumRecords());
+        assertEquals(0, cmdStreamStore.getNumRecords());
     }
 
 
     @Test
     public void testAddAndRemoveByFilter() throws Exception
     {
-        // add N different datastreams
+        // add N different command streams
         var idList = new ArrayList<BigId>();
         var now = TimeExtent.beginAt(Instant.now());
         int numDs = 45;
         for (int i = 1; i <= numDs; i++)
         {
             var sysID = bigId(i);
-            var key = addSimpleDataStream(sysID, "out"+i, now);
+            var key = addSimpleCommandStream(sysID, "out"+i, now);
             idList.add(key.getInternalID());
         }
-        dataStreamStore.commit();
+        cmdStreamStore.commit();
         
         int numRecords = numDs;
-        assertEquals(numRecords, dataStreamStore.getNumRecords());
+        assertEquals(numRecords, cmdStreamStore.getNumRecords());
         
         // remove some by ID
         var removedIds = new BigId[] {idList.get(3), idList.get(15), idList.get(36), idList.get(24)};
         for (var id: removedIds)
-            allDataStreams.remove(new DataStreamKey(id));
-        dataStreamStore.removeEntries(new DataStreamFilter.Builder()
+            allCmdStreams.remove(new CommandStreamKey(id));
+        cmdStreamStore.removeEntries(new CommandStreamFilter.Builder()
                 .withInternalIDs(removedIds)
                 .build());
-        checkSelectedEntries(dataStreamStore.entrySet().stream(), allDataStreams);
+        checkSelectedEntries(cmdStreamStore.entrySet().stream(), allCmdStreams);
         numRecords -= removedIds.length;
-        assertEquals(numRecords, dataStreamStore.getNumRecords());
+        assertEquals(numRecords, cmdStreamStore.getNumRecords());
         
         // remove some by name
         var removedIdsList = Arrays.asList(idList.get(4), idList.get(41), idList.get(29), idList.get(11));
         var removedNames = removedIdsList.stream()
-            .map(id -> allDataStreams.get(new DataStreamKey(id)).getOutputName())
+            .map(id -> allCmdStreams.get(new CommandStreamKey(id)).getControlInputName())
             .collect(Collectors.toList());
-        for (BigId id: removedIdsList)
-            allDataStreams.remove(new DataStreamKey(id));
-        dataStreamStore.removeEntries(new DataStreamFilter.Builder()
-                .withOutputNames(removedNames)
+        for (var id: removedIdsList)
+            allCmdStreams.remove(new CommandStreamKey(id));
+        cmdStreamStore.removeEntries(new CommandStreamFilter.Builder()
+                .withControlInputNames(removedNames)
                 .build());
-        checkSelectedEntries(dataStreamStore.entrySet().stream(), allDataStreams);
+        checkSelectedEntries(cmdStreamStore.entrySet().stream(), allCmdStreams);
         numRecords -= removedIdsList.size();
-        assertEquals(numRecords, dataStreamStore.getNumRecords());
+        assertEquals(numRecords, cmdStreamStore.getNumRecords());
         
         // remove the rest
-        dataStreamStore.removeEntries(new DataStreamFilter.Builder()
+        cmdStreamStore.removeEntries(new CommandStreamFilter.Builder()
             .build());
-        assertEquals(0, dataStreamStore.getNumRecords());
+        assertEquals(0, cmdStreamStore.getNumRecords());
     }
     
     
@@ -435,27 +419,27 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @SuppressWarnings("unused")
     public void testAddAndSelectCurrentVersion() throws Exception
     {
-        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
 
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-        var sysID = bigId(10);
-        var ds1v0 = addSimpleDataStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(3600)));
-        var ds1v1 = addSimpleDataStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(1200)));
-        var ds1v2 = addSimpleDataStream(sysID, "test1", TimeExtent.beginAt(now));
-        var ds2v0 = addSimpleDataStream(sysID, "test2", TimeExtent.endNow(now.minusSeconds(3600)));
-        var ds2v1 = addSimpleDataStream(sysID, "test2", TimeExtent.endNow(now));
-        var ds2v2 = addSimpleDataStream(sysID, "test2", TimeExtent.beginAt(now.plusSeconds(600)));
-        var ds3v0 = addSimpleDataStream(sysID, "test3", TimeExtent.endNow(now.minusSeconds(3600)));
-        var ds3v1 = addSimpleDataStream(sysID, "test3", TimeExtent.endNow(now.minusSeconds(600)));
-        dataStreamStore.commit();
+        var sysID = bigId(20);
+        var ds1v0 = addSimpleCommandStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(3600)));
+        var ds1v1 = addSimpleCommandStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(1200)));
+        var ds1v2 = addSimpleCommandStream(sysID, "test1", TimeExtent.beginAt(now));
+        var ds2v0 = addSimpleCommandStream(sysID, "test2", TimeExtent.endNow(now.minusSeconds(3600)));
+        var ds2v1 = addSimpleCommandStream(sysID, "test2", TimeExtent.endNow(now));
+        var ds2v2 = addSimpleCommandStream(sysID, "test2", TimeExtent.beginAt(now.plusSeconds(600)));
+        var ds3v0 = addSimpleCommandStream(sysID, "test3", TimeExtent.endNow(now.minusSeconds(3600)));
+        var ds3v1 = addSimpleCommandStream(sysID, "test3", TimeExtent.endNow(now.minusSeconds(600)));
+        cmdStreamStore.commit();
         forceReadBackFromStorage();
 
         // last version of everything
-        DataStreamFilter filter = new DataStreamFilter.Builder()
+        CommandStreamFilter filter = new CommandStreamFilter.Builder()
             .withSystems(sysID)
             .withCurrentVersion()
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         testAddAndSelectCurrentVersion_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
@@ -472,29 +456,29 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @SuppressWarnings("unused")
     public void testAddAndSelectLatestValidTime() throws Exception
     {
-        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
 
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID = bigId(1);
-        var ds1v0 = addSimpleDataStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(3600)));
-        var ds1v1 = addSimpleDataStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(1200)));
-        var ds1v2 = addSimpleDataStream(sysID, "test1", TimeExtent.endNow(now));
-        var ds2v0 = addSimpleDataStream(sysID, "test2", TimeExtent.endNow(now.minusSeconds(3600)));
-        var ds2v1 = addSimpleDataStream(sysID, "test2", TimeExtent.endNow(now));
-        var ds2v2 = addSimpleDataStream(sysID, "test2", TimeExtent.beginAt(now.plusSeconds(600)));
-        var ds3v0 = addSimpleDataStream(sysID, "test3", TimeExtent.endNow(now.minusSeconds(3600)));
-        var ds3v1 = addSimpleDataStream(sysID, "test3", TimeExtent.beginAt(now.minusSeconds(600)));
-        dataStreamStore.commit();
+        var ds1v0 = addSimpleCommandStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(3600)));
+        var ds1v1 = addSimpleCommandStream(sysID, "test1", TimeExtent.endNow(now.minusSeconds(1200)));
+        var ds1v2 = addSimpleCommandStream(sysID, "test1", TimeExtent.endNow(now));
+        var ds2v0 = addSimpleCommandStream(sysID, "test2", TimeExtent.endNow(now.minusSeconds(3600)));
+        var ds2v1 = addSimpleCommandStream(sysID, "test2", TimeExtent.endNow(now));
+        var ds2v2 = addSimpleCommandStream(sysID, "test2", TimeExtent.beginAt(now.plusSeconds(600)));
+        var ds3v0 = addSimpleCommandStream(sysID, "test3", TimeExtent.endNow(now.minusSeconds(3600)));
+        var ds3v1 = addSimpleCommandStream(sysID, "test3", TimeExtent.beginAt(now.minusSeconds(600)));
+        cmdStreamStore.commit();
         forceReadBackFromStorage();
 
-        // latest version of everything
-        DataStreamFilter filter = new DataStreamFilter.Builder()
+        // last version of everything
+        CommandStreamFilter filter = new CommandStreamFilter.Builder()
             .withSystems(sysID)
             .withValidTime(new TemporalFilter.Builder()
                 .withLatestTime()
                 .build())
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         testAddAndSelectLatestValidTime_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
@@ -511,36 +495,36 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @SuppressWarnings("unused")
     public void testAddAndSelectByTimeRange() throws Exception
     {
-        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
         
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID3 = bigId(3);
-        var ds1v0 = addSimpleDataStream(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
-        var ds1v1 = addSimpleDataStream(sysID1, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds2v0 = addSimpleDataStream(sysID1, "out2", TimeExtent.endNow(now.minus(520, ChronoUnit.DAYS)));
-        var ds2v1 = addSimpleDataStream(sysID1, "out2", TimeExtent.endNow(now.minus(10, ChronoUnit.DAYS)));
-        var ds3v0 = addSimpleDataStream(sysID1, "out3", TimeExtent.endNow(now.minus(30, ChronoUnit.DAYS)));
-        var ds3v1 = addSimpleDataStream(sysID1, "out3", TimeExtent.endNow(now.minus(1, ChronoUnit.DAYS)));
-        var ds4v0 = addSimpleDataStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
-        var ds5v0 = addSimpleDataStream(sysID3, "hum", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        dataStreamStore.commit();
+        var ds1v0 = addSimpleCommandStream(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
+        var ds1v1 = addSimpleCommandStream(sysID1, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds2v0 = addSimpleCommandStream(sysID1, "out2", TimeExtent.endNow(now.minus(520, ChronoUnit.DAYS)));
+        var ds2v1 = addSimpleCommandStream(sysID1, "out2", TimeExtent.endNow(now.minus(10, ChronoUnit.DAYS)));
+        var ds3v0 = addSimpleCommandStream(sysID1, "out3", TimeExtent.endNow(now.minus(30, ChronoUnit.DAYS)));
+        var ds3v1 = addSimpleCommandStream(sysID1, "out3", TimeExtent.endNow(now.minus(1, ChronoUnit.DAYS)));
+        var ds4v0 = addSimpleCommandStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
+        var ds5v0 = addSimpleCommandStream(sysID3, "hum", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        cmdStreamStore.commit();
         
         // select from t0 to now
-        DataStreamFilter filter = new DataStreamFilter.Builder()
+        CommandStreamFilter filter = new CommandStreamFilter.Builder()
             .withValidTimeDuring(now.minus(10, ChronoUnit.DAYS), now)
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         testAddAndSelectByTimeRange_ExpectedResults(1);
         checkSelectedEntries(resultStream, expectedResults, filter);
                 
         // select from t0 to t1
         forceReadBackFromStorage();
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withValidTimeDuring(now.minus(90, ChronoUnit.DAYS), now.minus(30, ChronoUnit.DAYS))
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByTimeRange_ExpectedResults(2);
@@ -548,11 +532,11 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         
         // select from t0 to t1, only proc 3
         forceReadBackFromStorage();
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withSystems(sysID3)
             .withValidTimeDuring(now.minus(90, ChronoUnit.DAYS), now.minus(30, ChronoUnit.DAYS))
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByTimeRange_ExpectedResults(3);
@@ -567,33 +551,33 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             case 1: addToExpectedResults(1, 3, 4, 5, 7); break;
             case 2: addToExpectedResults(0, 1, 2, 4, 7); break;
             case 3: addToExpectedResults(7); break;
-        }        
+        }
     }
     
     
     @Test
     @SuppressWarnings("unused")
-    public void testAddAndSelectByOutputName() throws Exception
+    public void testAddAndSelectByControlInputName() throws Exception
     {
-        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
         
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
         var sysID3 = bigId(3);
-        var ds1v0 = addSimpleDataStream(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
-        var ds1v1 = addSimpleDataStream(sysID1, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds2v0 = addSimpleDataStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds3v0 = addSimpleDataStream(sysID2, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds4v0 = addSimpleDataStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
-        var ds5v0 = addSimpleDataStream(sysID3, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        dataStreamStore.commit();
+        var ds1v0 = addSimpleCommandStream(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
+        var ds1v1 = addSimpleCommandStream(sysID1, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds2v0 = addSimpleCommandStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds3v0 = addSimpleCommandStream(sysID2, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds4v0 = addSimpleCommandStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
+        var ds5v0 = addSimpleCommandStream(sysID3, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        cmdStreamStore.commit();
         
         // select from t0 to now
-        DataStreamFilter filter = new DataStreamFilter.Builder()
-            .withOutputNames("out1")
+        CommandStreamFilter filter = new CommandStreamFilter.Builder()
+            .withControlInputNames("out1")
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         testAddAndSelectByOutputName_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
@@ -610,25 +594,25 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @SuppressWarnings("unused")
     public void testAddAndSelectBySystemID() throws Exception
     {
-        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
         
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
         var sysID3 = bigId(3);
-        var ds1v0 = addSimpleDataStream(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
-        var ds1v1 = addSimpleDataStream(sysID1, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds2v0 = addSimpleDataStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds3v0 = addSimpleDataStream(sysID2, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds4v0 = addSimpleDataStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
-        var ds5v0 = addSimpleDataStream(sysID3, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        dataStreamStore.commit();
+        var ds1v0 = addSimpleCommandStream(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
+        var ds1v1 = addSimpleCommandStream(sysID1, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds2v0 = addSimpleCommandStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds3v0 = addSimpleCommandStream(sysID2, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds4v0 = addSimpleCommandStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
+        var ds5v0 = addSimpleCommandStream(sysID3, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        cmdStreamStore.commit();
         
         // select from t0 to now
-        DataStreamFilter filter = new DataStreamFilter.Builder()
+        CommandStreamFilter filter = new CommandStreamFilter.Builder()
             .withSystems(sysID2, sysID3)
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         testAddAndSelectBySystemID_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
@@ -645,68 +629,68 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     @SuppressWarnings("unused")
     public void testAddAndSelectByKeywords() throws Exception
     {
-        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
-        DataStreamFilter filter;
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
+        CommandStreamFilter filter;
         
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
         var sysID3 = bigId(3);
-        var ds1v0 = addSimpleDataStream(sysID1, "out1", "Stationary weather data", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
-        var ds1v1 = addSimpleDataStream(sysID1, "out1", "Stationary weather data", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds2v0 = addSimpleDataStream(sysID1, "out2", "Traffic video stream", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds3v0 = addSimpleDataStream(sysID2, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds4v0 = addSimpleDataStream(sysID3, "temp", "Air temperature", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
-        var ds5v0 = addSimpleDataStream(sysID3, "out1", "Air pressure", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        dataStreamStore.commit();
+        var ds1v0 = addSimpleCommandStream(sysID1, "out1", "Stationary weather data", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)));
+        var ds1v1 = addSimpleCommandStream(sysID1, "out1", "Stationary weather data", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds2v0 = addSimpleCommandStream(sysID1, "out2", "Traffic video stream", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds3v0 = addSimpleCommandStream(sysID2, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds4v0 = addSimpleCommandStream(sysID3, "temp", "Air temperature", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
+        var ds5v0 = addSimpleCommandStream(sysID3, "out1", "Air pressure", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        cmdStreamStore.commit();
         
         // select with one keyword
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withKeywords("air")
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(1);
         checkSelectedEntries(resultStream, expectedResults, filter);
         
         // select with 2 keywords
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withKeywords("air", "weather")
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(2);
         checkSelectedEntries(resultStream, expectedResults, filter);
         
         // select with 2 keywords
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withKeywords("air", "video")
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(3);
         checkSelectedEntries(resultStream, expectedResults, filter);
         
         // select with system and keywords (partial words)
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withSystems(sysID3)
             .withKeywords("weather", "temp")
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(4);
         checkSelectedEntries(resultStream, expectedResults, filter);
         
         // select unknown keywords
-        filter = new DataStreamFilter.Builder()
+        filter = new CommandStreamFilter.Builder()
             .withSystems(sysID3)
             .withKeywords("lidar", "humidity")
             .build();
-        resultStream = dataStreamStore.selectEntries(filter);
+        resultStream = cmdStreamStore.selectEntries(filter);
         
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(5);
@@ -722,18 +706,18 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             case 2: addToExpectedResults(0, 1, 4, 5); break;
             case 3: addToExpectedResults(2, 4, 5); break;
             case 4: addToExpectedResults(4); break;
-        }        
+        }
     }
     
     
     @Test(expected = DataStoreException.class)
-    public void testErrorAddWithExistingOutput() throws Exception
+    public void testErrorAddWithExistingInput() throws Exception
     {
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
-        addSimpleDataStream(sysID1, "out1", TimeExtent.beginAt(now));
-        addSimpleDataStream(sysID1, "out1", TimeExtent.beginAt(now));
-        dataStreamStore.commit();
+        addSimpleCommandStream(sysID1, "cmd1", TimeExtent.beginAt(now));
+        addSimpleCommandStream(sysID1, "cmd1", TimeExtent.beginAt(now));
+        cmdStreamStore.commit();
     }
     
     
@@ -742,7 +726,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     {
         try
         {
-            dataStreamStore.selectEntries(new DataStreamFilter.Builder()
+            cmdStreamStore.selectEntries(new CommandStreamFilter.Builder()
                 .withSystems()
                     .withKeywords("thermometer")
                     .done()

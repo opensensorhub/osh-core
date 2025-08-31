@@ -16,6 +16,7 @@ package org.sensorhub.impl.module;
 
 import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
+import org.sensorhub.impl.module.AsyncModule;
 
 
 public class AsyncModuleConfig extends ModuleConfig

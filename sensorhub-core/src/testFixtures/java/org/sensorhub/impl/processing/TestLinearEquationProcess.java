@@ -14,9 +14,10 @@ Copyright (C) 2022 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.processing;
 
+import net.opengis.sensorml.v20.AbstractProcess;
+import org.sensorhub.impl.processing.OnDemandProcess;
 import org.vast.sensorML.SMLHelper;
 import org.vast.swe.SWEHelper;
-import net.opengis.sensorml.v20.AbstractProcess;
 
 
 public class TestLinearEquationProcess extends OnDemandProcess
