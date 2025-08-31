@@ -14,7 +14,14 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.sensor;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import javax.xml.namespace.QName;
 import net.opengis.gml.v32.AbstractFeature;
 import net.opengis.gml.v32.Point;
 import net.opengis.gml.v32.impl.GMLFactory;
@@ -31,11 +38,7 @@ import org.sensorhub.impl.event.EventSourceInfo;
 import org.vast.ogc.gml.GenericFeatureImpl;
 import org.vast.ogc.gml.IFeature;
 import org.vast.sensorML.SMLFactory;
-
-import javax.xml.namespace.QName;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import com.google.common.collect.ImmutableMap;
 
 
 public class FakeSensorNetWithMembers extends FakeSensor implements ISystemGroupDriver<IDataProducer>

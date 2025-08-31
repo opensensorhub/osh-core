@@ -15,8 +15,8 @@ Copyright (C) 2012-2016 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.sensor;
 
 import org.sensorhub.api.sensor.PositionConfig;
-import org.sensorhub.api.sensor.PositionConfig.EulerOrientation;
 import org.sensorhub.api.sensor.PositionConfig.LLALocation;
+import org.sensorhub.api.sensor.PositionConfig.EulerOrientation;
 import org.sensorhub.api.sensor.SensorConfig;
 
 

@@ -17,16 +17,13 @@ package org.sensorhub.impl.sensor;
 import net.opengis.gml.v32.Point;
 import net.opengis.gml.v32.impl.GMLFactory;
 import net.opengis.sensorml.v20.PhysicalSystem;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.IStreamingDataInterface;
 import org.sensorhub.api.sensor.SensorConfig;
 import org.sensorhub.api.sensor.SensorException;
-import org.sensorhub.impl.sensor.AbstractSensorModule;
-import org.sensorhub.impl.sensor.IFakeSensorOutput;
-
-import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
 
 
 public class FakeSensor extends AbstractSensorModule<SensorConfig>

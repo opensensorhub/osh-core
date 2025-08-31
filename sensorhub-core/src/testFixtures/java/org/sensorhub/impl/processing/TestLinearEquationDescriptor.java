@@ -18,9 +18,6 @@ package org.sensorhub.impl.processing;
 import org.sensorhub.api.module.IModule;
 import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.processing.ProcessConfig;
-import org.sensorhub.impl.processing.AbstractProcessProvider;
-import org.sensorhub.impl.processing.StreamDataSource;
-import org.sensorhub.impl.processing.TestLinearEquationProcessModule;
 
 
 public class TestLinearEquationDescriptor extends AbstractProcessProvider

@@ -1,2 +1,2 @@
 org.sensorhub.impl.processing.SMLProcessDescriptor
-org.processing.impl.org.sensorhub.TestProcessDescriptors
+org.sensorhub.impl.processing.TestProcessDescriptors

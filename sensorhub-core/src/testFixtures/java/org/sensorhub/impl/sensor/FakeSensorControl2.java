@@ -17,13 +17,14 @@ package org.sensorhub.impl.sensor;
 import net.opengis.swe.v20.Category;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.ValidationException;
-import org.sensorhub.api.command.*;
-import org.sensorhub.impl.sensor.AbstractSensorControl;
-import org.sensorhub.impl.sensor.FakeSensor;
-import org.vast.swe.SWEHelper;
-
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
+import org.sensorhub.api.command.CommandStatus;
+import org.sensorhub.api.command.CommandException;
+import org.sensorhub.api.command.ICommandStatus;
+import org.sensorhub.api.command.ICommandData;
+import org.sensorhub.api.command.IStreamingControlInterface;
+import org.vast.swe.SWEHelper;
 
 
 /**

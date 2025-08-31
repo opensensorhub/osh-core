@@ -14,15 +14,14 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl;
 
+import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 import net.opengis.sensorml.v20.AbstractProcess;
 import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataComponent;
 import org.junit.Assert;
 import org.vast.sensorML.SMLUtils;
 import org.vast.swe.SWEUtils;
-
-import java.io.ByteArrayOutputStream;
-import java.util.Arrays;
 
 
 public class TestUtils

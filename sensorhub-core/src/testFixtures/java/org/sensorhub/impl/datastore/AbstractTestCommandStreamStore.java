@@ -14,9 +14,19 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import net.opengis.swe.v20.DataComponent;
+import static org.junit.Assert.*;
+import java.io.ByteArrayOutputStream;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.sensorhub.api.command.CommandStreamInfo;
@@ -32,16 +42,9 @@ import org.vast.data.TextEncodingImpl;
 import org.vast.swe.SWEHelper;
 import org.vast.swe.SWEUtils;
 import org.vast.util.TimeExtent;
-
-import java.io.ByteArrayOutputStream;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.junit.Assert.*;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import net.opengis.swe.v20.DataComponent;
 
 
 /**

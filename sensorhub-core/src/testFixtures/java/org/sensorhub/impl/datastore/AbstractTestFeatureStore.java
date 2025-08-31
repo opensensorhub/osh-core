@@ -14,16 +14,28 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore;
 
-import com.google.common.collect.Range;
-import com.google.common.collect.Sets;
-import net.opengis.gml.v32.*;
+import static org.junit.Assert.*;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.xml.namespace.QName;
+import net.opengis.gml.v32.AbstractFeature;
+import net.opengis.gml.v32.Envelope;
+import net.opengis.gml.v32.LinearRing;
+import net.opengis.gml.v32.Point;
+import net.opengis.gml.v32.Polygon;
 import net.opengis.gml.v32.impl.GMLFactory;
 import org.junit.Before;
 import org.junit.Test;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.prep.PreparedGeometryFactory;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.feature.FeatureFilter;
@@ -37,18 +49,12 @@ import org.vast.ogc.gml.IFeature;
 import org.vast.ogc.om.SamplingPoint;
 import org.vast.util.Bbox;
 import org.vast.util.TimeExtent;
-
-import javax.xml.namespace.QName;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.Map.Entry;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.junit.Assert.*;
+import com.google.common.collect.Range;
+import com.google.common.collect.Sets;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.prep.PreparedGeometryFactory;
 
 
 /**
