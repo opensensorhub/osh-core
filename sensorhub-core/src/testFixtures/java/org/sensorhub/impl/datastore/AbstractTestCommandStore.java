@@ -85,7 +85,7 @@ public abstract class AbstractTestCommandStore<StoreType extends ICommandStore>
     public void init() throws Exception
     {
         this.cmdStore = initStore();
-        
+
     }
 
 

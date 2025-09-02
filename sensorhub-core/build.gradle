@@ -1,3 +1,6 @@
+plugins {
+  id 'java-test-fixtures'
+}
 description = 'OSH Core APIs & Components'
 ext.details = 'Core components of OpenSensorHub framework'
 
@@ -15,6 +18,8 @@ dependencies {
   
   testImplementation project(path: ':sensorml-core', configuration: 'testArtifacts')
   testImplementation 'commons-io:commons-io:1.3.2'
+
+  testFixturesImplementation 'junit:junit:4.13.1'
 }
 
 test {
