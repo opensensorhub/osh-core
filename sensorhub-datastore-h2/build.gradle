@@ -6,7 +6,7 @@ dependencies {
   implementation project(':sensorhub-utils-kryo')
   embeddedApi 'com.h2database:h2-mvstore:1.4.200'
   embeddedApi 'org.apache.lucene:lucene-analyzers-common:8.11.2'
-  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
+  testImplementation(testFixtures(project(':sensorhub-core')))
 }
 
 test {

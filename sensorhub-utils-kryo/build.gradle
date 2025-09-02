@@ -4,7 +4,7 @@ ext.details = 'Utility classes for serialization/deserialization/cloning of data
 dependencies {
   implementation project(':sensorhub-core')
   embeddedApi 'com.esotericsoftware:kryo:5.5.0'
-  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
+  testImplementation(testFixtures(project(':sensorhub-core')))
 }
 
 // add info to OSGI manifest
