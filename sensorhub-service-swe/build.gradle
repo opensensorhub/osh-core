@@ -16,8 +16,8 @@ dependencies {
     exclude group: 'org.vast.opengis', module: 'sensorml-core'
     exclude group: 'javax.servlet', module: 'javax.servlet-api'
   }
-    
-  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
+
+  testImplementation(testFixtures(project(':sensorhub-core')))
   testImplementation project(':sensorhub-datastore-h2')
   testImplementation 'commons-io:commons-io:1.3.2'
 }
