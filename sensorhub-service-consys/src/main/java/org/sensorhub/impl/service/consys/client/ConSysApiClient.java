@@ -1398,7 +1398,7 @@ public class ConSysApiClient
                 if (!hasNext)
                 {
                     try {
-                        log.debug("Loading batch {}={}", offset, offset+pageSize);
+                        log.debug("Loading batch {}-{}", offset, offset+pageSize);
                         var batch = pageLoader.loadPage(pageSize, offset);
                         if (batch == null)
                             return false;

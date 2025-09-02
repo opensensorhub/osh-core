@@ -31,7 +31,7 @@ dependencies {
   compileOnly 'org.osgi:org.osgi.core:5.0.0'
   compileOnly 'org.apache.felix:org.apache.felix.bundlerepository:2.0.10'
 
-  testImplementation project(path: ':sensorhub-core', configuration: 'testArtifacts')
+  testImplementation(testFixtures(project(':sensorhub-core')))
 }
 
 // add info to OSGI manifest

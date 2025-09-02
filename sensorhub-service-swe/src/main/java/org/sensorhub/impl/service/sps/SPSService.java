@@ -17,7 +17,6 @@ package org.sensorhub.impl.service.sps;
 import java.util.stream.Collectors;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.datastore.command.CommandFilter;
-import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.impl.service.swe.SWEService;
 import org.vast.ows.sps.SPSServiceCapabilities;
 import com.google.common.base.Strings;
@@ -84,8 +83,6 @@ public class SPSService extends SWEService<SPSServiceConfig>
         // deploy servlet
         servlet = new SPSServlet(this, (SPSSecurity)this.securityHandler, getLogger());
         deploy();
-        
-        setState(ModuleState.STARTED);
     }
 
 

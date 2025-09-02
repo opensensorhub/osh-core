@@ -54,5 +54,4 @@ public interface UIConstants
     public static final String PROP_NAME = "name";
     public static final String PROP_AUTOSTART = "autoStart";
     public static final String PROP_MODULECLASS = "moduleClass";
-    
 }

@@ -78,5 +78,9 @@ public abstract class MVDatabaseConfig extends DatabaseConfig
     
     @DisplayInfo(desc = "Set to compact the database file when the database module is stopped or restarted")
     public boolean compactOnClose = false;
+    
+    
+    @DisplayInfo(desc = "Set to display MVStore debug info when database is closed (only if DEBUG log is also enabled)")
+    public boolean printDebugInfoOnClose = false;
 
 }

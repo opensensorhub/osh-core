@@ -44,7 +44,7 @@ public class ModuleConfig extends ModuleConfigBase
     @DisplayInfo(label="Auto Start", desc="Set to automatically start the module when it is loaded")
     @SerializedName(value="autoStart", alternate={"enabled"})
     public boolean autoStart = false;
-    
+
     
     @Override
     public ModuleConfig clone()
