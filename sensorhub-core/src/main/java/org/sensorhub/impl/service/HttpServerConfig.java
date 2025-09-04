@@ -18,6 +18,9 @@ import org.sensorhub.api.config.DisplayInfo;
 import org.sensorhub.api.config.DisplayInfo.FieldType.Type;
 import org.sensorhub.api.module.ModuleConfig;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 /**
  * <p>
@@ -42,14 +45,13 @@ public class HttpServerConfig extends ModuleConfig
     @DisplayInfo(label="HTTPS Port", desc="TCP port where server will listen for secure HTTP (HTTPS) connections (use 0 to disable HTTPS).")
     public int httpsPort = 0;
     
-    
-    @DisplayInfo(desc="Root URL where static web content will be served.")
-    public String staticDocsRootUrl = "/";
-    
-    
-    @DisplayInfo(desc="Directory where static web content is located.")
-    public String staticDocsRootDir = "web";
-    
+
+    @DisplayInfo(label = "Static File Servers", desc = "Static web content configurations")
+    public List<FileServerConfig> fileServerConfigs = new ArrayList<>(List.of(new FileServerConfig(
+                            "/",
+                            "web",
+                            false)));
+
     
     @DisplayInfo(desc="Root URL where the server will accept requests. This will be the prefix to all servlet URLs.")
     public String servletsRootUrl = "/sensorhub";
