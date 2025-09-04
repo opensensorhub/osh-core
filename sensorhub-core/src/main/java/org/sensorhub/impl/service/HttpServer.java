@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.ServletException;
@@ -161,26 +162,6 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 server.addConnector(https);
             }
             
-            // static content
-            ContextHandler fileResourceContext = null;
-            if (config.staticDocsRootUrl != null)
-            {
-                ResourceHandler fileResourceHandler = new ResourceHandler();
-                fileResourceHandler.setEtags(true);
-                
-                fileResourceContext = new ContextHandler();
-                fileResourceContext.setContextPath(config.staticDocsRootUrl);
-                //fileResourceContext.setAllowNullPathInfo(true);
-                fileResourceContext.setHandler(fileResourceHandler);
-                fileResourceContext.setResourceBase(config.staticDocsRootDir);
-
-                //fileResourceContext.clearAliasChecks();
-                //fileResourceContext.addAliasCheck(new SymlinkAllowedResourceAliasChecker(fileResourceContext));
-                
-                handlers.addHandler(fileResourceContext);
-                getLogger().info("Static resources root is " + config.staticDocsRootUrl);
-            }
-            
             // servlets
             if (config.servletsRootUrl != null)
             {
@@ -189,16 +170,16 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 servletHandler.setContextPath(config.servletsRootUrl);
                 handlers.addHandler(servletHandler);
                 getLogger().info("Servlets root is " + config.servletsRootUrl);
-                
+
                 // security handler
                 if (config.authMethod != null && config.authMethod != AuthMethod.NONE)
                 {
                     jettySecurityHandler = new ConstraintSecurityHandler();
-                    
+
                     // create login service connected to OSH security manager
                     ISecurityManager securityManager = getParentHub().getSecurityManager();
                     OshLoginService loginService = new OshLoginService(securityManager);
-                    
+
                     if (config.authMethod == AuthMethod.BASIC)
                         jettySecurityHandler.setAuthenticator(new HttpLogoutWrapper(new BasicAuthenticator(), getLogger()));
                     else if (config.authMethod == AuthMethod.DIGEST)
@@ -212,11 +193,11 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                             throw new IllegalStateException("External authentication method was selected but no authenticator implementation is available");
                         jettySecurityHandler.setAuthenticator(authenticator);
                     }
-                    
+
                     jettySecurityHandler.setLoginService(loginService);
                     servletHandler.setSecurityHandler(jettySecurityHandler);
                 }
-                
+
                 // filter to add proper cross-origin headers
                 if (config.enableCORS)
                 {
@@ -252,6 +233,38 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                 }),"/test");
                 addServletSecurity("/test", false);
             }
+
+            Map<String, ContextHandler> fileResourceContexts = new HashMap<>();
+            for (FileServerConfig fileServerConfig : config.fileServerConfigs) {
+
+                // static content
+                ContextHandler fileResourceContext = null;
+                if (fileServerConfig.staticContentRootUrl != null) {
+                    ResourceHandler fileResourceHandler = new ResourceHandler();
+                    fileResourceHandler.setEtags(true);
+
+                    fileResourceContext = new ContextHandler();
+                    fileResourceContext.setContextPath(fileServerConfig.staticContentRootUrl);
+                    fileResourceContext.setHandler(fileResourceHandler);
+                    fileResourceContext.setResourceBase(fileServerConfig.staticContentRootDir);
+
+                    // Add authentication to file server if configured
+                    if (fileServerConfig.requireAuth && jettySecurityHandler != null) {
+                        ConstraintSecurityHandler fileServerSecurityHandler = new ConstraintSecurityHandler();
+                        fileServerSecurityHandler.setAuthenticator(jettySecurityHandler.getAuthenticator());
+                        fileServerSecurityHandler.setLoginService(jettySecurityHandler.getLoginService());
+                        fileServerSecurityHandler.setHandler(fileResourceContext);
+                        addServletSecurity(fileServerSecurityHandler, fileServerConfig.staticContentRootUrl, fileServerConfig.requireAuth, Constraint.ANY_AUTH);
+                        handlers.addHandler(fileServerSecurityHandler);
+                    } else {
+                        handlers.addHandler(fileResourceContext);
+                    }
+
+                    fileResourceContexts.put(fileServerConfig.staticContentRootUrl, fileResourceContext);
+
+                    getLogger().info("Static resource root served at " + fileServerConfig.staticContentRootUrl);
+                }
+            }
             
             server.setHandler(handlers);
             
@@ -270,8 +283,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
                         xmlConfig.getIdMap().put(OSH_HTTP_CONNECTOR_ID, http);
                     if (https != null)
                         xmlConfig.getIdMap().put(OSH_HTTPS_CONNECTOR_ID, https);
-                    if (fileResourceContext != null)
-                        xmlConfig.getIdMap().put(OSH_STATIC_CONTENT_ID, fileResourceContext);
+                    for (Map.Entry<String, ContextHandler> entry : fileResourceContexts.entrySet())
+                        xmlConfig.getIdMap().put(OSH_STATIC_CONTENT_ID + "-" + entry.getKey(), entry.getValue());
                     if (servletHandler != null)
                         xmlConfig.getIdMap().put(OSH_SERVLET_HANDLER_ID, servletHandler);
                     
@@ -400,7 +413,11 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
     
     public synchronized void addServletSecurity(String pathSpec, boolean requireAuth, String... roles)
     {
-        if (jettySecurityHandler != null)
+        addServletSecurity(jettySecurityHandler, pathSpec, requireAuth, roles);
+    }
+
+    public synchronized void addServletSecurity(ConstraintSecurityHandler securityHandler, String pathSpec, boolean requireAuth, String... roles) {
+        if (securityHandler != null)
         {
             Constraint constraint = new Constraint();
             constraint.setRoles(roles);
@@ -409,7 +426,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             cm.setConstraint(constraint);
             cm.setPathSpec(pathSpec);
             cm.setMethodOmissions(SECURITY_EXCLUDED_METHODS); // disable auth on OPTIONS requests (needed for CORS)
-            jettySecurityHandler.addConstraintMapping(cm);
+            securityHandler.addConstraintMapping(cm);
         }
     }
 
