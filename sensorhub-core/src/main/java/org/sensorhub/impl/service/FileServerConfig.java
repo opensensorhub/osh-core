@@ -32,8 +32,8 @@ public class FileServerConfig {
 
     public FileServerConfig(String contentUrl, String contentDir, boolean requireAuth) {
         this.requireAuth = requireAuth;
-        staticContentRootDir = contentDir;
-        staticContentRootUrl = contentUrl;
+        this.staticContentRootDir = contentDir;
+        this.staticContentRootUrl = contentUrl;
     }
 
 }
