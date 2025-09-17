@@ -110,21 +110,44 @@ public class SWEConstants
     // SWE procedure/system definition URIs
     public static final String SOSA_URI_PREFIX = "http://www.w3.org/ns/sosa/";
     public static final String SSN_URI_PREFIX = "http://www.w3.org/ns/ssn/";
-    public static final String OMS_URI_PREFIX = "http://www.w3.org/ns/x-oms/";
-    public static final String DEF_PROCEDURE = SOSA_URI_PREFIX + "Procedure";
-    public static final String DEF_SYSTEM = SSN_URI_PREFIX + "System";
+    public static final String OMS_URI_PREFIX = "http://www.w3.org/ns/sosa/oms/";
+    
+    public static final String DEF_SYSTEM = SOSA_URI_PREFIX + "System";
     public static final String DEF_PLATFORM = SOSA_URI_PREFIX + "Platform";
     public static final String DEF_SENSOR = SOSA_URI_PREFIX + "Sensor";
     public static final String DEF_ACTUATOR = SOSA_URI_PREFIX + "Actuator";
     public static final String DEF_SAMPLER = SOSA_URI_PREFIX + "Sampler";
+    public static final String DEF_DEPLOYMENT = SOSA_URI_PREFIX + "Deployment";
+    
+    public static final String DEF_PROCEDURE = SOSA_URI_PREFIX + "Procedure";
+    public static final String DEF_OBS_PROCEDURE = SOSA_URI_PREFIX + "ObservingProcedure";
+    public static final String DEF_ACT_PROCEDURE = SOSA_URI_PREFIX + "ActuatingProcedure";
+    public static final String DEF_SAM_PROCEDURE = SOSA_URI_PREFIX + "SamplingProcedure";
+
     public static final String DEF_OBSERVER = OMS_URI_PREFIX + "Observer";
     public static final String DEF_HOST = OMS_URI_PREFIX + "Host";
-
+    public static final String DEF_PREP_PROCEDURE = OMS_URI_PREFIX + "PreparationProcedure";
+    
+    @Deprecated public static final String DEF_DEPLOYMENT_SSN = SSN_URI_PREFIX + "Deployment";
+    @Deprecated public static final String DEF_SYSTEM_SSN = SSN_URI_PREFIX + "System";
+    
+    public static final String DEF_ASSET_TYPE = "cs:AssetType";
+    public static final String ASSET_TYPE_EQUIPMENT = "Equipment";
+    public static final String ASSET_TYPE_HUMAN = "Human";
+    public static final String ASSET_TYPE_LIVING_THING = "LivingThing";
+    public static final String ASSET_TYPE_SIMULATION = "Simulation";
+    public static final String ASSET_TYPE_PROCESS = "Process";
+    public static final String ASSET_TYPE_GROUP = "Group";
+    public static final String ASSET_TYPE_OTHER = "Other";
+    
     public static final String SWE_SYS_URI_PREFIX = SML_ONTOLOGY_ROOT + "swe/system/";
-    public static final String DEF_SENSOR_NETWORK = SWE_SYS_URI_PREFIX + "SensorNetwork";
-    public static final String DEF_HUMAN = SWE_SYS_URI_PREFIX + "HumanAgent";
+    public static final String DEF_EQUIPMENT = SWE_SYS_URI_PREFIX + "Equipment";
+    public static final String DEF_HUMAN = SWE_SYS_URI_PREFIX + "Human";
+    public static final String DEF_LIVING_THING = SWE_SYS_URI_PREFIX + "LivingThing";
+    public static final String DEF_SIMULATION = SWE_SYS_URI_PREFIX + "Simulation";
     public static final String DEF_PROCESS = SWE_SYS_URI_PREFIX + "Process";
-    public static final String DEF_MODELSIM = SWE_SYS_URI_PREFIX + "Simulation";
+    public static final String DEF_SYSTEM_GROUP = SWE_SYS_URI_PREFIX + "Group";
+    public static final String DEF_SYSTEM_OTHER = SWE_SYS_URI_PREFIX + "Other";
 
     // Special units
     public static final String QUDT_UOM_PREFIX = "http://qudt.org/vocab/unit/";

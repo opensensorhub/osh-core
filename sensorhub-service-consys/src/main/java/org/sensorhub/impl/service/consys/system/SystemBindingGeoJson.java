@@ -31,11 +31,13 @@ import org.sensorhub.impl.service.consys.sensorml.SystemAdapter;
 import org.vast.ogc.gml.GeoJsonBindings;
 import org.vast.ogc.gml.IFeature;
 import org.vast.ogc.xlink.IXlinkReference;
+import org.vast.swe.SWEConstants;
 import org.vast.util.Asserts;
 import org.vast.util.TimeExtent;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import net.opengis.gml.v32.AbstractGeometry;
+import net.opengis.sensorml.v20.AbstractPhysicalProcess;
 import net.opengis.sensorml.v20.AbstractProcess;
 
 
@@ -86,6 +88,12 @@ public class SystemBindingGeoJson extends AbstractFeatureBindingGeoJson<ISystemW
                 var sml = ((ISystemWithDesc)bean).getFullDescription();
                 if (sml != null)
                 {
+                    var assetType = sml.getAssetType();
+                    if (assetType != null)
+                        writer.name("assetType").value(assetType);
+                    else if (!(sml instanceof AbstractPhysicalProcess))
+                        writer.name("assetType").value(SWEConstants.ASSET_TYPE_PROCESS);
+                    
                     var typeOf = sml.getTypeOf();
                     if (typeOf != null)
                     {
