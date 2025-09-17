@@ -50,7 +50,7 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
     protected ModuleSecurity securityHandler;
     protected final Object stateLock = new Object();
     protected boolean initAsync, startAsync, stopAsync;
-    protected Throwable lastError;
+    protected volatile Throwable lastError;
     protected String statusMsg;
     
 
