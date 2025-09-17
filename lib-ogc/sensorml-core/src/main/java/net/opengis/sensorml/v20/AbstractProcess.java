@@ -38,10 +38,25 @@ public interface AbstractProcess extends DescribedObject, IProcedure
         // use definition or generate default type
         if (getDefinition() != null)
             return getDefinition();
-        else if (this instanceof AbstractPhysicalProcess)
-            return SWEConstants.DEF_SYSTEM;
-        else
-            return SWEConstants.DEF_PROCESS;
+        return SWEConstants.DEF_SYSTEM;
+    }
+    
+    
+    public default String getAssetType()
+    {
+        // use "AssetType" classifier if available
+        for (var list: getClassificationList()) {
+            for (var classifier: list.getClassifierList()) {
+                if (SWEConstants.DEF_ASSET_TYPE.equals(classifier.getDefinition())) {
+                    return classifier.getValue();
+                }
+            }
+        }
+        
+        if (!(this instanceof AbstractPhysicalProcess))
+            return SWEConstants.ASSET_TYPE_PROCESS;
+        
+        return null;
     }
     
     

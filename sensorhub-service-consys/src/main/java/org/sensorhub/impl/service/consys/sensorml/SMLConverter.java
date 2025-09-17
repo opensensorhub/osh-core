@@ -21,6 +21,7 @@ import org.vast.ogc.xlink.IXlinkReference;
 import org.vast.sensorML.SMLBuilders.AbstractProcessBuilder;
 import org.vast.sensorML.SMLBuilders.DeploymentBuilder;
 import org.vast.sensorML.SMLBuilders.PhysicalSystemBuilder;
+import org.vast.swe.SWEConstants;
 import org.vast.sensorML.SMLFactory;
 import org.vast.sensorML.SMLHelper;
 import net.opengis.gml.v32.Point;
@@ -30,21 +31,6 @@ import net.opengis.sensorml.v20.Deployment;
 
 public class SMLConverter extends SMLHelper
 {
-    static final String SOSA_NS = "http://www.w3.org/ns/sosa/";
-    static final String SOSA_SYSTEM = SOSA_NS + "System";
-    static final String SOSA_SENSOR = SOSA_NS + "Sensor";
-    static final String SOSA_ACTUATOR = SOSA_NS + "Actuator";
-    static final String SOSA_SAMPLER = SOSA_NS + "Sampler";
-    static final String SOSA_PROCEDURE = SOSA_NS + "Procedure";
-    static final String SOSA_OBS_PROCEDURE = SOSA_NS + "ObservingProcedure";
-    static final String SOSA_ACT_PROCEDURE = SOSA_NS + "ActuatingProcedure";
-    static final String SOSA_SAM_PROCEDURE = SOSA_NS + "SamplingProcedure";
-    static final String SOSA_DEPLOYMENT = SOSA_NS + "Deployment";
-    
-    static final String SSN_NS = "http://www.w3.org/ns/ssn/";
-    static final String SSN_SYSTEM = SSN_NS + "System";
-    static final String SSN_DEPLOYMENT = SSN_NS + "Deployment";
-    
     
     public SMLConverter()
     {
@@ -72,14 +58,26 @@ public class SMLConverter extends SMLHelper
         AbstractProcessBuilder<?,?> builder = null;
         var type = checkFeatureType(f);
         
-        if (SOSA_SYSTEM.equals(type) ||
-            SSN_SYSTEM.equals(type) ||
-            SOSA_SENSOR.equals(type) || 
-            SOSA_ACTUATOR.equals(type) ||
-            SOSA_SAMPLER.equals(type))
+        // resolve CURIEs
+        type = type.replaceFirst("sosa:", SWEConstants.SOSA_URI_PREFIX)
+                   .replaceFirst("ssn:", SWEConstants.SSN_URI_PREFIX);
+        
+        var assetType = (String)f.getProperties().get(new QName("assetType"));
+        
+        if (SWEConstants.DEF_SYSTEM.equals(type) ||
+            SWEConstants.DEF_SENSOR.equals(type) ||
+            SWEConstants.DEF_ACTUATOR.equals(type) ||
+            SWEConstants.DEF_SAMPLER.equals(type) ||
+            SWEConstants.DEF_PLATFORM.equals(type) ||
+            SWEConstants.DEF_SYSTEM_SSN.equals(type) ||
+            SWEConstants.DEF_PROCESS.equals(type))
         {
-            builder = createPhysicalSystem()
-                .uniqueID(f.getUniqueIdentifier())
+            builder = SWEConstants.DEF_PROCESS.equals(type) ||
+                SWEConstants.ASSET_TYPE_PROCESS.equals(assetType) ||
+                SWEConstants.ASSET_TYPE_SIMULATION.equals(assetType) ?
+                createSimpleProcess() : createPhysicalSystem();
+            
+            builder.uniqueID(f.getUniqueIdentifier())
                 .name(f.getName())
                 .description(f.getDescription())
                 .definition(f.getType());
@@ -92,7 +90,7 @@ public class SMLConverter extends SMLHelper
                     validTime.end().atOffset(ZoneOffset.UTC));
             }
             
-            if (f.getGeometry() != null)
+            if (f.getGeometry() != null && builder instanceof PhysicalSystemBuilder)
             {
                 if (f.getGeometry() instanceof Point)
                     ((PhysicalSystemBuilder)builder).location((Point)f.getGeometry());
@@ -121,10 +119,16 @@ public class SMLConverter extends SMLHelper
         AbstractProcessBuilder<?,?> builder = null;
         var type = checkFeatureType(f);
         
-        if (SOSA_SYSTEM.equals(type) ||
-            SOSA_SENSOR.equals(type) ||
-            SOSA_ACTUATOR.equals(type) ||
-            SOSA_SAMPLER.equals(type))
+        // resolve CURIEs
+        type = type.replaceFirst("sosa:", SWEConstants.SOSA_URI_PREFIX)
+                   .replaceFirst("ssn:", SWEConstants.SSN_URI_PREFIX);
+        
+        if (SWEConstants.DEF_SYSTEM.equals(type) ||
+            SWEConstants.DEF_SENSOR.equals(type) ||
+            SWEConstants.DEF_ACTUATOR.equals(type) ||
+            SWEConstants.DEF_SAMPLER.equals(type) ||
+            SWEConstants.DEF_PLATFORM.equals(type) ||
+            SWEConstants.DEF_SYSTEM_SSN.equals(type))
         {
             builder = createPhysicalSystem()
                 .uniqueID(f.getUniqueIdentifier())
@@ -132,10 +136,10 @@ public class SMLConverter extends SMLHelper
                 .description(f.getDescription())
                 .definition(f.getType());
         }
-        else if (SOSA_PROCEDURE.equals(type) ||
-                 SOSA_OBS_PROCEDURE.equals(type) ||
-                 SOSA_ACT_PROCEDURE.equals(type) ||
-                 SOSA_SAM_PROCEDURE.equals(type))
+        else if (SWEConstants.DEF_PROCEDURE.equals(type) ||
+                 SWEConstants.DEF_OBS_PROCEDURE.equals(type) ||
+                 SWEConstants.DEF_ACT_PROCEDURE.equals(type) ||
+                 SWEConstants.DEF_SAM_PROCEDURE.equals(type))
         {
             builder = createSimpleProcess()
                 .uniqueID(f.getUniqueIdentifier())
@@ -164,8 +168,8 @@ public class SMLConverter extends SMLHelper
         DeploymentBuilder builder = null;
         var type = checkFeatureType(f);
         
-        if (SOSA_DEPLOYMENT.equals(type) ||
-            SSN_DEPLOYMENT.equals(type))
+        if (SWEConstants.DEF_DEPLOYMENT.equals(type) ||
+            SWEConstants.DEF_DEPLOYMENT_SSN.equals(type))
         {
             builder = createDeployment()
                 .uniqueID(f.getUniqueIdentifier())

@@ -57,7 +57,8 @@ public class GfsModel
     static AbstractProcess createGFSModelSpecs()
     {
         return sml.createSimpleProcess()
-            .definition(SWEConstants.DEF_MODELSIM)
+            .definition(SWEConstants.DEF_SYSTEM)
+            .assetType(SWEConstants.ASSET_TYPE_SIMULATION)
             .uniqueID(GFS_PROC_UID)
             .name("Global Forecast System (GFS)")
             .description("The Global Forecast System (GFS) is a global weather forecast model developed "
@@ -144,7 +145,8 @@ public class GfsModel
     static AbstractProcess createModelInstance(Instant startTime)
     {
         return sml.createSimpleProcess()
-            .definition(SWEConstants.DEF_MODELSIM)
+            .definition(SWEConstants.DEF_SYSTEM)
+            .assetType(SWEConstants.ASSET_TYPE_SIMULATION)
             .uniqueID("urn:x-noaa:forecast:gfs:ncep")
             .name("GFS Weather Forecast at NCEP")
             .description("Instance of GFS model running at NCEP. This instance outputs data with a base "
