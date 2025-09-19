@@ -115,7 +115,7 @@ public class ModuleUtils
         }
         catch (IOException e)
         {
-            log.debug("Cannot access JAR manifest for {}", clazz);
+            log.trace("Cannot access JAR manifest for {}", clazz);
         }
         
         return null;
