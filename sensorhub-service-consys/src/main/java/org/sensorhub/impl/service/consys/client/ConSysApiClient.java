@@ -123,6 +123,7 @@ public class ConSysApiClient
     protected Authenticator authenticator;
     protected HttpClient http;
     protected URI endpoint;
+    protected String token;
 
 
     protected ConSysApiClient() {}
@@ -1103,27 +1104,35 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendGetRequestFallback(collectionUri, format, bodyMapper);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .GET()
-                .header(HttpHeaders.ACCEPT, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.ACCEPT, format.getMimeType());
+        
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         BodyHandler<T> bodyHandler = resp -> {
             BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
             return BodySubscribers.mapping(upstream, body -> {
-                var is = new ByteArrayInputStream(body);
-                return bodyMapper.apply(is);
+                if (resp.statusCode() == 200) {
+                    var is = new ByteArrayInputStream(body);
+                    return bodyMapper.apply(is);
+                } else {
+                    var error = new String(body);
+                    throw new CompletionException("HTTP error " + resp.statusCode() + ": " + error, null);
+                }
             });
         };
 
         return http.sendAsync(req, bodyHandler)
-                .thenApply(resp -> {
-                    if (resp.statusCode() == 200)
-                        return resp.body();
-                    else
-                        throw new CompletionException("HTTP error " + resp.statusCode(), null);
-                });
+            .thenApply(resp -> {
+                if (resp.statusCode() == 200)
+                    return resp.body();
+                else
+                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
+            });
     }
 
 
@@ -1143,6 +1152,8 @@ public class ConSysApiClient
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 
                 int responseCode = connection.getResponseCode();
                 if (responseCode == 200) {
@@ -1168,13 +1179,16 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendPostRequestFallback(collectionUri, format, body);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(resp -> {
                     if (resp.statusCode() == 201 || resp.statusCode() == 303) {
@@ -1205,6 +1219,8 @@ public class ConSysApiClient
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -1237,13 +1253,16 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendPutRequestFallback(collectionUri, format, body);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(HttpResponse::statusCode);
     }
@@ -1266,6 +1285,8 @@ public class ConSysApiClient
                 connection.setRequestMethod("PUT");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -1289,12 +1310,15 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendBatchPostRequestFallback(collectionUri, format, body);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(Lambdas.checked(resp -> {
                     if (resp.statusCode() == 201 || resp.statusCode() == 303) {
@@ -1331,6 +1355,8 @@ public class ConSysApiClient
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -1440,6 +1466,12 @@ public class ConSysApiClient
             else
                 reader.skipValue();
         }
+    }
+    
+    
+    public void setAuthToken(String token)
+    {
+        this.token = token;
     }
     
 
