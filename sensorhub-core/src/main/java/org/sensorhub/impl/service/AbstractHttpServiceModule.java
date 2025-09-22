@@ -44,15 +44,18 @@ public abstract class AbstractHttpServiceModule<ConfigType extends ModuleConfig>
     @Override
     public void start() throws SensorHubException
     {
-        httpServer = getParentHub().getModuleRegistry().getModuleByType(IHttpServer.class);
-        if (httpServer == null)
-            throw new SensorHubException("HTTP server module is not loaded");
+        if (canStart())
+        {
+            httpServer = getParentHub().getModuleRegistry().getModuleByType(IHttpServer.class);
+            if (httpServer == null)
+                throw new SensorHubException("HTTP server module is not loaded");
 
-        // subscribe to server lifecycle events
-        httpServer.registerListener(this);
+            // subscribe to server lifecycle events
+            httpServer.registerListener(this);
 
-        // we actually start in the handleEvent() method when
-        // a STARTED event is received from HTTP server
+            // we actually start in the handleEvent() method when
+            // a STARTED event is received from HTTP server
+        }
     }
     
     
@@ -81,7 +84,8 @@ public abstract class AbstractHttpServiceModule<ConfigType extends ModuleConfig>
             {
                 try
                 {
-                    super.start();
+                    doStart();
+                    setState(ModuleState.STARTED);
                 }
                 catch (Exception ex)
                 {
@@ -94,7 +98,8 @@ public abstract class AbstractHttpServiceModule<ConfigType extends ModuleConfig>
             {
                 try
                 {
-                    stop();
+                    doStop();
+                    setState(ModuleState.STOPPED);
                 }
                 catch (SensorHubException ex)
                 {
