@@ -139,7 +139,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
 
     protected DataStreamKey addSimpleDataStream(BigId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
     {
-        return addSimpleDataStream(PROC_UID_PREFIX+sysID, sysID, description, outputName, validTime);
+        return addSimpleDataStream(PROC_UID_PREFIX+sysID, sysID, outputName, description, validTime);
     }
 
     protected DataStreamKey addSimpleDataStream(String uniqueID, BigId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
