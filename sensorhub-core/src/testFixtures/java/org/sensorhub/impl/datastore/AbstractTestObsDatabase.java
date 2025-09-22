@@ -112,14 +112,14 @@ public abstract class AbstractTestObsDatabase<DbType extends IObsSystemDatabase>
         int procUids[] = {13, 5, 25};
         var procIds = addSystems(procUids);
         
-        dataStreamTests.addSimpleDataStream(procIds[0], "out1", TimeExtent.beginAt(Instant.EPOCH));
-        var dsId1 = dataStreamTests.addSimpleDataStream(procIds[0], "out2", TimeExtent.beginAt(Instant.EPOCH));
+        dataStreamTests.addSimpleDataStream(PROC_UID_PREFIX+procUids[0], procIds[0], "out1", TimeExtent.beginAt(Instant.EPOCH));
+        var dsId1 = dataStreamTests.addSimpleDataStream(PROC_UID_PREFIX+procUids[0], procIds[0], "out2", TimeExtent.beginAt(Instant.EPOCH));
         
-        dataStreamTests.addSimpleDataStream(procIds[1], "out1", TimeExtent.beginAt(Instant.EPOCH));
-        dataStreamTests.addSimpleDataStream(procIds[1], "out2", TimeExtent.beginAt(Instant.EPOCH));
+        dataStreamTests.addSimpleDataStream(PROC_UID_PREFIX+procUids[1], procIds[1], "out1", TimeExtent.beginAt(Instant.EPOCH));
+        dataStreamTests.addSimpleDataStream(PROC_UID_PREFIX+procUids[1], procIds[1], "out2", TimeExtent.beginAt(Instant.EPOCH));
         
-        dataStreamTests.addSimpleDataStream(procIds[2], "out1", TimeExtent.beginAt(Instant.EPOCH));
-        var dsId2 = dataStreamTests.addSimpleDataStream(procIds[2], "out2", TimeExtent.beginAt(Instant.EPOCH));
+        dataStreamTests.addSimpleDataStream(PROC_UID_PREFIX+procUids[2], procIds[2], "out1", TimeExtent.beginAt(Instant.EPOCH));
+        var dsId2 = dataStreamTests.addSimpleDataStream(PROC_UID_PREFIX+procUids[2], procIds[2], "out2", TimeExtent.beginAt(Instant.EPOCH));
         
         var filter = new DataStreamFilter.Builder()
             .withSystems()

@@ -127,16 +127,24 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         return addDataStream(sysID, dataStruct, validTime);
     }
     
-    
     protected DataStreamKey addSimpleDataStream(BigId sysID, String outputName, TimeExtent validTime) throws DataStoreException
     {
-        return addSimpleDataStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, "datastream description", validTime);
+        return addSimpleDataStream(PROC_UID_PREFIX+sysID, sysID, outputName, validTime);
     }
-    
-    
+
+    protected DataStreamKey addSimpleDataStream(String uniqueID, BigId sysID, String outputName, TimeExtent validTime) throws DataStoreException
+    {
+        return addSimpleDataStream(new FeatureId(sysID, uniqueID), outputName, "datastream description", validTime);
+    }
+
     protected DataStreamKey addSimpleDataStream(BigId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
     {
-        return addSimpleDataStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, description, validTime);
+        return addSimpleDataStream(PROC_UID_PREFIX+sysID, sysID, description, outputName, validTime);
+    }
+
+    protected DataStreamKey addSimpleDataStream(String uniqueID, BigId sysID, String outputName, String description, TimeExtent validTime) throws DataStoreException
+    {
+        return addSimpleDataStream(new FeatureId(sysID, uniqueID), outputName, description, validTime);
     }
 
 
