@@ -838,7 +838,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             return;
                         }
 
-                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to remove " + selectedModules.size() + " module(s)?</br>All settings will be lost.");
+                        var targetText = (selectedModules.size() == 1) ? selectedModules.get(0).getName() : selectedModules.size() + " modules";
+                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to remove " + targetText + "?</br>All settings will be lost.");
                         popup.addCloseListener(new CloseListener() {
                             @Override
                             public void windowClose(CloseEvent e)
@@ -953,7 +954,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             return;
                         }
 
-                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to remove " + selectedModules.size() + " module(s)?</br>All settings will be lost.");
+                        var targetText = (selectedModules.size() == 1) ? selectedModules.get(0).getName() : selectedModules.size() + " modules";
+                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to remove " + targetText + "?</br>All settings will be lost.");
                         popup.addCloseListener(new CloseListener() {
                             @Override
                             public void windowClose(CloseEvent e)
@@ -998,7 +1000,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             return;
                         }
 
-                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to start " + selectedModules.size() + " module(s)?");
+                        var targetText = (selectedModules.size() == 1) ? selectedModules.get(0).getName() : selectedModules.size() + " modules";
+                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to start " + targetText + "?");
                         popup.addCloseListener(new CloseListener() {
                             @Override
                             public void windowClose(CloseEvent e)
@@ -1048,7 +1051,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             return;
                         }
 
-                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to stop " + selectedModules.size() + " module(s)?");
+                        var targetText = (selectedModules.size() == 1) ? selectedModules.get(0).getName() : selectedModules.size() + " modules";
+                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to stop " + targetText + "?");
                         popup.addCloseListener(new CloseListener() {
                             @Override
                             public void windowClose(CloseEvent e)
@@ -1088,7 +1092,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             return;
                         }
 
-                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to restart " + selectedModules.size() + " module(s)?");
+                        var targetText = (selectedModules.size() == 1) ? selectedModules.get(0).getName() : selectedModules.size() + " modules";
+                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to restart " + targetText + "?");
                         popup.addCloseListener(new CloseListener() {
                             @Override
                             public void windowClose(CloseEvent e)
@@ -1128,7 +1133,8 @@ public class AdminUI extends com.vaadin.ui.UI implements UIConstants
                             return;
                         }
 
-                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to force re-init " + selectedModules.size() + " module(s)?");
+                        var targetText = (selectedModules.size() == 1) ? selectedModules.get(0).getName() : selectedModules.size() + " modules";
+                        final ConfirmDialog popup = new ConfirmDialog("Are you sure you want to force re-init " + targetText + "?");
                         popup.addCloseListener(new CloseListener() {
                             @Override
                             public void windowClose(CloseEvent e)
