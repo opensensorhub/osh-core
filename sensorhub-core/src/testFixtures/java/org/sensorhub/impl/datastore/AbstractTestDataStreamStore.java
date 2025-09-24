@@ -640,16 +640,18 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
         var sysID3 = bigId(3);
-        var ds1v0 = addSimpleDataStreamWithDefinition(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)),"http://sensorml.com/ont/swe/property/Location");
+        String def1 = "http://sensorml.com/ont/swe/property/Location";
+        String def2 = "http://sensorml.com/ont/swe/property/GeodeticLatitude";
+        var ds1v0 = addSimpleDataStreamWithDefinition(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)),def1);
         var ds2v0 = addSimpleDataStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
-        var ds4v0 = addSimpleDataStreamWithDefinition(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)), "http://sensorml.com/ont/swe/property/GeodeticLatitude");
+        var ds4v0 = addSimpleDataStreamWithDefinition(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)), def2);
         var ds6v0 = addSimpleDataStream(sysID3, "out3", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
         var ds7v0 = addSimpleDataStream(sysID3, "out4", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
         dataStreamStore.commit();
 
         // select from t0 to now
         DataStreamFilter filter = new DataStreamFilter.Builder()
-                .withObservedProperties("http://sensorml.com/ont/swe/property/Location","http://sensorml.com/ont/swe/property/GeodeticLatitude")
+                .withObservedProperties(def1, def2)
                 .build();
         resultStream = dataStreamStore.selectEntries(filter);
 
