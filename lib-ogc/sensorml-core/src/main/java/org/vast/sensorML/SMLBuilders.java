@@ -35,6 +35,7 @@ import net.opengis.OgcPropertyList;
 import net.opengis.gml.v32.AbstractGeometry;
 import net.opengis.gml.v32.Point;
 import net.opengis.gml.v32.TimeIndeterminateValue;
+import net.opengis.gml.v32.TimePeriod;
 import net.opengis.gml.v32.impl.ReferenceImpl;
 import net.opengis.sensorml.v20.AbstractPhysicalProcess;
 import net.opengis.sensorml.v20.AbstractProcess;
@@ -243,6 +244,12 @@ public class SMLBuilders
         public B addClassifier(TermBuilder term)
         {
             return addClassifier(term.build());
+        }
+        
+        public B validTimePeriod(TimePeriod tp)
+        {
+            instance.addValidTimeAsTimePeriod(tp);
+            return (B)this;
         }
         
         public B validTimePeriod(OffsetDateTime begin, OffsetDateTime end)

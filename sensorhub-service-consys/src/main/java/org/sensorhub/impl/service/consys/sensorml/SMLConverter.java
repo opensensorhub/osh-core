@@ -14,8 +14,8 @@ Copyright (C) 2024 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.sensorml;
 
-import java.time.ZoneOffset;
 import javax.xml.namespace.QName;
+import org.vast.ogc.gml.GMLUtils;
 import org.vast.ogc.gml.IFeature;
 import org.vast.ogc.xlink.IXlinkReference;
 import org.vast.sensorML.SMLBuilders.AbstractProcessBuilder;
@@ -25,6 +25,7 @@ import org.vast.swe.SWEConstants;
 import org.vast.sensorML.SMLFactory;
 import org.vast.sensorML.SMLHelper;
 import net.opengis.gml.v32.Point;
+import net.opengis.gml.v32.TimePeriod;
 import net.opengis.sensorml.v20.AbstractProcess;
 import net.opengis.sensorml.v20.Deployment;
 
@@ -85,9 +86,8 @@ public class SMLConverter extends SMLHelper
             var validTime = f.getValidTime();
             if (f.getValidTime() != null)
             {
-                builder.validTimePeriod(
-                    validTime.begin().atOffset(ZoneOffset.UTC),
-                    validTime.end().atOffset(ZoneOffset.UTC));
+                var timePrimitive = GMLUtils.timeExtentToTimePrimitive(validTime, true);
+                builder.validTimePeriod((TimePeriod)timePrimitive);
             }
             
             if (f.getGeometry() != null && builder instanceof PhysicalSystemBuilder)
@@ -154,9 +154,8 @@ public class SMLConverter extends SMLHelper
         var validTime = f.getValidTime();
         if (f.getValidTime() != null)
         {
-            builder.validTimePeriod(
-                validTime.begin().atOffset(ZoneOffset.UTC),
-                validTime.end().atOffset(ZoneOffset.UTC));
+            var timePrimitive = GMLUtils.timeExtentToTimePrimitive(validTime, true);
+            builder.validTimePeriod((TimePeriod)timePrimitive);
         }
         
         return builder.build();
@@ -175,6 +174,13 @@ public class SMLConverter extends SMLHelper
                 .uniqueID(f.getUniqueIdentifier())
                 .name(f.getName())
                 .description(f.getDescription());
+            
+            var validTime = f.getValidTime();
+            if (f.getValidTime() != null)
+            {
+                var timePrimitive = GMLUtils.timeExtentToTimePrimitive(validTime, true);
+                builder.validTimePeriod((TimePeriod)timePrimitive);
+            }
             
             if (f.getGeometry() != null)
                 ((DeploymentBuilder)builder).location(f.getGeometry());
