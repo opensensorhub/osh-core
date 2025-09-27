@@ -1,16 +1,16 @@
 /***************************** BEGIN LICENSE BLOCK ***************************
 
-The contents of this file are subject to the Mozilla Public License, v. 2.0.
-If a copy of the MPL was not distributed with this file, You can obtain one
-at http://mozilla.org/MPL/2.0/.
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
 
-Software distributed under the License is distributed on an "AS IS" basis,
-WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-for the specific language governing rights and limitations under the License.
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
 
-Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
+ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
-******************************* END LICENSE BLOCK ***************************/
+ ******************************* END LICENSE BLOCK ***************************/
 
 package org.sensorhub.impl.datastore;
 
@@ -60,7 +60,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
 {
     protected static int DATABASE_NUM = 2;
     protected static String PROC_UID_PREFIX = "urn:osh:test:sensor:";
-    
+
     protected StoreType dataStreamStore;
     protected Map<DataStreamKey, IDataStreamInfo> allDataStreams = new LinkedHashMap<>();
     protected Map<DataStreamKey, IDataStreamInfo> expectedResults = new LinkedHashMap<>();
@@ -75,32 +75,32 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     {
         this.dataStreamStore = initStore();
     }
-    
+
 
     protected DataStreamKey addDataStream(FeatureId sysID, DataComponent recordStruct, TimeExtent validTime) throws DataStoreException
     {
         var builder = new DataStreamInfo.Builder()
-            .withName(recordStruct.getName())
-            .withSystem(sysID)
-            .withRecordDescription(recordStruct)
-            .withRecordEncoding(new TextEncodingImpl());
-        
+                .withName(recordStruct.getName())
+                .withSystem(sysID)
+                .withRecordDescription(recordStruct)
+                .withRecordEncoding(new TextEncodingImpl());
+
         if (validTime != null)
             builder.withValidTime(validTime);
-                
+
         var dsInfo = builder.build();
         var key = dataStreamStore.add(dsInfo);
         allDataStreams.put(key, dsInfo);
         return key;
     }
-    
-    
+
+
     protected void addToExpectedResults(Entry<DataStreamKey, IDataStreamInfo> entry)
     {
         expectedResults.put(entry.getKey(), entry.getValue());
     }
-    
-    
+
+
     protected void addToExpectedResults(int... entryIdxList)
     {
         for (int idx: entryIdxList)
@@ -115,18 +115,41 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     {
         SWEHelper fac = new SWEHelper();
         var dataStruct = fac.createRecord()
-            .name(outputName)
-            .description(description)
-            .addField("t1", fac.createTime().asSamplingTimeIsoUTC().build())
-            .addField("q2", fac.createQuantity().build())
-            .addField("c3", fac.createCount().build())
-            .addField("b4", fac.createBoolean().build())
-            .addField("txt5", fac.createText().build())
-            .build();
-        
+                .name(outputName)
+                .description(description)
+                .addField("t1", fac.createTime().asSamplingTimeIsoUTC().build())
+                .addField("q2", fac.createQuantity().build())
+                .addField("c3", fac.createCount().build())
+                .addField("b4", fac.createBoolean().build())
+                .addField("txt5", fac.createText().build())
+                .build();
+
         return addDataStream(sysID, dataStruct, validTime);
     }
-    
+
+    protected DataStreamKey addSimpleDataStreamWithDefinition(FeatureId sysID, String outputName, String description, TimeExtent validTime, String definition) throws DataStoreException
+    {
+        SWEHelper fac = new SWEHelper();
+        var dataStruct = fac.createRecord()
+                .name(outputName)
+                .description(description)
+                .addField("t1", fac.createTime().asSamplingTimeIsoUTC().build())
+                .addField("q2", fac.createQuantity().build())
+                .addField("c3", fac.createCount().build())
+                .addField("b4", fac.createBoolean().build())
+                .addField("def", fac.createVector().definition(definition))
+                .addField("txt5", fac.createText().build())
+                .build();
+
+        return addDataStream(sysID, dataStruct, validTime);
+    }
+
+
+    protected DataStreamKey addSimpleDataStreamWithDefinition(BigId sysID, String outputName, TimeExtent validTime, String definition) throws DataStoreException
+    {
+        return addSimpleDataStreamWithDefinition(new FeatureId(sysID, PROC_UID_PREFIX+sysID.getIdAsLong()), outputName, "datastream description", validTime, definition);
+    }
+
     protected DataStreamKey addSimpleDataStream(BigId sysID, String outputName, TimeExtent validTime) throws DataStoreException
     {
         return addSimpleDataStream(PROC_UID_PREFIX+sysID, sysID, outputName, validTime);
@@ -165,7 +188,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         SWEUtils utils = new SWEUtils(SWEUtils.V2_0);
         ByteArrayOutputStream os1 = new ByteArrayOutputStream();
         ByteArrayOutputStream os2 = new ByteArrayOutputStream();
-        
+
         try
         {
             utils.writeComponent(os1, c1, false, false);
@@ -174,16 +197,16 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         catch (Exception e)
         {
             throw new IllegalStateException(e);
-        }        
+        }
 
         assertArrayEquals(os1.toByteArray(), os2.toByteArray());
-        
+
         // also check that parent references are set properly
         for (int i = 0; i < c2.getComponentCount(); i++)
             assertTrue(c2.getComponent(i).getParent() == c2);
     }
-    
-    
+
+
     protected BigId bigId(long id)
     {
         return BigId.fromLong(DATABASE_NUM, id);
@@ -193,7 +216,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     protected void checkSelectedEntries(Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream, Map<DataStreamKey, IDataStreamInfo> expectedResults, DataStreamFilter filter)
     {
         System.out.println("Select datastreams with " + filter);
-        
+
         if (needValidTimeAdjustment)
         {
             // close validTime periods when appropriate in expected results
@@ -202,7 +225,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
                 for (var dsInfo: allDataStreams.values())
                 {
                     if (v.getSystemID().equals(dsInfo.getSystemID()) &&
-                        v.getOutputName().equals(dsInfo.getOutputName()))
+                            v.getOutputName().equals(dsInfo.getOutputName()))
                     {
                         if (v.getValidTime().endsNow() && v.getValidTime().begin().isBefore(dsInfo.getValidTime().begin()))
                         {
@@ -211,7 +234,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
                         }
                     }
                 };
-                
+
                 // close period with next DS valid start time
                 if (nextDs != null)
                 {
@@ -219,15 +242,15 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
                     var newDs = DataStreamInfo.Builder.from(v).withValidTime(newValidTime);
                     return newDs.build();
                 }
-                
+
                 return v;
             });
         }
-        
+
         checkSelectedEntries(resultStream, expectedResults);
     }
-    
-    
+
+
     protected void checkSelectedEntries(Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream, Map<DataStreamKey, IDataStreamInfo> expectedResults)
     {
         Map<DataStreamKey, IDataStreamInfo> resultMap = resultStream
@@ -235,7 +258,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
                 //.peek(e -> System.out.println(Arrays.toString((double[])e.getValue().getResult().getUnderlyingObject())))
                 .collect(Collectors.toMap(e->e.getKey(), e->e.getValue()));
         System.out.println(resultMap.size() + " entries selected");
-        
+
         resultMap.forEach((k, v) -> {
             assertEquals("Invalid scope", DATABASE_NUM, k.getInternalID().getScope());
             assertTrue("Result set contains extra key "+k, expectedResults.containsKey(k));
@@ -260,7 +283,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             addSimpleDataStream(sysID, "test1", now);
         }
         dataStreamStore.commit();
-        
+
         // get and check
         for (Entry<DataStreamKey, IDataStreamInfo> entry: allDataStreams.entrySet())
         {
@@ -269,7 +292,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             assertEquals(entry.getValue().getOutputName(), dsInfo.getOutputName());
             checkDataComponentEquals(entry.getValue().getRecordStructure(), dsInfo.getRecordStructure());
         }
-        
+
         // read back and check again
         forceReadBackFromStorage();
         for (Entry<DataStreamKey, IDataStreamInfo> entry: allDataStreams.entrySet())
@@ -287,7 +310,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
     {
         assertNull(dataStreamStore.get(new DataStreamKey(0, 1L)));
         assertNull(dataStreamStore.get(new DataStreamKey(0, 21L)));
-        
+
         // add N different datastreams
         var idList = new ArrayList<BigId>();
         var now = TimeExtent.beginAt(Instant.now());
@@ -298,13 +321,13 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             idList.add(k.getInternalID());
         }
         dataStreamStore.commit();
-        
+
         assertNotNull(dataStreamStore.get(new DataStreamKey(idList.get(0))));
         assertNull(dataStreamStore.get(new DataStreamKey(0, 21L)));
         forceReadBackFromStorage();
         assertNull(dataStreamStore.get(new DataStreamKey(0, 11L)));
         assertNotNull(dataStreamStore.get(new DataStreamKey(idList.get(3))));
-        
+
     }
 
 
@@ -348,7 +371,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             addSimpleDataStream(sysID, "out" + (int)(Math.random()*10), now);
         }
         dataStreamStore.commit();
-        
+
         // read back and check
         forceReadBackFromStorage();
         checkMapKeySet(dataStreamStore.keySet());
@@ -368,22 +391,22 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             addSimpleDataStream(sysID, "out" + (int)(Math.random()*10), now);
         }
         dataStreamStore.commit();
-        
+
         assertEquals(numDs, dataStreamStore.getNumRecords());
-        
+
         int i = 0;
         for (var id: allDataStreams.keySet())
         {
             var ds = dataStreamStore.remove(id);
             checkDataStreamEqual(allDataStreams.get(id), ds);
-            
+
             if (i % 5 == 0)
                 forceReadBackFromStorage();
-            
+
             i++;
             assertEquals(numDs-i, dataStreamStore.getNumRecords());
         }
-        
+
         // check that there is nothing left
         assertEquals(0, dataStreamStore.getNumRecords());
     }
@@ -403,10 +426,10 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             idList.add(key.getInternalID());
         }
         dataStreamStore.commit();
-        
+
         int numRecords = numDs;
         assertEquals(numRecords, dataStreamStore.getNumRecords());
-        
+
         // remove some by ID
         var removedIds = new BigId[] {idList.get(3), idList.get(15), idList.get(36), idList.get(24)};
         for (var id: removedIds)
@@ -417,12 +440,12 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         checkSelectedEntries(dataStreamStore.entrySet().stream(), allDataStreams);
         numRecords -= removedIds.length;
         assertEquals(numRecords, dataStreamStore.getNumRecords());
-        
+
         // remove some by name
         var removedIdsList = Arrays.asList(idList.get(4), idList.get(41), idList.get(29), idList.get(11));
         var removedNames = removedIdsList.stream()
-            .map(id -> allDataStreams.get(new DataStreamKey(id)).getOutputName())
-            .collect(Collectors.toList());
+                .map(id -> allDataStreams.get(new DataStreamKey(id)).getOutputName())
+                .collect(Collectors.toList());
         for (BigId id: removedIdsList)
             allDataStreams.remove(new DataStreamKey(id));
         dataStreamStore.removeEntries(new DataStreamFilter.Builder()
@@ -431,14 +454,14 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         checkSelectedEntries(dataStreamStore.entrySet().stream(), allDataStreams);
         numRecords -= removedIdsList.size();
         assertEquals(numRecords, dataStreamStore.getNumRecords());
-        
+
         // remove the rest
         dataStreamStore.removeEntries(new DataStreamFilter.Builder()
-            .build());
+                .build());
         assertEquals(0, dataStreamStore.getNumRecords());
     }
-    
-    
+
+
     @Test
     @SuppressWarnings("unused")
     public void testAddAndSelectCurrentVersion() throws Exception
@@ -460,22 +483,22 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
 
         // last version of everything
         DataStreamFilter filter = new DataStreamFilter.Builder()
-            .withSystems(sysID)
-            .withCurrentVersion()
-            .build();
+                .withSystems(sysID)
+                .withCurrentVersion()
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         testAddAndSelectCurrentVersion_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
     }
-    
-    
+
+
     protected void testAddAndSelectCurrentVersion_ExpectedResults()
     {
         addToExpectedResults(2, 4, 7);
     }
-        
-    
+
+
     @Test
     @SuppressWarnings("unused")
     public void testAddAndSelectLatestValidTime() throws Exception
@@ -497,30 +520,30 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
 
         // latest version of everything
         DataStreamFilter filter = new DataStreamFilter.Builder()
-            .withSystems(sysID)
-            .withValidTime(new TemporalFilter.Builder()
-                .withLatestTime()
-                .build())
-            .build();
+                .withSystems(sysID)
+                .withValidTime(new TemporalFilter.Builder()
+                        .withLatestTime()
+                        .build())
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         testAddAndSelectLatestValidTime_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
     }
-    
-    
+
+
     protected void testAddAndSelectLatestValidTime_ExpectedResults()
     {
         addToExpectedResults(2, 5, 7);
     }
-    
-    
+
+
     @Test
     @SuppressWarnings("unused")
     public void testAddAndSelectByTimeRange() throws Exception
     {
         Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
-        
+
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID3 = bigId(3);
@@ -533,41 +556,41 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         var ds4v0 = addSimpleDataStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
         var ds5v0 = addSimpleDataStream(sysID3, "hum", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
         dataStreamStore.commit();
-        
+
         // select from t0 to now
         DataStreamFilter filter = new DataStreamFilter.Builder()
-            .withValidTimeDuring(now.minus(10, ChronoUnit.DAYS), now)
-            .build();
+                .withValidTimeDuring(now.minus(10, ChronoUnit.DAYS), now)
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         testAddAndSelectByTimeRange_ExpectedResults(1);
         checkSelectedEntries(resultStream, expectedResults, filter);
-                
+
         // select from t0 to t1
         forceReadBackFromStorage();
         filter = new DataStreamFilter.Builder()
-            .withValidTimeDuring(now.minus(90, ChronoUnit.DAYS), now.minus(30, ChronoUnit.DAYS))
-            .build();
+                .withValidTimeDuring(now.minus(90, ChronoUnit.DAYS), now.minus(30, ChronoUnit.DAYS))
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByTimeRange_ExpectedResults(2);
         checkSelectedEntries(resultStream, expectedResults, filter);
-        
+
         // select from t0 to t1, only proc 3
         forceReadBackFromStorage();
         filter = new DataStreamFilter.Builder()
-            .withSystems(sysID3)
-            .withValidTimeDuring(now.minus(90, ChronoUnit.DAYS), now.minus(30, ChronoUnit.DAYS))
-            .build();
+                .withSystems(sysID3)
+                .withValidTimeDuring(now.minus(90, ChronoUnit.DAYS), now.minus(30, ChronoUnit.DAYS))
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByTimeRange_ExpectedResults(3);
-        checkSelectedEntries(resultStream, expectedResults, filter); 
+        checkSelectedEntries(resultStream, expectedResults, filter);
     }
-    
-    
+
+
     protected void testAddAndSelectByTimeRange_ExpectedResults(int testCaseIdx)
     {
         switch (testCaseIdx)
@@ -575,16 +598,16 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             case 1: addToExpectedResults(1, 3, 4, 5, 7); break;
             case 2: addToExpectedResults(0, 1, 2, 4, 7); break;
             case 3: addToExpectedResults(7); break;
-        }        
+        }
     }
-    
-    
+
+
     @Test
     @SuppressWarnings("unused")
     public void testAddAndSelectByOutputName() throws Exception
     {
         Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
-        
+
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
@@ -596,30 +619,64 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         var ds4v0 = addSimpleDataStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
         var ds5v0 = addSimpleDataStream(sysID3, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
         dataStreamStore.commit();
-        
+
         // select from t0 to now
         DataStreamFilter filter = new DataStreamFilter.Builder()
-            .withOutputNames("out1")
-            .build();
+                .withOutputNames("out1")
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         testAddAndSelectByOutputName_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
     }
-    
-    
+
+    @Test
+    @SuppressWarnings("unused")
+    public void testAddAndSelectByObservedProperty() throws Exception
+    {
+        Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
+
+        var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        var sysID1 = bigId(1);
+        var sysID2 = bigId(2);
+        var sysID3 = bigId(3);
+        String def1 = "http://sensorml.com/ont/swe/property/Location";
+        String def2 = "http://sensorml.com/ont/swe/property/GeodeticLatitude";
+        var ds1v0 = addSimpleDataStreamWithDefinition(sysID1, "out1", TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)),def1);
+        var ds2v0 = addSimpleDataStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds4v0 = addSimpleDataStreamWithDefinition(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)), def2);
+        var ds6v0 = addSimpleDataStream(sysID3, "out3", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds7v0 = addSimpleDataStream(sysID3, "out4", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        dataStreamStore.commit();
+
+        // select from t0 to now
+        DataStreamFilter filter = new DataStreamFilter.Builder()
+                .withObservedProperties(def1, def2)
+                .build();
+        resultStream = dataStreamStore.selectEntries(filter);
+
+        testAddAndSelectByObservedProperty_ExpectedResults();
+        checkSelectedEntries(resultStream, expectedResults, filter);
+    }
+
+    protected void testAddAndSelectByObservedProperty_ExpectedResults()
+    {
+        addToExpectedResults(0, 2);
+    }
+
+
     protected void testAddAndSelectByOutputName_ExpectedResults()
     {
         addToExpectedResults(0, 1, 3, 5);
     }
-    
-    
+
+
     @Test
     @SuppressWarnings("unused")
     public void testAddAndSelectBySystemID() throws Exception
     {
         Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
-        
+
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
@@ -631,31 +688,31 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         var ds4v0 = addSimpleDataStream(sysID3, "temp", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
         var ds5v0 = addSimpleDataStream(sysID3, "out1", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
         dataStreamStore.commit();
-        
+
         // select from t0 to now
         DataStreamFilter filter = new DataStreamFilter.Builder()
-            .withSystems(sysID2, sysID3)
-            .build();
+                .withSystems(sysID2, sysID3)
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         testAddAndSelectBySystemID_ExpectedResults();
         checkSelectedEntries(resultStream, expectedResults, filter);
     }
-    
-    
+
+
     protected void testAddAndSelectBySystemID_ExpectedResults()
     {
         addToExpectedResults(3, 4, 5);
     }
-    
-    
+
+
     @Test
     @SuppressWarnings("unused")
     public void testAddAndSelectByKeywords() throws Exception
     {
         Stream<Entry<DataStreamKey, IDataStreamInfo>> resultStream;
         DataStreamFilter filter;
-        
+
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         var sysID1 = bigId(1);
         var sysID2 = bigId(2);
@@ -667,61 +724,61 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         var ds4v0 = addSimpleDataStream(sysID3, "temp", "Air temperature", TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)));
         var ds5v0 = addSimpleDataStream(sysID3, "out1", "Air pressure", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
         dataStreamStore.commit();
-        
+
         // select with one keyword
         filter = new DataStreamFilter.Builder()
-            .withKeywords("air")
-            .build();
+                .withKeywords("air")
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(1);
         checkSelectedEntries(resultStream, expectedResults, filter);
-        
+
         // select with 2 keywords
         filter = new DataStreamFilter.Builder()
-            .withKeywords("air", "weather")
-            .build();
+                .withKeywords("air", "weather")
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(2);
         checkSelectedEntries(resultStream, expectedResults, filter);
-        
+
         // select with 2 keywords
         filter = new DataStreamFilter.Builder()
-            .withKeywords("air", "video")
-            .build();
+                .withKeywords("air", "video")
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(3);
         checkSelectedEntries(resultStream, expectedResults, filter);
-        
+
         // select with system and keywords (partial words)
         filter = new DataStreamFilter.Builder()
-            .withSystems(sysID3)
-            .withKeywords("weather", "temp")
-            .build();
+                .withSystems(sysID3)
+                .withKeywords("weather", "temp")
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(4);
         checkSelectedEntries(resultStream, expectedResults, filter);
-        
+
         // select unknown keywords
         filter = new DataStreamFilter.Builder()
-            .withSystems(sysID3)
-            .withKeywords("lidar", "humidity")
-            .build();
+                .withSystems(sysID3)
+                .withKeywords("lidar", "humidity")
+                .build();
         resultStream = dataStreamStore.selectEntries(filter);
-        
+
         expectedResults.clear();
         testAddAndSelectByKeywords_ExpectedResults(5);
         checkSelectedEntries(resultStream, expectedResults, filter);
     }
-    
-    
+
+
     protected void testAddAndSelectByKeywords_ExpectedResults(int testCaseIdx)
     {
         switch (testCaseIdx)
@@ -730,10 +787,10 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
             case 2: addToExpectedResults(0, 1, 4, 5); break;
             case 3: addToExpectedResults(2, 4, 5); break;
             case 4: addToExpectedResults(4); break;
-        }        
+        }
     }
-    
-    
+
+
     @Test(expected = DataStoreException.class)
     public void testErrorAddWithExistingOutput() throws Exception
     {
@@ -743,18 +800,18 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         addSimpleDataStream(sysID1, "out1", TimeExtent.beginAt(now));
         dataStreamStore.commit();
     }
-    
-    
+
+
     @Test(expected = IllegalStateException.class)
     public void testErrorWithSystemFilterJoin() throws Exception
     {
         try
         {
             dataStreamStore.selectEntries(new DataStreamFilter.Builder()
-                .withSystems()
+                    .withSystems()
                     .withKeywords("thermometer")
                     .done()
-                .build());
+                    .build());
         }
         catch (Exception e)
         {
