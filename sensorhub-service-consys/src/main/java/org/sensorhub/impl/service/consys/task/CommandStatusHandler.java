@@ -60,12 +60,12 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
     final ScheduledExecutorService threadPool;
     
     
-    static class CommandStatusHandlerContextData
+    public static class CommandStatusHandlerContextData
     {
-        BigId streamID;
-        ICommandStreamInfo csInfo;
-        BigId foiId;
-        CommandStreamTransactionHandler csHandler;
+        public BigId streamID;
+        public ICommandStreamInfo csInfo;
+        public BigId foiId;
+        public CommandStreamTransactionHandler csHandler;
     }
     
     

@@ -50,8 +50,10 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.opengis.swe.v20.BinaryEncoding;
+import org.sensorhub.api.command.CommandStatus;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
+import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.DataStreamInfo;
@@ -80,6 +82,12 @@ import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.system.SystemBindingGeoJson;
 import org.sensorhub.impl.service.consys.system.SystemBindingSmlJson;
+import org.sensorhub.impl.service.consys.task.CommandBindingJson;
+import org.sensorhub.impl.service.consys.task.CommandBindingSweCommon;
+import org.sensorhub.impl.service.consys.task.CommandHandler;
+import org.sensorhub.impl.service.consys.task.CommandResultBindingSweCommon;
+import org.sensorhub.impl.service.consys.task.CommandStatusBindingJson;
+import org.sensorhub.impl.service.consys.task.CommandStatusHandler.CommandStatusHandlerContextData;
 import org.sensorhub.impl.service.consys.task.CommandStreamBindingJson;
 import org.sensorhub.impl.service.consys.task.CommandStreamSchemaBindingJson;
 import org.sensorhub.utils.Lambdas;
@@ -101,8 +109,9 @@ public class ConSysApiClient
     static final String SYSTEMS_COLLECTION = "systems";
     static final String DEPLOYMENTS_COLLECTION = "deployments";
     static final String DATASTREAMS_COLLECTION = "datastreams";
-    static final String CONTROLS_COLLECTION = "controlstreams";
     static final String OBSERVATIONS_COLLECTION = "observations";
+    static final String CONTROLSTREAMS_COLLECTION = "controlstreams";
+    static final String COMMANDS_COLLECTION = "commands";
     static final String SUBSYSTEMS_COLLECTION = "subsystems";
     static final String SF_COLLECTION = "samplingFeatures";
 
@@ -842,7 +851,7 @@ public class ConSysApiClient
             binding.serializeCreate(cmdstream);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLSTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -885,7 +894,7 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLSTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -898,7 +907,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ICommandStreamInfo> getControlStreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
-        var cf1 = sendGetRequest(endpoint.resolve(CONTROLS_COLLECTION + "/" + id), format, body -> {
+        var cf1 = sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + id), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -933,7 +942,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ICommandStreamInfo> getControlStreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(CONTROLS_COLLECTION + "/" + id + "/schema?obsFormat=" + obsFormat), format, body -> {
+        return sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + id + "/schema?obsFormat=" + obsFormat), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -1088,9 +1097,55 @@ public class ConSysApiClient
     /* Commands */
     /*----------*/
 
-    public CompletableFuture<String> sendCommand(String controlId, ICommandData cmd)
+    public CompletableFuture<ICommandStatus> sendCommand(String controlstreamId, ICommandStreamInfo cmdStream, ICommandData cmd)
     {
-        return null;
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+            ctx.setParent(null, controlstreamId, cmd.getCommandStreamID());
+            var contextData = new CommandHandler.CommandHandlerContextData();
+            contextData.csInfo = cmdStream;
+            ctx.setData(contextData);
+
+            if (cmdStream != null && cmdStream.getRecordEncoding() instanceof BinaryEncoding) {
+                ctx.setData(contextData);
+                ctx.setFormat(ResourceFormat.SWE_BINARY);
+                var binding = new CommandBindingSweCommon(ctx, new IdEncodersBase32(), false, null);
+                binding.serialize(null, cmd, false);
+            } else {
+                ctx.setFormat(ResourceFormat.JSON);
+                var binding = new CommandBindingJson(ctx, new IdEncodersBase32(), false, null);
+                binding.serialize(null, cmd, false);
+            }
+            
+            return sendPostRequestAndReadResponse(
+                    endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + controlstreamId + "/" + COMMANDS_COLLECTION),
+                    ctx.getFormat(),
+                    buffer.toByteArray(),
+                    responseBody -> {
+                        try
+                        {
+                            var respCtx = new RequestContext(responseBody);
+                            var respCtxData = new CommandStatusHandlerContextData();
+                            respCtxData.csInfo = cmdStream;
+                            respCtx.setData(respCtxData);
+                            respCtx.setFormat(ResourceFormat.JSON);
+                            var binding = new CommandStatusBindingJson(respCtx, new IdEncodersBase32(), true, null);
+                            binding.startCollection();
+                            return binding.deserialize();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                            throw new CompletionException(e);
+                        }
+                    });
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
     }
     
     
@@ -1199,6 +1254,45 @@ public class ConSysApiClient
                     } else
                         throw new CompletionException(resp.body(), null);
                 });
+    }
+
+
+    protected <T> CompletableFuture<T> sendPostRequestAndReadResponse(URI collectionUri, ResourceFormat format, byte[] requestBody, Function<InputStream, T> responseBodyMapper)
+    {
+        //if (!isHttpClientAvailable)
+        //    return sendPostRequestFallback(collectionUri, format, body);
+
+        var builder = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
+                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        
+        var req = builder.build();
+        BodyHandler<T> bodyHandler = resp -> {
+            BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
+            return BodySubscribers.mapping(upstream, body -> {
+                if (resp.statusCode() == 200) {
+                    var is = new ByteArrayInputStream(body);
+                    return responseBodyMapper.apply(is);
+                } else {
+                    var error = new String(body);
+                    throw new CompletionException("HTTP error " + resp.statusCode() + ": " + error, null);
+                }
+            });
+        };
+
+        return http.sendAsync(req, bodyHandler)
+            .thenApply(resp -> {
+                if (resp.statusCode() == 200)
+                    return resp.body();
+                else
+                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
+            });
     }
 
 
