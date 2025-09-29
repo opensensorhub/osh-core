@@ -143,40 +143,19 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             var data = comp.getData();
             var retType = method.getReturnType();
                         
-            if (retType == boolean.class)
-                return data.getBooleanValue();
-            else if (retType == byte.class)
-                return data.getByteValue();
-            else if (retType == short.class)
-                return data.getShortValue();
-            else if (retType == int.class)
-                return data.getIntValue();
-            else if (retType == long.class)
-                return data.getLongValue();
-            else if (retType == float.class)
-                return data.getFloatValue();
-            else if (retType == double.class)
-                return data.getDoubleValue();
-            else if (retType == String.class)
-                return data.getStringValue();
-            else if (retType == Instant.class)
-                return data.getTimeStamp();
-            else if (retType == OffsetDateTime.class)
-                return data.getDateTime();
-            else if (Collection.class.isAssignableFrom(retType))
+            if (Collection.class.isAssignableFrom(retType))
             {
                 assertDataArray(method, comp);
                 
                 var itemType = (Class<?>)((ParameterizedType)method.getGenericReturnType()).getActualTypeArguments()[0];
-                if (!IDataAccessor.class.isAssignableFrom(itemType))
-                    throw new IllegalStateException("Collection item type must be an accessor class");
+                var isSimpleType = isSimpleType(itemType);
+                Asserts.checkState(isSimpleType || IDataAccessor.class.isAssignableFrom(itemType),
+                    "Collection item type must be a simple type or a IDataAccessor");
                 
-                @SuppressWarnings({"unchecked"})
-                var accessorClass = (Class<IDataAccessor>)itemType;
-                return createCollection(accessorClass, (DataArray)comp);
+                return createCollection(itemType, isSimpleType, (DataArray)comp);
             }
             else
-                throw new IllegalStateException("Unsupported datatype: " + retType);
+                return getDataValue(retType, data);
         }
         
         else if (isSetNumMethod(method))
@@ -184,7 +163,6 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             assertDataArray(method, comp);
             var arraySize = (int)args[0];
             ((DataArray)comp).updateSize(arraySize);
-            return null;
         }
         
         else if (isSetMethod(method))
@@ -192,37 +170,15 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             var data = comp.getData();
             var argType = method.getParameters()[0].getType();
             var val = args[0];
-                        
-            if (argType == boolean.class)
-                data.setBooleanValue((boolean)val);
-            else if (argType == byte.class)
-                data.setByteValue((byte)val);
-            else if (argType == short.class)
-                data.setShortValue((short)val);
-            else if (argType == int.class)
-                data.setIntValue((int)val);
-            else if (argType == long.class)
-                data.setLongValue((long)val);
-            else if (argType == float.class)
-                data.setFloatValue((float)val);
-            else if (argType == double.class)
-                data.setDoubleValue((double)val);
-            else if (argType == String.class)
-                data.setStringValue((String)val);
-            else if (argType == Instant.class)
-                data.setTimeStamp((Instant)val);
-            else if (argType == OffsetDateTime.class)
-                data.setDateTime((OffsetDateTime)val);
-            else
-                throw new IllegalStateException("Unsupported datatype: " + argType);
-            return null;
+            setDataValue(data, argType, val);
         }
         
         else if (isAddMethod(method))
         {
             var retType = method.getReturnType();
-            Asserts.checkState(IDataAccessor.class.isAssignableFrom(retType),
-                "Return type of method " + method.getName() + " must be a IDataAccessor");
+            var isSimpleType = isSimpleType(retType);
+            Asserts.checkState(isSimpleType(retType) || IDataAccessor.class.isAssignableFrom(retType),
+                "Return type of method " + method.getName() + " must be a simple type or a IDataAccessor");
             
             var array = assertDataArray(method, comp);
             if (arrayData == null)
@@ -241,17 +197,84 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             var parent = ((AbstractDataComponentImpl)array.getParent());
             parent.updateAtomCount(newDblk.getAtomCount());
             
-            // create accessor for new element
-            @SuppressWarnings("unchecked")
-            var accessorClass = (Class<IDataAccessor>)retType;
-            var accessor = createElementProxy(accessorClass, array.getElementType());
-            accessor.wrap(newDblk);
-            
-            return accessor;
+            // create accessor for new element if complex
+            if (!isSimpleType)
+            {
+                @SuppressWarnings("unchecked")
+                var accessorClass = (Class<IDataAccessor>)retType;
+                var accessor = createElementProxy(accessorClass, array.getElementType());
+                accessor.wrap(newDblk);
+                return accessor;
+            }
+            else
+            {
+                var argType = method.getParameters()[0].getType();
+                var val = args[0];
+                setDataValue(newDblk, argType, val);
+            }
         }
         
+        return null;
+    }
+    
+    
+    protected Object getDataValue(Class<?> retType, DataBlock data)
+    {
+        if (retType == boolean.class)
+            return data.getBooleanValue();
+        else if (retType == byte.class)
+            return data.getByteValue();
+        else if (retType == short.class)
+            return data.getShortValue();
+        else if (retType == int.class)
+            return data.getIntValue();
+        else if (retType == long.class)
+            return data.getLongValue();
+        else if (retType == float.class)
+            return data.getFloatValue();
+        else if (retType == double.class)
+            return data.getDoubleValue();
+        else if (retType == String.class)
+            return data.getStringValue();
+        else if (retType == Instant.class)
+            return data.getTimeStamp();
+        else if (retType == OffsetDateTime.class)
+            return data.getDateTime();
         else
-            return null;
+            throw new IllegalStateException("Unsupported datatype: " + retType);
+    }
+    
+    
+    protected void setDataValue(DataBlock data, Class<?> argType, Object val)
+    {
+        if (argType == boolean.class)
+            data.setBooleanValue((boolean)val);
+        else if (argType == byte.class)
+            data.setByteValue((byte)val);
+        else if (argType == short.class)
+            data.setShortValue((short)val);
+        else if (argType == int.class)
+            data.setIntValue((int)val);
+        else if (argType == long.class)
+            data.setLongValue((long)val);
+        else if (argType == float.class)
+            data.setFloatValue((float)val);
+        else if (argType == double.class)
+            data.setDoubleValue((double)val);
+        else if (argType == String.class)
+            data.setStringValue((String)val);
+        else if (argType == Instant.class)
+            data.setTimeStamp((Instant)val);
+        else if (argType == OffsetDateTime.class)
+            data.setDateTime((OffsetDateTime)val);
+        else
+            throw new IllegalStateException("Unsupported datatype: " + argType);
+    }
+    
+    
+    protected boolean isSimpleType(Class<?> clazz)
+    {
+        return clazz.isPrimitive() || clazz == String.class || clazz == Instant.class;
     }
     
     
@@ -296,8 +319,8 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
     protected boolean isAddMethod(Method m)
     {
         return m.getName().startsWith("add") &&
-               m.getReturnType() != void.class &&
-               m.getParameters().length == 0;
+               ((m.getReturnType() != void.class && m.getParameters().length == 0) || // when adding sub object
+               (m.getReturnType() == void.class && m.getParameters().length == 1)); // when adding scalar
     }
     
     
@@ -322,14 +345,14 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
     }
     
     
-    protected Collection<IDataAccessor> createCollection(Class<IDataAccessor> clazz, DataArray array)
+    protected Collection<Object> createCollection(Class<?> clazz, boolean isSimpleType, DataArray array)
     {
-        return new AbstractCollection<IDataAccessor>() {
+        return new AbstractCollection<Object>() {
 
             @Override
-            public Iterator<IDataAccessor> iterator()
+            public Iterator<Object> iterator()
             {
-                return new Iterator<IDataAccessor>()
+                return new Iterator<Object>()
                 {
                     int idx;
                     
@@ -340,12 +363,20 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
                     }
 
                     @Override
-                    public IDataAccessor next()
+                    public Object next()
                     {
                         var elt = array.getComponent(idx++);
-                        var accessor = createElementProxy(clazz, array.getElementType());
-                        accessor.wrap(elt.getData().copy());
-                        return accessor;
+                        
+                        if (!isSimpleType) {
+                            @SuppressWarnings({"unchecked"})
+                            var accessorClass = (Class<IDataAccessor>)clazz;
+                            var accessor = createElementProxy(accessorClass, array.getElementType());
+                            accessor.wrap(elt.getData().copy());
+                            return accessor;
+                        }
+                        else {
+                            return getDataValue(clazz, elt.getData());
+                        }
                     }
                 };
             }

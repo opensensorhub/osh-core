@@ -176,17 +176,20 @@ public class DataBlockParallel extends AbstractDataBlock
 		buffer.append("PARALLEL: ");
 		buffer.append('[');
 
-		selectBlock(0);
-		int start = blockIndex;
-		selectBlock(getAtomCount() - 1);
-		int stop = blockIndex + 1;
-		
-		for (int i = start; i < stop; i++)
-		{
-			buffer.append(blockArray[i].toString());
-			if (i < stop - 1)
-				buffer.append(',');
-		}
+        if (atomCount > 0)
+        {
+    		selectBlock(0);
+    		int start = blockIndex;
+    		selectBlock(getAtomCount() - 1);
+    		int stop = blockIndex + 1;
+    		
+    		for (int i = start; i < stop; i++)
+    		{
+    			buffer.append(blockArray[i].toString());
+    			if (i < stop - 1)
+    				buffer.append(',');
+    		}
+        }
 
 		buffer.append(']');
 		return buffer.toString();

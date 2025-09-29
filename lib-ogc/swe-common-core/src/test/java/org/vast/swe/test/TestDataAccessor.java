@@ -83,6 +83,34 @@ public class TestDataAccessor
     }
     
     
+    interface RecordAccessor3 extends IDataAccessor
+    {
+        @SweMapping(path="type")
+        public String getRecordType();
+                
+        @SweMapping(path="array")
+        public Collection<String> getTokens();
+        
+        @SweMapping(path="array")
+        public void addToken();
+        
+        static DataRecord getSchema()
+        {
+            var swe = new SWEHelper();
+            Count sizeComp;
+            return swe.createRecord()
+                .addField("type", swe.createCategory())
+                .addField("count", sizeComp = swe.createCount()
+                    .id("ARRAY_SIZE")
+                    .build())
+                .addField("array", swe.createArray()
+                    .withSizeComponent(sizeComp)
+                    .withElement("token", swe.createText()))
+                .build();
+        }
+    }
+    
+    
     @Test
     public void testReadRecordOfScalars()
     {
@@ -149,6 +177,40 @@ public class TestDataAccessor
             assertEquals(temps[r], elt.getTemperature(), 1e-8);
             assertEquals(press[r], elt.getPressure(), 1e-8);
             assertEquals(status[r], elt.getStatus());
+            r++;
+            
+            System.out.println(elt.toString());
+        }
+        
+    }
+    
+    
+    @Test
+    public void testReadArrayOfScalars()
+    {
+        var rec = RecordAccessor3.getSchema();
+        var accessor = DataBlockProxy.generate(rec, RecordAccessor3.class);
+        
+        String type = "wpts";
+        String[] codes = {"LCH", "LFT", "AWDAD", "VOODO"};
+        
+        int i = 0;
+        var dblk = rec.createDataBlock();
+        dblk.setStringValue(i++, type);
+        dblk.setIntValue(i++, codes.length);
+        ((DataBlockMixed)dblk).getUnderlyingObject()[2].resize(codes.length);
+        for (var r = 0; r < codes.length; r++) {
+            dblk.setStringValue(i++, codes[r]);
+        }
+        
+        accessor.wrap(dblk);
+        
+        assertEquals(type, accessor.getRecordType());
+        assertEquals(codes.length, accessor.getTokens().size());
+        int r = 0;
+        for (var elt: accessor.getTokens())
+        {
+            assertEquals(codes[r], elt);
             r++;
             
             System.out.println(elt.toString());
