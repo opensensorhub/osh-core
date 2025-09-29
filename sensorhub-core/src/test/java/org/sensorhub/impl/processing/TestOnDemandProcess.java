@@ -88,9 +88,9 @@ public class TestOnDemandProcess implements IEventListener
             .thenAccept(status -> {
                 System.out.println(status);
                 assertNotNull(status.getResult());
-                assertNotNull(status.getResult().getObservations());
-                assertEquals(1, status.getResult().getObservations().size());
-                var rec = status.getResult().getObservations().iterator().next().getResult();
+                assertNotNull(status.getResult().getInlineRecords());
+                assertEquals(1, status.getResult().getInlineRecords().size());
+                var rec = status.getResult().getInlineRecords().iterator().next();
                 assertEquals(2*2-3, rec.getDoubleValue(0), 1e-8);
             }).get();
     }
@@ -120,9 +120,9 @@ public class TestOnDemandProcess implements IEventListener
             .thenAccept(status -> {
                 System.out.println(status);
                 assertNotNull(status.getResult());
-                assertEquals(1, status.getResult().getObservations().size());
-                var obs = status.getResult().getObservations().iterator().next();
-                assertEquals(5*20.-1.5, obs.getResult().getDoubleValue(0), 1e-8);
+                assertEquals(1, status.getResult().getInlineRecords().size());
+                var rec = status.getResult().getInlineRecords().iterator().next();
+                assertEquals(5*20.-1.5, rec.getDoubleValue(0), 1e-8);
             }).get();
     }
     

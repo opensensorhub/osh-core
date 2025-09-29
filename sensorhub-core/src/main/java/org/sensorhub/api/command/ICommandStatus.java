@@ -182,7 +182,7 @@ public interface ICommandStatus
     
     
     /**
-     * @return The result of the command (either inline of by reference)
+     * @return The result(s) of the command (either inline of by reference)
      */
     ICommandResult getResult();
     
