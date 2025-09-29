@@ -311,7 +311,10 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
     @Override
     public void startCollection() throws IOException
     {
-        startJsonCollection(writer);
+        if (reader != null)
+            startJsonCollection(reader);
+        else
+            startJsonCollection(writer);
     }
 
 

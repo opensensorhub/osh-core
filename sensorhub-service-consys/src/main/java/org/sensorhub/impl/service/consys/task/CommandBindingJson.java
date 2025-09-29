@@ -67,7 +67,7 @@ public class CommandBindingJson extends ResourceBindingJson<BigId, ICommandData>
         
         if (forReading)
         {
-            this.paramsReader = getSweCommonParser(contextData.dsInfo, reader);
+            this.paramsReader = getSweCommonParser(contextData.csInfo, reader);
             
             var user = ctx.getSecurityHandler().getCurrentUser();
             this.userID = user != null ? user.getId() : "api";
@@ -78,9 +78,9 @@ public class CommandBindingJson extends ResourceBindingJson<BigId, ICommandData>
             
             // init params writer only in case of single command stream
             // otherwise we'll do it later
-            if (contextData.dsInfo != null)
+            if (contextData.csInfo != null)
             {
-                var resultWriter = getSweCommonWriter(contextData.dsInfo, writer, ctx.getPropertyFilter());
+                var resultWriter = getSweCommonWriter(contextData.csInfo, writer, ctx.getPropertyFilter());
                 paramsWriters.put(ctx.getParentID(), resultWriter);
             }
         }
@@ -271,7 +271,10 @@ public class CommandBindingJson extends ResourceBindingJson<BigId, ICommandData>
     @Override
     public void startCollection() throws IOException
     {
-        startJsonCollection(writer);
+        if (reader != null)
+            startJsonCollection(reader);
+        else
+            startJsonCollection(writer);
     }
 
 

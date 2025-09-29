@@ -73,7 +73,7 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
     public static class CommandHandlerContextData
     {
         public BigId streamID;
-        public ICommandStreamInfo dsInfo;
+        public ICommandStreamInfo csInfo;
         public BigId foiId;
         public CommandStreamTransactionHandler dsHandler;
     }
@@ -125,12 +125,12 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         // try to fetch command stream since it's needed to configure binding
         var dsID = ctx.getParentID();
         if (dsID != null)
-            contextData.dsInfo = db.getCommandStreamStore().get(new CommandStreamKey(dsID));
+            contextData.csInfo = db.getCommandStreamStore().get(new CommandStreamKey(dsID));
                 
         if (forReading)
         {
             // when ingesting commands, datastream should be known at this stage
-            Asserts.checkNotNull(contextData.dsInfo, ICommandStreamInfo.class);
+            Asserts.checkNotNull(contextData.csInfo, ICommandStreamInfo.class);
             
             // create transaction handler here so it can be reused multiple times
             contextData.streamID = dsID;
@@ -216,7 +216,7 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
             });*/
         
         // init event to obs converter
-        var dsInfo = ((CommandHandlerContextData)ctx.getData()).dsInfo;
+        var dsInfo = ((CommandHandlerContextData)ctx.getData()).csInfo;
         var streamHandler = ctx.getStreamHandler();
         
         // create subscriber

@@ -166,6 +166,21 @@ public abstract class ResourceBindingJson<K, V> extends ResourceBinding<K, V>
     }
     
     
+    protected void startJsonCollection(JsonReader reader) throws IOException
+    {
+        // if we're reading, just skip to the items array
+        // calls to deserialize() will take it from there
+        reader.beginObject();
+        while (reader.hasNext()) {
+            var propName = reader.nextName();
+            if (propName.equals(getItemsPropertyName()))
+                return;
+            else
+                reader.skipValue();
+        }
+    }
+    
+    
     protected String getItemsPropertyName()
     {
         return "items";
