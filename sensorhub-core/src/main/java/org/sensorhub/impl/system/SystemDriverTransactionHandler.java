@@ -22,6 +22,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import org.sensorhub.api.command.CommandEvent;
+import org.sensorhub.api.command.CommandStatus;
 import org.sensorhub.api.command.ICommandReceiver;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.command.IStreamingControlInterfaceWithResult;
@@ -364,6 +365,7 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
     {
         csHandler.connectCommandReceiver(new Subscriber<CommandEvent>() {
             Subscription sub;
+            static final String ERROR_MESSAGE = "Error sending command to {}. Canceling command receiver subscription";
             
             @Override
             public void onSubscribe(Subscription sub)
@@ -383,12 +385,18 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                             .thenAccept(status -> {
                                 csHandler.sendStatus(event.getCorrelationID(), status);
                                 sub.request(1);
+                            })
+                            .exceptionally(e -> {
+                                DefaultSystemRegistry.log.error(ERROR_MESSAGE, csHandler.csInfo.getFullName(), e);
+                                sub.cancel();
+                                csHandler.sendStatus(event.getCorrelationID(), CommandStatus.failed(event.getCommand().getID(), "Internal error processing command"));
+                                return null; // return type is Void
                             });
                     }
                     catch (Exception e)
                     {
-                        onError(e);
-                        sub.request(1);
+                        DefaultSystemRegistry.log.error(ERROR_MESSAGE, csHandler.csInfo.getFullName(), e);
+                        sub.cancel();
                     }
                 });
             }
@@ -396,7 +404,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
             @Override
             public void onError(Throwable e)
             {
-                DefaultSystemRegistry.log.error("Error dispatching commands to {} / {}", driver.getName(), controlInput.getName(), e);
+                DefaultSystemRegistry.log.error("Error dispatching commands to {}. "
+                    + "No more commands will be processed.", csHandler.csInfo.getFullName(), e);
             }
 
             @Override

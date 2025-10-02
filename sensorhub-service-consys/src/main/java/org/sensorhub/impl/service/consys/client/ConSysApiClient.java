@@ -98,6 +98,9 @@ import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
@@ -1132,7 +1135,6 @@ public class ConSysApiClient
                             respCtx.setData(respCtxData);
                             respCtx.setFormat(ResourceFormat.JSON);
                             var binding = new CommandStatusBindingJson(respCtx, new IdEncodersBase32(), true, null);
-                            binding.startCollection();
                             return binding.deserialize();
                         }
                         catch (IOException e)
@@ -1280,8 +1282,13 @@ public class ConSysApiClient
                     var is = new ByteArrayInputStream(body);
                     return responseBodyMapper.apply(is);
                 } else {
-                    var error = new String(body);
-                    throw new CompletionException("HTTP error " + resp.statusCode() + ": " + error, null);
+                    var bodyStr = new String(body);
+                    try {
+                        var jsonError = (JsonObject)JsonParser.parseString(bodyStr);
+                        throw new CompletionException(jsonError.get("message").getAsString(), null);
+                    } catch (JsonSyntaxException e) {
+                        throw new CompletionException("HTTP error " + resp.statusCode() + ": " + bodyStr, null);
+                    }
                 }
             });
         };

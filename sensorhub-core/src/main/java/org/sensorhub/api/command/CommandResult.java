@@ -21,6 +21,7 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.utils.ObjectUtils;
 import org.vast.ogc.xlink.IXlinkReference;
 import org.vast.util.Asserts;
+import com.google.common.collect.ImmutableList;
 import net.opengis.swe.v20.DataBlock;
 
 
@@ -48,7 +49,7 @@ public class CommandResult implements ICommandResult
     
     /**
      * Add an entire datastream to the command result
-     * @param dataStreamID The ID of the datastream that contains the result
+     * @param dataStreamID The internal ID of the datastream that contains the result
      * @return The result object
      */
     public static ICommandResult withDatastream(BigId dataStreamID)
@@ -56,16 +57,30 @@ public class CommandResult implements ICommandResult
         Asserts.checkNotNull(dataStreamID, BigId.class);
         
         var res = new CommandResult();
-        if (res.dsIDs == null)
-            res.dsIDs = new ArrayList<>();
-        res.dsIDs.add(dataStreamID);
+        res.dsIDs = ImmutableList.of(dataStreamID);
         return res;
     }
     
     
     /**
-     * Add an observation to the command result
-     * @param obsID The internal ID of an observation to add to the result
+     * Create a command result with multiple datastream references
+     * @param dataStreamIDs The internal IDs of the datastreams
+     * @return The result object
+     */
+    public static ICommandResult withDatastreams(Collection<BigId> dataStreamIDs)
+    {
+        Asserts.checkNotNull(dataStreamIDs, Collection.class);
+        
+        var res = new CommandResult();
+        res.dsIDs = new ArrayList<>();
+        res.dsIDs.addAll(dataStreamIDs);
+        return res;
+    }
+    
+    
+    /**
+     * Create a command result with a single observation
+     * @param obsID The internal ID of the observation
      * @return The result object
      */
     public static ICommandResult withObservation(BigId obsID)
@@ -73,16 +88,30 @@ public class CommandResult implements ICommandResult
         Asserts.checkNotNull(obsID, BigId.class);
         
         var res = new CommandResult();
-        if (res.obsIDs == null)
-            res.obsIDs = new ArrayList<>();
-        res.obsIDs.add(obsID);
+        res.obsIDs = ImmutableList.of(obsID);
         return res;
     }
     
     
     /**
-     * Add data to the inline command result
-     * @param data The data record to be added
+     * Create a command result with multiple observation references
+     * @param obsIDs The internal IDs of the observations
+     * @return The result object
+     */
+    public static ICommandResult withObservations(Collection<BigId> obsIDs)
+    {
+        Asserts.checkNotNull(obsIDs, Collection.class);
+        
+        var res = new CommandResult();
+        res.obsIDs = new ArrayList<>();
+        res.obsIDs.addAll(obsIDs);
+        return res;
+    }
+    
+    
+    /**
+     * Create a command result with single record
+     * @param data The data record to add
      * @return The result object
      */
     public static ICommandResult withData(DataBlock data)
@@ -90,16 +119,14 @@ public class CommandResult implements ICommandResult
         Asserts.checkNotNull(data, DataBlock.class);
         
         var res = new CommandResult();
-        if (res.inlineRecords == null)
-            res.inlineRecords = new ArrayList<>();
-        res.inlineRecords.add(data);
+        res.inlineRecords = ImmutableList.of(data);
         return res;
     }
     
     
     /**
      * Add multiple data records to the inline command result
-     * @param records List of data records to be added
+     * @param records The list of data records to add
      * @return The result object
      */
     public static ICommandResult withData(Collection<DataBlock> records)
@@ -107,8 +134,7 @@ public class CommandResult implements ICommandResult
         Asserts.checkNotNull(records, Collection.class);
         
         var res = new CommandResult();
-        if (res.inlineRecords == null)
-            res.inlineRecords = new ArrayList<>();
+        res.inlineRecords = new ArrayList<>();
         res.inlineRecords.addAll(records);
         return res;
     }
