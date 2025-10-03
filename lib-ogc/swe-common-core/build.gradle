@@ -2,8 +2,8 @@ group = 'org.vast.opengis'
 description = 'SWE Common Core'
 
 dependencies {
-  api 'ch.qos.logback:logback-classic:1.2.13'
-  api 'com.fasterxml.woodstox:woodstox-core:6.2.8'
+  api 'ch.qos.logback:logback-classic:1.5.13'
+  api 'com.fasterxml.woodstox:woodstox-core:6.4.0'
   api 'com.google.code.gson:gson:2.11.0'
   api 'com.google.guava:guava:32.1.3-jre'
   api 'net.sf.trove4j:core:3.1.0'
