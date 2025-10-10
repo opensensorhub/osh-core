@@ -107,9 +107,10 @@ public interface IStreamingControlInterface extends IEventProducer
      * are then sent via the dedicated event channel, using the same task ID,
      * to provide status updates to the caller.
      * </p><p>
-     * The future should only complete exceptionally if there is an unexpected error.
-     * All errors associated to the processing of the command by the receiver system
-     * should be reported via a status object instead.
+     * The future should only complete exceptionally if there is an unexpected error
+     * or internal error that should not be reported to the caller. Otherwise, all
+     * errors associated to the processing of the command by the receiver system
+     * should be reported in the status object instead.
      * </p>
      * @param command Command data (with ID set)
      * @return A future that will be completed normally when the system is ready to

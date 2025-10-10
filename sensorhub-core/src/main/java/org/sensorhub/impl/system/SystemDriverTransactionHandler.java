@@ -365,7 +365,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
     {
         csHandler.connectCommandReceiver(new Subscriber<CommandEvent>() {
             Subscription sub;
-            static final String ERROR_MESSAGE = "Error sending command to {}. Canceling command receiver subscription";
+            static final String ERROR_MESSAGE = "Error dispatching command to {}. ";
+            static final String DISPATCH_STOP_MESSAGE = "No more commands will be processed.";
             
             @Override
             public void onSubscribe(Subscription sub)
@@ -388,14 +389,16 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                             })
                             .exceptionally(e -> {
                                 DefaultSystemRegistry.log.error(ERROR_MESSAGE, csHandler.csInfo.getFullName(), e);
-                                sub.cancel();
-                                csHandler.sendStatus(event.getCorrelationID(), CommandStatus.failed(event.getCommand().getID(), "Internal error processing command"));
+                                csHandler.sendStatus(event.getCorrelationID(),
+                                    CommandStatus.failed(event.getCommand().getID(), "Internal error processing command"));
+                                sub.request(1);
                                 return null; // return type is Void
                             });
                     }
                     catch (Exception e)
                     {
-                        DefaultSystemRegistry.log.error(ERROR_MESSAGE, csHandler.csInfo.getFullName(), e);
+                        DefaultSystemRegistry.log.error(ERROR_MESSAGE + DISPATCH_STOP_MESSAGE,
+                            csHandler.csInfo.getFullName(), e);
                         sub.cancel();
                     }
                 });
@@ -404,8 +407,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
             @Override
             public void onError(Throwable e)
             {
-                DefaultSystemRegistry.log.error("Error dispatching commands to {}. "
-                    + "No more commands will be processed.", csHandler.csInfo.getFullName(), e);
+                DefaultSystemRegistry.log.error(ERROR_MESSAGE + DISPATCH_STOP_MESSAGE,
+                    csHandler.csInfo.getFullName(), e);
             }
 
             @Override
