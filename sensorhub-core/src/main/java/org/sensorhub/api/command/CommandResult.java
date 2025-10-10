@@ -17,11 +17,11 @@ package org.sensorhub.api.command;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.utils.ObjectUtils;
 import org.vast.ogc.xlink.IXlinkReference;
 import org.vast.util.Asserts;
-import com.google.common.collect.ImmutableList;
 import net.opengis.swe.v20.DataBlock;
 
 
@@ -54,11 +54,7 @@ public class CommandResult implements ICommandResult
      */
     public static ICommandResult withDatastream(BigId dataStreamID)
     {
-        Asserts.checkNotNull(dataStreamID, BigId.class);
-        
-        var res = new CommandResult();
-        res.dsIDs = ImmutableList.of(dataStreamID);
-        return res;
+        return withDatastreams(List.of(dataStreamID));
     }
     
     
@@ -85,11 +81,7 @@ public class CommandResult implements ICommandResult
      */
     public static ICommandResult withObservation(BigId obsID)
     {
-        Asserts.checkNotNull(obsID, BigId.class);
-        
-        var res = new CommandResult();
-        res.obsIDs = ImmutableList.of(obsID);
-        return res;
+        return withObservations(List.of(obsID));
     }
     
     
@@ -116,11 +108,7 @@ public class CommandResult implements ICommandResult
      */
     public static ICommandResult withData(DataBlock data)
     {
-        Asserts.checkNotNull(data, DataBlock.class);
-        
-        var res = new CommandResult();
-        res.inlineRecords = ImmutableList.of(data);
-        return res;
+        return withData(List.of(data));
     }
     
     
