@@ -136,8 +136,17 @@ subprojects {
         Files.list(dir)
           .filter { it.toString().endsWith('.class') }
           .findAny()
-          .ifPresent { packageSet.add(rootDir.relativize(dir).toString()
-                         .replace(java.io.File.separatorChar, (char)'.') + '.*') }
+          .ifPresent {
+            // Using File.separator in the replace calls on windows does not seem to work and messes up the creation
+            // of the manifest files
+            if (rootDir.relativize(dir).toString().contains('\\')) {
+              packageSet.add(rootDir.relativize(dir).toString()
+                      .replace('\\', '.') + '.*')
+            } else {
+              packageSet.add(rootDir.relativize(dir).toString()
+                      .replace('/', '.') + '.*')
+            }
+          }
       }
     }
     
