@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.vast.util.Asserts;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.util.ContextInitializer;
+import ch.qos.logback.classic.util.LogbackMDCAdapter;
 
 
 public class ModuleUtils
@@ -230,6 +231,7 @@ public class ModuleUtils
         {
             LoggerContext logContext = new LoggerContext();
             logContext.setName(FileUtils.safeFileName(moduleID));
+            logContext.setMDCAdapter(new LogbackMDCAdapter());
             logContext.putProperty(LOG_MODULE_ID, FileUtils.safeFileName(moduleID));
             logContext.putProperty(LOG_MODULE_NAME, module.getName());
             new ContextInitializer(logContext).autoConfig();
