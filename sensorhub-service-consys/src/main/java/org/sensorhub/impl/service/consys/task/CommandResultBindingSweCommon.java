@@ -20,7 +20,6 @@ import java.io.OutputStream;
 import java.util.Collection;
 import org.sensorhub.api.command.CommandResult;
 import org.sensorhub.api.command.CommandStatus;
-import org.sensorhub.api.command.ICommandResult;
 import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
