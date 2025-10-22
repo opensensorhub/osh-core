@@ -123,4 +123,15 @@ public abstract class CommandStreamInfoWrapper implements ICommandStreamInfo
     {
         return delegate.getResultEncoding();
     }
+
+    @Override
+    public DataComponent getFeasibilityResultStructure()
+    {
+        return delegate.getFeasibilityResultStructure();
+    }
+
+    @Override
+    public DataEncoding getFeasibilityResultEncoding() {
+        return delegate.getFeasibilityResultEncoding();
+    }
 }

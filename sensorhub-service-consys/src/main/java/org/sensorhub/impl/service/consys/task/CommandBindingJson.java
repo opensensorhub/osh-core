@@ -154,16 +154,18 @@ public class CommandBindingJson extends ResourceBindingJson<BigId, ICommandData>
             writer.name("id").value(cmdId);
         }
         
-        writer.name("control@id").value(controlId);
+        writer.name("controlstream@id").value(controlId);
         
         if (cmd.hasFoi())
         {
             var foiId = idEncoders.getFoiIdEncoder().encodeID(cmd.getFoiID());
-            writer.name("foi@id").value(foiId);
+            writer.name("samplingFeature@id").value(foiId);
         }
+
+        // TODO: needs "procedure@link" referencing the associated procdure
         
         writer.name("issueTime").value(cmd.getIssueTime().toString());
-        writer.name("userId").value(cmd.getSenderID());
+        writer.name("sender").value(cmd.getSenderID());
         
         // print out current status
         if (key != null)
@@ -174,11 +176,11 @@ public class CommandBindingJson extends ResourceBindingJson<BigId, ICommandData>
                     .build())
                 .findFirst().orElse(null);
             if (status != null)
-                writer.name("status").value(status.getStatusCode().toString());
+                writer.name("currentStatus").value(status.getStatusCode().toString());
         }
         
         // create or reuse existing params writer and write param data
-        writer.name("params");
+        writer.name("parameters");
         var paramWriter = paramsWriters.computeIfAbsent(cmd.getCommandStreamID(),
             k -> getSweCommonWriter(k, writer, ctx.getPropertyFilter()) );
         
