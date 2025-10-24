@@ -214,9 +214,10 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
     {
         int totalObs = 0, numObs;
         var dsID = addSimpleDataStream(bigId(10), "out1");
-        
+
         // add obs w/o FOI
         addSimpleObsWithoutResultTime(dsID, BigId.NONE, Instant.parse("2000-01-01T00:00:00Z"), numObs=100);
+        forceReadBackFromStorage();
         assertEquals(totalObs += numObs, obsStore.getNumRecords());
 
         forceReadBackFromStorage();
@@ -233,13 +234,13 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
 
         // add obs with proc1
         addSimpleObsWithoutResultTime(ds1, BigId.NONE, Instant.parse("2000-06-21T14:36:12Z"), numObs=100);
+        forceReadBackFromStorage();
         assertEquals(totalObs += numObs, obsStore.getNumRecords());
 
         // add obs with proc2
         addSimpleObsWithoutResultTime(ds2, BigId.NONE, Instant.parse("1970-01-01T00:00:00Z"), numObs=50);
-        assertEquals(totalObs += numObs, obsStore.getNumRecords());
-
         forceReadBackFromStorage();
+        assertEquals(totalObs += numObs, obsStore.getNumRecords());
         assertEquals(totalObs, obsStore.getNumRecords());
     }
 
@@ -252,14 +253,14 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         
         // add obs w/o FOI
         addSimpleObsWithoutResultTime(dsID, BigId.NONE, Instant.parse("2000-01-01T00:00:00Z"), numObs=100);
-        checkGetObs(totalObs += numObs);
         forceReadBackFromStorage();
+        checkGetObs(totalObs += numObs);
         checkGetObs(totalObs);
 
         // add obs with FOI
         addSimpleObsWithoutResultTime(dsID, bigId(1001), Instant.parse("9080-02-01T00:00:00Z"), numObs=30);
-        checkGetObs(totalObs += numObs);
         forceReadBackFromStorage();
+        checkGetObs(totalObs += numObs);
         checkGetObs(totalObs);
     }
 
@@ -363,16 +364,14 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         var dsID = addSimpleDataStream(bigId(10), "out1");
         
         addSimpleObsWithoutResultTime(dsID, BigId.NONE, Instant.parse("1900-01-01T00:00:00Z"), 100);
+        forceReadBackFromStorage();
         checkRemoveAllKeys();
 
         addSimpleObsWithoutResultTime(dsID, bigId(563), Instant.parse("2900-01-01T00:00:00Z"), 100);
         forceReadBackFromStorage();
         checkRemoveAllKeys();
 
-        forceReadBackFromStorage();
         addSimpleObsWithoutResultTime(dsID, bigId(1003), Instant.parse("0001-01-01T00:00:00Z"), 100);
-        checkRemoveAllKeys();
-
         forceReadBackFromStorage();
         checkRemoveAllKeys();
     }
@@ -516,6 +515,8 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         Instant startTime2 = Instant.parse("2019-05-31T10:46:03.258Z");
         Map<BigId, IObsData> obsBatch2 = addSimpleObsWithoutResultTime(dsID, bigId(104), startTime2, 100, 10000);
 
+        forceReadBackFromStorage();
+
         // correct system ID and all times
         filter = new ObsFilter.Builder()
             .withDataStreams(dsID)
@@ -545,7 +546,6 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
             .withDataStreams(dsID)
             .withPhenomenonTimeDuring(startTime2, startTime2.plus(1, ChronoUnit.DAYS))
             .build();
-        forceReadBackFromStorage();
         resultStream = obsStore.selectEntries(filter);
         checkSelectedEntries(resultStream, obsBatch2, filter);
 
@@ -720,6 +720,7 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         Instant startBatch2 = Instant.parse("2018-02-11T08:11:48.125Z");
         Map<BigId, IObsData> obsBatch2 = addSimpleObsWithoutResultTime(ds2, bigId(23), startBatch2, 10, 1200);
 
+        forceReadBackFromStorage();
         // datastream 2 by ID
         filter = new ObsFilter.Builder()
             .withDataStreams(ds2)
@@ -859,6 +860,11 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         int numObs = totalObs;
         long t0 = System.currentTimeMillis();
         addObsConcurrent(series).thenRun(() -> {
+            try {
+                forceReadBackFromStorage();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             readAndCheckSeries(series);
             
             double dt = System.currentTimeMillis() - t0;
@@ -975,6 +981,11 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         // wait for end of writes and check datastore content
         long t0 = System.currentTimeMillis();
         addObsConcurrent(obsSeries).thenRun(() -> {
+            try {
+                forceReadBackFromStorage();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             readAndCheckSeries(obsSeries);
             
             double dt = System.currentTimeMillis() - t0;
