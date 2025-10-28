@@ -589,6 +589,8 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         Instant startProc2Batch3 = Instant.parse("2020-05-31T10:46:03.258Z");
         Map<BigId, IObsData> proc2Batch3 = addSimpleObsWithoutResultTime(ds2, bigId(104), startProc2Batch3, 50, 24*3600*1000L);
 
+        forceReadBackFromStorage();
+
         // proc1 and all times
         filter = new ObsFilter.Builder()
             .withDataStreams(ds1)
@@ -683,6 +685,7 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         Instant startProc2Batch1 = Instant.parse("2018-02-11T08:12:06.897Z");
         addSimpleObsWithoutResultTime(ds2, bigId(23), startProc2Batch1, 10, 10*24*3600*1000L);
 
+        forceReadBackFromStorage();
         // proc1 and predicate to select NO FOI
         filter = new ObsFilter.Builder()
             .withDataStreams(ds1)
