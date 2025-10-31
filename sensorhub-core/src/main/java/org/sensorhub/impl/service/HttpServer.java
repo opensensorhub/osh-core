@@ -41,6 +41,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.*;
@@ -117,7 +118,7 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             server = new Server();
             ServerConnector http = null;
             ServerConnector https = null;
-            HandlerList handlers = new HandlerList();
+            HandlerCollection handlers = new HandlerCollection(true);
             
             // HTTP connector
             HttpConfiguration httpConfig = new HttpConfiguration();
