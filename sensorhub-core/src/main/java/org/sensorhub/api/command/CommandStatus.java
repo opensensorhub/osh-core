@@ -101,7 +101,6 @@ public class CommandStatus implements ICommandStatus
      * Generate a status report for a command that is pending and will be
      * processed later on
      * @param commandID The ID of the command triggering the report
-     * @param taskID ID assigned to the command/task
      * @return The status report
      */
     public static ICommandStatus pending(BigId commandID)
@@ -181,6 +180,22 @@ public class CommandStatus implements ICommandStatus
         return status;
     }
 
+    /**
+     * Generate a status report for a command that was asynchronously executed
+     * and completed successfully with a result
+     * @param commandID The ID of the command triggering the report
+     * @param execTime The actual time (or time period) the command was executed
+     * @param result The result (observations) produced during execution of the command
+     * @param message The message
+     * @return The status report
+     */
+    public static ICommandStatus completed(BigId commandID, TimeExtent execTime, ICommandResult result, String message)
+    {
+        var status = new CommandStatus(commandID, CommandStatusCode.COMPLETED, execTime);
+        status.result = Asserts.checkNotNull(result, ICommandResult.class);
+        status.message = message;
+        return status;
+    }
 
     @Override
     public BigId getCommandID()
