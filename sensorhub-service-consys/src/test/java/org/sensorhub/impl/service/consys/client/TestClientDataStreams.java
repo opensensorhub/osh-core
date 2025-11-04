@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
-import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.DataStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
@@ -38,6 +37,15 @@ import net.opengis.swe.v20.DataComponent;
 public class TestClientDataStreams extends TestClientBase
 {
     TestClientSystems systemTests;
+    
+    
+    public TestClientDataStreams() {}
+    
+    
+    TestClientDataStreams(String apiRootUrl)
+    {
+        this.apiRootUrl = apiRootUrl;
+    }
     
     
     @Before

@@ -36,6 +36,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpResponse.BodySubscriber;
 import java.net.http.HttpResponse.BodySubscribers;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -96,6 +97,7 @@ import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
+import com.google.common.net.UrlEscapers;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -145,7 +147,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IDerivedProperty> getPropertyById(String id, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROPERTIES_COLLECTION + "/" + id), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROPERTIES_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -257,7 +259,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IProcedureWithDesc> getProcedureById(String id, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "/" + id), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -275,7 +277,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IProcedureWithDesc> getProcedureByUid(String uid, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?id=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -372,7 +374,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ISystemWithDesc> getSystemById(String id, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + id), format, body -> {
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -390,7 +392,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format) throws ExecutionException, InterruptedException
     {
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?id=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -571,10 +573,10 @@ public class ConSysApiClient
     }
     
 
-    public CompletableFuture<IFeature> getSamplingFeatureById(String featureId)
+    public CompletableFuture<IFeature> getSamplingFeatureById(String id)
     {
         return sendGetRequest(
-                endpoint.resolve(SF_COLLECTION + "/" + featureId),
+                endpoint.resolve(SF_COLLECTION + "/" + urlPathEncode(id)),
                 ResourceFormat.GEOJSON,
                 body -> {
             try
@@ -593,7 +595,7 @@ public class ConSysApiClient
 
     public CompletableFuture<IFeature> getSamplingFeatureByUid(String uid, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -637,9 +639,9 @@ public class ConSysApiClient
     }
     
     
-    protected CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String systemId, ResourceFormat format, int pageSize, int offset)
+    protected CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String sysId, ResourceFormat format, int pageSize, int offset)
     {
-        var request = SYSTEMS_COLLECTION + "/" + systemId + "/" + SF_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        var request = SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + SF_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
         log.debug("{}", request);
         
         return sendGetRequest(endpoint.resolve(request), format, body -> {
@@ -716,7 +718,7 @@ public class ConSysApiClient
 
     public CompletableFuture<IDataStreamInfo> getDatastreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
-        var cf1 = sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id), format, body -> {
+        var cf1 = sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -751,8 +753,8 @@ public class ConSysApiClient
     
     public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
-        var obsFormatStr = URLEncoder.encode(obsFormat.getMimeType(), StandardCharsets.UTF_8);
-        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id + "/schema?obsFormat="+obsFormatStr), format, body -> {
+        var obsFormatStr = urlQueryEncode(obsFormat.getMimeType());
+        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id) + "/schema?obsFormat="+obsFormatStr), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -772,7 +774,7 @@ public class ConSysApiClient
     }
     
 
-    public CompletableFuture<String> addDataStream(String systemId, IDataStreamInfo datastream)
+    public CompletableFuture<String> addDataStream(String sysId, IDataStreamInfo datastream)
     {
         try
         {
@@ -783,7 +785,7 @@ public class ConSysApiClient
             binding.serialize(null, datastream, false);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + DATASTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -800,7 +802,7 @@ public class ConSysApiClient
     }
 
 
-    public CompletableFuture<Set<String>> addDataStreams(String systemId, Collection<IDataStreamInfo> datastreams)
+    public CompletableFuture<Set<String>> addDataStreams(String sysId, Collection<IDataStreamInfo> datastreams)
     {
         try
         {
@@ -826,7 +828,7 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + DATASTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -841,7 +843,7 @@ public class ConSysApiClient
     /* Control Streams */
     /*-----------------*/
 
-    public CompletableFuture<String> addControlStream(String systemId, ICommandStreamInfo cmdstream)
+    public CompletableFuture<String> addControlStream(String sysId, ICommandStreamInfo cmdstream)
     {
         try
         {
@@ -852,7 +854,7 @@ public class ConSysApiClient
             binding.serializeCreate(cmdstream);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLSTREAMS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + CONTROLSTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -869,7 +871,7 @@ public class ConSysApiClient
     }
 
 
-    public CompletableFuture<Set<String>> addControlStreams(String systemId, Collection<ICommandStreamInfo> cmdstreams)
+    public CompletableFuture<Set<String>> addControlStreams(String sysId, Collection<ICommandStreamInfo> cmdstreams)
     {
         try
         {
@@ -895,7 +897,7 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLSTREAMS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + CONTROLSTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -908,7 +910,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ICommandStreamInfo> getControlStreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
-        var cf1 = sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + id), format, body -> {
+        var cf1 = sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -943,7 +945,8 @@ public class ConSysApiClient
 
     public CompletableFuture<ICommandStreamInfo> getControlStreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + id + "/schema?obsFormat=" + obsFormat), format, body -> {
+        var obsFormatStr = urlQueryEncode(format.getMimeType());
+        return sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + urlPathEncode(id) + "/schema?obsFormat=" + obsFormatStr), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -963,13 +966,13 @@ public class ConSysApiClient
     /* Observations */
     /*--------------*/
     // TODO: Be able to push different kinds of observations such as video
-    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs)
+    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            ctx.setParent(null, dataStreamId, obs.getDataStreamID());
+            ctx.setParent(null, dsId, obs.getDataStreamID());
             ObsHandler.ObsHandlerContextData contextData = new ObsHandler.ObsHandlerContextData();
             contextData.dsInfo = dataStream;
             ctx.setData(contextData);
@@ -986,7 +989,7 @@ public class ConSysApiClient
             }
 
             return sendPostRequest(
-                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + dataStreamId + "/" + OBSERVATIONS_COLLECTION),
+                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(dsId) + "/" + OBSERVATIONS_COLLECTION),
                     ctx.getFormat(),
                     buffer.toByteArray());
         }
@@ -1017,7 +1020,7 @@ public class ConSysApiClient
     
     protected CompletableFuture<Stream<IObsData>> getObservations(String dsId, IDataStreamInfo dsInfo, TemporalFilter timeFilter, Set<String> foiIds, ResourceFormat format, int pageSize, int offset)
     {
-        var request = DATASTREAMS_COLLECTION + "/" + dsId + "/observations?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        var request = DATASTREAMS_COLLECTION + "/" + urlPathEncode(dsId) + "/observations?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
                 
         if (foiIds != null)
             request += "&foi=" + String.join(",", foiIds);
@@ -1026,6 +1029,24 @@ public class ConSysApiClient
         {
             if (timeFilter.isLatestTime())
                 request += "&resultTime=latest";
+            else {
+                request += "&phenomenonTime=";
+                
+                if (timeFilter.isCurrentTime())
+                    request += "now";
+                else if (timeFilter.endsNow())
+                    request += timeFilter.getMin() + "/now";
+                else if (timeFilter.beginsNow())
+                    request += "now/" + timeFilter.getMax();
+                else if (timeFilter.isAllTimes())
+                    request += "../..";
+                else if (timeFilter.getMin() == Instant.MIN)
+                    request += "../" + timeFilter.getMax();
+                else if (timeFilter.getMax() == Instant.MAX)
+                    request += timeFilter.getMin() + "/..";
+                else
+                    request += timeFilter.getMin() + "/" + timeFilter.getMax();
+            }
         }
         
         return sendGetRequest(endpoint.resolve(request), format, body -> {
@@ -1098,13 +1119,13 @@ public class ConSysApiClient
     /* Commands */
     /*----------*/
 
-    public CompletableFuture<ICommandStatus> sendCommand(String controlstreamId, ICommandStreamInfo cmdStream, ICommandData cmd)
+    public CompletableFuture<ICommandStatus> sendCommand(String csId, ICommandStreamInfo cmdStream, ICommandData cmd)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            ctx.setParent(null, controlstreamId, cmd.getCommandStreamID());
+            ctx.setParent(null, csId, cmd.getCommandStreamID());
             var contextData = new CommandHandler.CommandHandlerContextData();
             contextData.csInfo = cmdStream;
             ctx.setData(contextData);
@@ -1121,7 +1142,7 @@ public class ConSysApiClient
             }
             
             return sendPostRequestAndReadResponse(
-                    endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + controlstreamId + "/" + COMMANDS_COLLECTION),
+                    endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + urlPathEncode(csId) + "/" + COMMANDS_COLLECTION),
                     ctx.getFormat(),
                     buffer.toByteArray(),
                     responseBody -> {
@@ -1565,6 +1586,18 @@ public class ConSysApiClient
             else
                 reader.skipValue();
         }
+    }
+    
+    
+    protected String urlPathEncode(String value)
+    {
+        return UrlEscapers.urlPathSegmentEscaper().escape(value);
+    }
+    
+    
+    protected String urlQueryEncode(String value)
+    {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
     
     
