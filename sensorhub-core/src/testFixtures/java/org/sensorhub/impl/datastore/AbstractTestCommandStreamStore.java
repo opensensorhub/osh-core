@@ -126,8 +126,28 @@ public abstract class AbstractTestCommandStreamStore<StoreType extends ICommandS
         
         return addCommandStream(sysID, dataStruct, validTime);
     }
-    
-    
+
+    protected CommandStreamKey addSimpleCommandStream(FeatureId sysID, String outputName, String description, TimeExtent validTime, String definition) throws DataStoreException
+    {
+        SWEHelper fac = new SWEHelper();
+        var dataStruct = fac.createRecord()
+                .name(outputName)
+                .description(description)
+                .addField("t1", fac.createTime().asSamplingTimeIsoUTC().build())
+                .addField("q2", fac.createQuantity().build())
+                .addField("c3", fac.createCount().build())
+                .addField("b4", fac.createVector().definition(definition).build())
+                .addField("txt5", fac.createText().build())
+                .build();
+
+        return addCommandStream(sysID, dataStruct, validTime);
+    }
+
+    protected CommandStreamKey addSimpleCommandStreamWithDefinition(BigId sysID, String outputName, TimeExtent validTime, String definition) throws DataStoreException
+    {
+        return addSimpleCommandStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, "command stream description", validTime, definition);
+    }
+
     protected CommandStreamKey addSimpleCommandStream(BigId sysID, String outputName, TimeExtent validTime) throws DataStoreException
     {
         return addSimpleCommandStream(new FeatureId(sysID, PROC_UID_PREFIX+sysID), outputName, "command stream description", validTime);
@@ -556,7 +576,42 @@ public abstract class AbstractTestCommandStreamStore<StoreType extends ICommandS
             case 3: addToExpectedResults(7); break;
         }
     }
-    
+
+    @Test
+    @SuppressWarnings("unused")
+    public void testAddAndSelectByTaskableProperty() throws Exception
+    {
+        Stream<Entry<CommandStreamKey, ICommandStreamInfo>> resultStream;
+
+        var now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        var sysID1 = bigId(1);
+        var sysID2 = bigId(2);
+        var sysID3 = bigId(3);
+        String def1 = "someDefinition1";
+        String def2 = "someDefinition2";
+        var ds1v0 = addSimpleCommandStreamWithDefinition(sysID1, "out1",
+                TimeExtent.endNow(now.minus(365, ChronoUnit.DAYS)), def1);
+        var ds2v0 = addSimpleCommandStream(sysID1, "out2", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds4v0 = addSimpleCommandStreamWithDefinition(sysID3, "temp",
+                TimeExtent.beginAt(now.plus(1, ChronoUnit.DAYS)), def2);
+        var ds5v0 = addSimpleCommandStream(sysID3, "out3", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        var ds6v0 = addSimpleCommandStream(sysID3, "out4", TimeExtent.endNow(now.minus(60, ChronoUnit.DAYS)));
+        cmdStreamStore.commit();
+
+        // select from t0 to now
+        CommandStreamFilter filter = new CommandStreamFilter.Builder()
+                .withTaskableProperties(def1, def2)
+                .build();
+        resultStream = cmdStreamStore.selectEntries(filter);
+
+        testAddAndSelectByTaskableProperty_ExpectedResults();
+        checkSelectedEntries(resultStream, expectedResults, filter);
+    }
+
+    protected void testAddAndSelectByTaskableProperty_ExpectedResults()
+    {
+        addToExpectedResults(0, 2);
+    }
     
     @Test
     @SuppressWarnings("unused")
