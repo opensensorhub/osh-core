@@ -346,6 +346,11 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
         long t0 = System.currentTimeMillis();
         allObs.forEach((k, f) -> {
             obsStore.remove(k);
+            try {
+                obsStore.commit();
+            } catch (DataStoreException e) {
+                throw new RuntimeException(e);
+            }
             assertFalse(obsStore.containsKey(k));
             assertTrue(obsStore.get(k) == null);
         });

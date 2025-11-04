@@ -860,7 +860,8 @@ public abstract class AbstractTestFeatureStore<StoreType extends IFeatureStoreBa
             .withValidTimeDuring(timeFilter)
             .build());
         System.out.println(count + " features removed");
-        
+
+        forceReadBackFromStorage();
         // generate truth by removing entries from allFeatures map
         var it = allFeatures.values().iterator();
         while (it.hasNext())
