@@ -550,21 +550,28 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         if (queryParams.get("filter") != null)
         {
             List<Predicate<IObsData>> valueFilterPredicates = new ArrayList<>();
-            List<IDataStreamInfo> streams = new ArrayList<>();
 
             // check if using datastream parent resource or datastream query param
             if (parent.internalID != null)
-                streams.add(dataStore.getDataStreams().get(new DataStreamKey(parent.internalID)));
+            {
+                IDataStreamInfo dsInfo = dataStore.getDataStreams().get(new DataStreamKey(parent.internalID));
+                if (dsInfo != null)
+                {
+                    var filter = parseValueFilter(queryParams, dsInfo, parent.internalID);
+                    if (filter != null)
+                        valueFilterPredicates.add(filter);
+                }
+            }
             else if (dsIDs != null && !dsIDs.isEmpty())
+            {
                 for (BigId dsID : dsIDs.getBigIds())
-                    streams.add(dataStore.getDataStreams().get(new DataStreamKey(dsID)));
-
-            // add filters based on datastreams
-            for (IDataStreamInfo dsInfo : streams) {
-                if (dsInfo == null) continue;
-                var filter = parseValueFilter(queryParams, dsInfo);
-                if (filter != null)
-                    valueFilterPredicates.add(filter);
+                {
+                    IDataStreamInfo dsInfo = dataStore.getDataStreams().get(new DataStreamKey(dsID));
+                    if (dsInfo == null) continue;
+                    var filter = parseValueFilter(queryParams, dsInfo, dsID);
+                    if (filter != null)
+                        valueFilterPredicates.add(filter);
+                }
             }
 
             if (!valueFilterPredicates.isEmpty())
@@ -585,7 +592,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
     }
 
 
-    Predicate<IObsData> parseValueFilter(Map<String, String[]> queryParams, IDataStreamInfo dsInfo)
+    Predicate<IObsData> parseValueFilter(Map<String, String[]> queryParams, IDataStreamInfo dsInfo, BigId dsID)
     {
         List<Predicate<IObsData>> allPredicates = new ArrayList<>();
 
@@ -596,7 +603,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
 
         for (var valueFilter : valueFilters)
         {
-            var valueFilterPredicate = parseSingleValueFilter(valueFilter, dsInfo);
+            var valueFilterPredicate = parseSingleValueFilter(valueFilter, dsInfo, dsID);
             if (valueFilterPredicate != null)
                 allPredicates.add(valueFilterPredicate);
         }
@@ -604,7 +611,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         return allPredicates.stream().reduce(Predicate::or).orElse(null);
     }
 
-    Predicate<IObsData> parseSingleValueFilter(String filter, IDataStreamInfo dsInfo) {
+    Predicate<IObsData> parseSingleValueFilter(String filter, IDataStreamInfo dsInfo, BigId dsID) {
         String[] parts = filter.split("=", 2);
         if (parts.length != 2)
             throw new IllegalArgumentException("Invalid value filter: " + filter);
@@ -638,40 +645,41 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         {
             case BOOLEAN:
                 boolean boolValue = Boolean.parseBoolean(value);
-                predicate = (obsData) -> obsData.getResult().getBooleanValue(index) ==  boolValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getBooleanValue(index) ==  boolValue;
                 break;
             case BYTE:
                 byte byteValue = Byte.parseByte(value);
-                predicate = (obsData) -> obsData.getResult().getByteValue(index) ==  byteValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getByteValue(index) ==  byteValue;
                 break;
             case SHORT, UBYTE:
                 short shortValue = Short.parseShort(value);
-                predicate = (obsData) -> obsData.getResult().getShortValue(index) ==  shortValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getShortValue(index) ==  shortValue;
                 break;
             case INT, USHORT:
                 int intValue = Integer.parseInt(value);
-                predicate = (obsData) -> obsData.getResult().getIntValue(index) ==  intValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getIntValue(index) ==  intValue;
                 break;
             case LONG, UINT, ULONG:
                 long longValue = Long.parseLong(value);
-                predicate = (obsData) -> obsData.getResult().getLongValue(index) ==  longValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getLongValue(index) ==  longValue;
                 break;
             case FLOAT:
                 float floatValue = Float.parseFloat(value);
-                predicate = (obsData) -> obsData.getResult().getFloatValue(index) ==  floatValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getFloatValue(index) ==  floatValue;
                 break;
             case DOUBLE:
                 double doubleValue = dataTypeUtils.parseDoubleOrInfOrIsoTime(value);
-                predicate = (obsData) -> obsData.getResult().getDoubleValue(index) ==  doubleValue;
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && obsData.getResult().getDoubleValue(index) ==  doubleValue;
                 break;
             case UTF_STRING, ASCII_STRING:
-                predicate = (obsData) -> java.util.Objects.equals(obsData.getResult().getStringValue(index), value);
+                predicate = (obsData) -> obsData.getResult().getAtomCount() > index && java.util.Objects.equals(obsData.getResult().getStringValue(index), value);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported datatype " + dataType);
         }
 
-        return predicate;
+        // prevents value predicates on wrong datastreams
+        return predicate.and((obsData) -> obsData.getDataStreamID().equals(dsID));
     }
 
 
