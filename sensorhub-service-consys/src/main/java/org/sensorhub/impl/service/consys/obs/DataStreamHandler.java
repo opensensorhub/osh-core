@@ -141,6 +141,16 @@ public class DataStreamHandler extends ResourceHandler<DataStreamKey, IDataStrea
         {
             builder.withObservedProperties(obsProps);
         }
+
+        // system param
+        var sysIDs = parseResourceIdsOrUids("system", queryParams, idEncoders.getSystemIdEncoder());
+        if (sysIDs != null && !sysIDs.isEmpty())
+        {
+            if (sysIDs.isUids())
+                builder.withSystems().withUniqueIDs(sysIDs.getUids()).includeMembers(true).done();
+            else
+                builder.withSystems().withInternalIDs(sysIDs.getBigIds()).includeMembers(true).done();
+        }
     }
 
 
