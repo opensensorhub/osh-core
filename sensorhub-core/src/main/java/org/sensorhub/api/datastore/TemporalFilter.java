@@ -39,6 +39,7 @@ public class TemporalFilter extends RangeFilter<Instant>
     protected boolean timeRangeBeginsNow; // now = current time at the time of query evaluation
     protected boolean timeRangeEndsNow; // now = current time at the time of query evaluation
     protected boolean latestTime; // latest available time (can be in future)
+    protected boolean descendingOrder;
     
     
     public boolean isCurrentTime()
@@ -78,7 +79,13 @@ public class TemporalFilter extends RangeFilter<Instant>
         
         return isCurrentTime() || isLatestTime() || super.isSingleValue();
     }
-    
+
+
+    public boolean descendingOrder()
+    {
+        return descendingOrder;
+    }
+
     
     @Override
     public Range<Instant> getRange()
@@ -208,6 +215,9 @@ public class TemporalFilter extends RangeFilter<Instant>
         else if (otherFilter.isAllTimes() && isLatestTime())
             return builder.withLatestTime();
 
+        var descendingOrder = this.descendingOrder || otherFilter.descendingOrder;
+        builder.descendingOrder(descendingOrder);
+
         // otherwise compute time extent intersection
         var thisTe = asTimeExtent();
         var otherTe = otherFilter.asTimeExtent();
@@ -289,6 +299,7 @@ public class TemporalFilter extends RangeFilter<Instant>
             instance.timeRangeBeginsNow = base.timeRangeBeginsNow;
             instance.timeRangeEndsNow = base.timeRangeEndsNow;
             instance.latestTime = base.latestTime;
+            instance.descendingOrder = base.descendingOrder;
             return (B)this;
         }
         
@@ -377,6 +388,17 @@ public class TemporalFilter extends RangeFilter<Instant>
                 return withRange(te.begin(), Instant.MAX);
             else
                 return withRange(te.begin(), te.end());
+        }
+
+        /**
+         * Specify descending or ascending (default) chronological order.
+         * @param descending order
+         * @return This builder for chaining
+         */
+        public B descendingOrder(boolean descending)
+        {
+            instance.descendingOrder = descending;
+            return (B)this;
         }
     }
 }

@@ -34,6 +34,7 @@ import org.sensorhub.api.data.ObsEvent;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.SpatialFilter;
+import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.datastore.obs.ObsFilter;
@@ -482,7 +483,10 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         var phenomenonTime = parseTimeStampArg("phenomenonTime", queryParams);
         if (phenomenonTime != null)
             builder.withPhenomenonTime(phenomenonTime);
-        
+
+        // TODO attach to phenomenonTime
+        var resultTimeFilterBuilder = new TemporalFilter.Builder();
+
         // resultTime param
         var resultTime = parseTimeStampArg("resultTime", queryParams);
         if (resultTime != null)

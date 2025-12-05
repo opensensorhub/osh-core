@@ -33,6 +33,7 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.command.ICommandStatus.CommandStatusCode;
 import org.sensorhub.api.datastore.DataStoreException;
+import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.api.datastore.command.CommandFilter;
 import org.sensorhub.api.datastore.command.CommandStatusFilter;
 import org.sensorhub.api.datastore.command.CommandStreamKey;
@@ -307,7 +308,10 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         // filter on parent if needed
         if (parent.internalID != null)
             builder.withCommandStreams(parent.internalID);
-        
+
+        // TODO attach to issueTime
+        var resultTimeFilterBuilder = new TemporalFilter.Builder();
+
         // issueTime param
         var issueTime = parseTimeStampArg("issueTime", queryParams);
         if (issueTime != null)
