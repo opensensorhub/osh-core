@@ -478,14 +478,25 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         // filter on parent if needed
         if (parent.internalID != null)
             builder.withDataStreams(parent.internalID);
-        
-        // phenomenonTime param
-        var phenomenonTime = parseTimeStampArg("phenomenonTime", queryParams);
-        if (phenomenonTime != null)
-            builder.withPhenomenonTime(phenomenonTime);
 
         // TODO attach to phenomenonTime
-        var resultTimeFilterBuilder = new TemporalFilter.Builder();
+        var phenomenonTimeFilterBuilder = new TemporalFilter.Builder();
+
+        // phenomenonTime param
+        var phenomenonTime = parseTimeStampArgToBuilder("phenomenonTime", queryParams);
+        if (phenomenonTime != null)
+            phenomenonTimeFilterBuilder = phenomenonTime;
+
+        // chronological order, attached to phenomenonTime filter
+        var descendingOrder = getSingleParam("order", queryParams);
+        if (descendingOrder != null && !descendingOrder.isBlank()
+                && ("desc".equals(descendingOrder) || "descending".equals(descendingOrder)))
+        {
+            phenomenonTimeFilterBuilder.descendingOrder(true);
+        }
+
+        if (phenomenonTime != null || descendingOrder != null)
+            builder.withPhenomenonTime(phenomenonTimeFilterBuilder.build());
 
         // resultTime param
         var resultTime = parseTimeStampArg("resultTime", queryParams);

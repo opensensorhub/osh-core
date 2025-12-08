@@ -276,7 +276,10 @@ public abstract class BaseHandler implements IResourceHandler
     
     protected TemporalFilter parseTimeStampArg(String paramName, final Map<String, String[]> queryParams) throws InvalidRequestException
     {
-        return parseTimeStampArgToBuilder(paramName, queryParams).build();
+        var builder = parseTimeStampArgToBuilder(paramName, queryParams);
+        if (builder == null)
+            return null;
+        return builder.build();
     }
 
 

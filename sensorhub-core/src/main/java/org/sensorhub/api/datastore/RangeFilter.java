@@ -31,7 +31,7 @@ import com.google.common.collect.Range;
  */
 public class RangeFilter<T extends Comparable<T>> implements Predicate<T>
 {    
-    protected Range<T> range;
+    protected Range<T> range = Range.all();
     protected RangeOp op = RangeOp.INTERSECTS;
     
     

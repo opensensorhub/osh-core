@@ -309,13 +309,23 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         if (parent.internalID != null)
             builder.withCommandStreams(parent.internalID);
 
-        // TODO attach to issueTime
-        var resultTimeFilterBuilder = new TemporalFilter.Builder();
+        var issueTimeFilterBuilder = new TemporalFilter.Builder();
 
         // issueTime param
-        var issueTime = parseTimeStampArg("issueTime", queryParams);
+        var issueTime = parseTimeStampArgToBuilder("issueTime", queryParams);
         if (issueTime != null)
-            builder.withIssueTime(issueTime);
+            issueTimeFilterBuilder = issueTime;
+
+        // chronological order, attached to issueTime filter
+        var descendingOrder = getSingleParam("order", queryParams);
+        if (descendingOrder != null && !descendingOrder.isBlank()
+        && ("desc".equals(descendingOrder) || "descending".equals(descendingOrder)))
+        {
+            issueTimeFilterBuilder.descendingOrder(true);
+        }
+
+        if (issueTime != null || descendingOrder != null)
+            builder.withIssueTime(issueTimeFilterBuilder.build());
         
         // status filter params
         var statusCodes = parseMultiValuesArg("statusCode", queryParams);
