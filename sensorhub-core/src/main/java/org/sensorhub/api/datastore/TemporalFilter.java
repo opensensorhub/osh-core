@@ -41,7 +41,8 @@ public class TemporalFilter extends RangeFilter<Instant>
     protected boolean latestTime; // latest available time (can be in future)
     protected boolean descendingOrder;
     
-    protected TemporalFilter() {
+    protected TemporalFilter()
+    {
         this.range = Range.open(Instant.MIN, Instant.MAX);
     }
 
