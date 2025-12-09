@@ -34,6 +34,7 @@ import org.sensorhub.api.data.ObsEvent;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.SpatialFilter;
+import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.datastore.obs.ObsFilter;
@@ -477,12 +478,26 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         // filter on parent if needed
         if (parent.internalID != null)
             builder.withDataStreams(parent.internalID);
-        
+
+        // TODO attach to phenomenonTime
+        var phenomenonTimeFilterBuilder = new TemporalFilter.Builder();
+
         // phenomenonTime param
-        var phenomenonTime = parseTimeStampArg("phenomenonTime", queryParams);
+        var phenomenonTime = parseTimeStampArgToBuilder("phenomenonTime", queryParams);
         if (phenomenonTime != null)
-            builder.withPhenomenonTime(phenomenonTime);
-        
+            phenomenonTimeFilterBuilder = phenomenonTime;
+
+        // chronological order, attached to phenomenonTime filter
+        var descendingOrder = getSingleParam("order", queryParams);
+        if (descendingOrder != null && !descendingOrder.isBlank()
+                && ("desc".equals(descendingOrder) || "descending".equals(descendingOrder)))
+        {
+            phenomenonTimeFilterBuilder.descendingOrder(true);
+        }
+
+        if (phenomenonTime != null || descendingOrder != null)
+            builder.withPhenomenonTime(phenomenonTimeFilterBuilder.build());
+
         // resultTime param
         var resultTime = parseTimeStampArg("resultTime", queryParams);
         if (resultTime != null)

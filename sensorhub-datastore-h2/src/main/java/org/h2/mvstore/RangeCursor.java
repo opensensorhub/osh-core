@@ -48,6 +48,7 @@ public class RangeCursor<K, V> extends IteratorWrapper<K, K>
     
     public RangeCursor(MVMap<K, V> map, K from, K to)
     {
+        // TODO: Update to use reverse-order cursor in newer H2 version
         super(map.cursor(from));
         this.map = map;
         this.to = to;

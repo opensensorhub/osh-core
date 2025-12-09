@@ -14,12 +14,11 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.database.registry;
 
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.datastore.feature.FoiFilter;
@@ -228,10 +227,13 @@ public class FederatedObsStore extends ReadOnlyDataStore<BigId, IObsData, ObsFie
         
         if (obsStreams.isEmpty())
             return Stream.empty();
+
+        Comparator<Entry<BigId, IObsData>> comparator = Comparator.comparing(e -> e.getValue().getPhenomenonTime());
+        if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().descendingOrder())
+            comparator = comparator.reversed();
         
         // stream and merge obs from all selected datastreams and time periods
-        var mergeSortIt = new MergeSortSpliterator<Entry<BigId, IObsData>>(obsStreams,
-            (e1, e2) -> e1.getValue().getPhenomenonTime().compareTo(e2.getValue().getPhenomenonTime()));
+        var mergeSortIt = new MergeSortSpliterator<Entry<BigId, IObsData>>(obsStreams, comparator);
                
         // stream output of merge sort iterator + apply limit
         return StreamSupport.stream(mergeSortIt, false)

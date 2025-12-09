@@ -20,12 +20,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.AbstractSet;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.h2.mvstore.MVBTreeMap;
@@ -300,10 +295,12 @@ public class MVCommandStoreImpl implements ICommandStore
                 return getPostFilteredResultStream(cmdStream, filter);
             }));
         
-        
+        Comparator<Entry<BigId, ICommandData>> comparator = Comparator.comparing(e -> e.getValue().getIssueTime());
+        if (filter.getIssueTime() != null && filter.getIssueTime().descendingOrder())
+            comparator = comparator.reversed();
+
         // stream and merge commands from all selected command streams and time periods
-        var mergeSortIt = new MergeSortSpliterator<Entry<BigId, ICommandData>>(cmdStreams,
-                (e1, e2) -> e1.getValue().getIssueTime().compareTo(e2.getValue().getIssueTime()));
+        var mergeSortIt = new MergeSortSpliterator<Entry<BigId, ICommandData>>(cmdStreams, comparator);
                
         // stream output of merge sort iterator + apply limit
         return StreamSupport.stream(mergeSortIt, false)
