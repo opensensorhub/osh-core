@@ -18,11 +18,13 @@ import com.vaadin.event.Action;
 import com.vaadin.server.FontAwesome;
 import com.vaadin.ui.*;
 import com.vaadin.v7.data.Item;
+import com.vaadin.v7.data.util.BeanItem;
 import com.vaadin.v7.ui.ComboBox;
 import com.vaadin.v7.ui.TreeTable;
 import com.vaadin.v7.ui.VerticalLayout;
 import net.opengis.OgcProperty;
 import net.opengis.OgcPropertyList;
+import net.opengis.gml.v32.impl.CodeWithAuthorityImpl;
 import net.opengis.sensorml.v20.*;
 import net.opengis.sensorml.v20.Link;
 import net.opengis.sensorml.v20.impl.SettingsImpl;
@@ -34,11 +36,11 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.processing.IProcessModule;
-import org.sensorhub.api.processing.ProcessingException;
 import org.sensorhub.impl.processing.CommandStreamSink;
 import org.sensorhub.impl.processing.DataStreamSource;
 import org.sensorhub.impl.processing.SMLProcessConfig;
@@ -69,6 +71,8 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
 {
     Panel inputCommandsPanel, paramCommandsPanel;
     SMLProcessConfig config;
+    MyBeanItem<ModuleConfig> configBean = null;
+    com.vaadin.v7.ui.TextField smlPathTextField = null;
     TreeTable processTable;
     AggregateProcess aggregateProcess;
 
@@ -82,6 +86,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
 
     private static final Action ADD_COMPONENT_ACTION = new Action("Add Component");
     private static final Action ADD_IO_ACTION = new Action("Add Input/Output");
+    private static final Action ADD_PARAMETER_ACTION = new Action("Add Parameter");
     private static final Action ADD_CONNECTION_ACTION = new Action("Add Connection");
     private static final Action CONFIGURE_PARAMS_ACTION = new Action("Configure Parameters");
     private static final Action EDIT_CONNECTION_ACTION = new Action("Edit Connection");
@@ -135,6 +140,22 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
         {
             addProcessEditor();
             this.config = (SMLProcessConfig)beanItem.getBean();
+            this.configBean = beanItem;
+
+            var tabs = this.configTabs.getComponentIterator();
+            GenericConfigForm configForm = null;
+            while (tabs.hasNext()) {
+                var tab = tabs.next();
+                if (tab instanceof GenericConfigForm) {
+                    configForm = (GenericConfigForm) tab;
+                    break;
+                }
+            }
+
+            if (configForm != null) {
+                // SensorML path is the last text box in this config form
+                this.smlPathTextField = (com.vaadin.v7.ui.TextField) configForm.textBoxes.get(configForm.textBoxes.size()-1);
+            }
             var process = getProcessChainFromFile();
             if (process == null)
                 process = new AggregateProcessImpl();
@@ -209,27 +230,52 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
             saveProcessChain();
         });
 
+        Button addLoadProcessBtn = new Button("Load Process", FontAwesome.UPLOAD);
+        addLoadProcessBtn.addStyleName(STYLE_SMALL);
+        buttonBar.addComponent(addLoadProcessBtn);
+        addLoadProcessBtn.addClickListener( event -> {
+            var aggy = getProcessChainFromFile();
+            if (aggy == null)
+                getOshLogger().error("Error loading process chain, file name is null");
+            this.aggregateProcess = aggy;
+            refreshTable();
+        });
 
         buildProcessTable();
         addComponent(processTable);
     }
-
-    protected void addDataSource(final String name, final String producerURI) {
+    
+    protected void addDataSource(final String name, final String producerURI, String outputName) {
         DataStreamSource dataSource = new DataStreamSource();
+        SimpleProcess process = (SimpleProcess) SMLUtils.wrapWithProcessDescription(dataSource);
+        Settings paramSettings = new SettingsImpl();
+        paramSettings.addSetValue(new ValueSettingImpl("parameters/systemUID", producerURI));
+        process.setConfiguration(paramSettings);
+
+        CodeWithAuthorityImpl codeWithAuthority = new CodeWithAuthorityImpl();
+        codeWithAuthority.setValue(process.getName());
+        process.addName(codeWithAuthority);
+
+        aggregateProcess.addComponent(name, process);
+
+        if (outputName.contains("/")) {
+            outputName = outputName.substring(0, outputName.indexOf("/"));
+        }
+
         for (var param : dataSource.getParameterList())
             ((DataComponent) param).assignNewDataBlock();
         dataSource.getParameterList()
                 .getComponent(DataStreamSource.SYSTEM_UID_PARAM)
                 .getData()
                 .setStringValue(producerURI);
-        dataSource.notifyParamChange();
-        Settings paramSettings = new SettingsImpl();
-        paramSettings.addSetValue(new ValueSettingImpl("parameters/systemUID", producerURI));
-        SimpleProcess process = (SimpleProcess) SMLUtils.wrapWithProcessDescription(dataSource);
-        process.setConfiguration(paramSettings);
+        dataSource.getParameterList()
+                .getComponent(DataStreamSource.OUTPUT_NAME_PARAM)
+                .getData()
+                .setStringValue(outputName);
         dataSource.setParentHub(getParentHub());
-        aggregateProcess.addComponent(name, process);
+        dataSource.notifyParamChange();
     }
+
 
     protected void addCommandSink(final String name, final String consumerURI, final String inputName) {
         CommandStreamSink sink = new CommandStreamSink();
@@ -245,13 +291,24 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                 .setStringValue(inputName);
         sink.setParentHub(getParentHub());
         sink.notifyParamChange();
-        aggregateProcess.addComponent(name, SMLUtils.wrapWithProcessDescription(sink));
+
+        var process = SMLUtils.wrapWithProcessDescription(sink);
+        CodeWithAuthorityImpl codeWithAuthority = new CodeWithAuthorityImpl();
+        codeWithAuthority.setValue(process.getName());
+        process.addName(codeWithAuthority);
+
+        aggregateProcess.addComponent(name, process);
     }
 
     protected void addProcess(final String name, final ProcessInfo processInfo) {
         try {
-            var process = processInfo.getImplementationClass().newInstance();
-            aggregateProcess.addComponent(name, SMLUtils.wrapWithProcessDescription(process));
+            var process = SMLUtils.wrapWithProcessDescription(processInfo.getImplementationClass().newInstance());
+
+            CodeWithAuthorityImpl codeWithAuthority = new CodeWithAuthorityImpl();
+            codeWithAuthority.setValue(process.getName());
+            process.addName(codeWithAuthority);
+
+            aggregateProcess.addComponent(name, process);
         } catch (InstantiationException | IllegalAccessException e) {
             DisplayUtils.showErrorPopup("Error instantiating process implementation", e);
         }
@@ -303,9 +360,11 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                 if (target == null)
                     return actions.toArray(new Action[0]);
 
-                if (target == PROP_INPUTS || target == PROP_OUTPUTS || target == PROP_PARAMS) {
+                if (target == PROP_INPUTS || target == PROP_OUTPUTS) {
                     actions.add(ADD_IO_ACTION);
-                } else if (target == PROP_COMPS) {
+                } else if (target == PROP_PARAMS) {
+                    actions.add(ADD_PARAMETER_ACTION);
+                }else if (target == PROP_COMPS) {
                     actions.add(ADD_COMPONENT_ACTION);
                 } else if (target == PROP_CONNS) {
                     actions.add(ADD_CONNECTION_ACTION);
@@ -337,8 +396,20 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                         if (info.equals(DataStreamSource.INFO)) {
                             SystemSelectionPopup popup = new SystemSelectionPopup(800, value -> {
                                 String producerURI = (String)value;
-                                addDataSource(name, producerURI);
-                                refreshTable();
+                                var outputComponentPopup = new SystemIOSelectionPopup(
+                                        recordStructure -> {
+                                            // TODO: Use full path for name in case user selects nested component. then we need to resolve parent as output name
+                                            addDataSource(name, producerURI, SWEHelper.getComponentPath(((DataComponent) recordStructure)));
+                                            refreshTable();
+                                        },
+                                        getParentHub().getDatabaseRegistry().getFederatedDatabase(),
+                                        producerURI
+                                );
+//                                addDataSource(name, producerURI);
+//                                refreshTable();
+
+                                outputComponentPopup.setModal(true);
+                                getUI().addWindow(outputComponentPopup);
                             }, getParentHub().getDatabaseRegistry().getFederatedDatabase());
                             popup.setModal(true);
                             getUI().addWindow(popup);
@@ -414,6 +485,25 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     systemSelectionPopup.setModal(true);
 
                     getUI().addWindow(systemSelectionPopup);
+                } else if (action == ADD_PARAMETER_ACTION) {
+                    ValueEntryPopup.ValueCallback ioSelectionCallback = value -> {
+                        if (parentName == null)
+                            return;
+                        if (Objects.equals(parentName, PROP_PARAMS)) {
+                            addParameter((DataComponent) value);
+                        }
+                        refreshTable();
+                    };
+
+                    SystemSelectionPopup systemSelectionPopup = new SystemSelectionPopup(800, value -> {
+                        SystemIOSelectionPopup ioSelectionPopup = new SystemIOSelectionPopup(ioSelectionCallback, getParentHub().getDatabaseRegistry().getFederatedDatabase(), value.toString());
+                        ioSelectionPopup.setModal(true);
+                        getUI().addWindow(ioSelectionPopup);
+                    }, getParentHub().getDatabaseRegistry().getFederatedDatabase());
+
+                    systemSelectionPopup.setModal(true);
+
+                    getUI().addWindow(systemSelectionPopup);
                 } else if (action == ADD_CONNECTION_ACTION) {
                     Window popup = new Window();
                     popup.setWidth(300, Unit.PIXELS);
@@ -459,42 +549,41 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
     private List<String> getPossibleConnectionItems(AbstractProcess process) {
         List<String> possibleConnectionItems = new ArrayList<>();
 
-        for (int i = 0; i < process.getNumInputs(); i++) {
-            StringBuilder connectionPath = new StringBuilder();
-            connectionPath.append("inputs/");
-            DataComponent component = process.getInputList().getComponent(i);
-            connectionPath.append(SWEHelper.getComponentPath(component));
-            possibleConnectionItems.add(connectionPath.toString());
-        }
-
-        for (int i = 0; i < process.getNumOutputs(); i++) {
-            StringBuilder connectionPath = new StringBuilder();
-            connectionPath.append("outputs/");
-            DataComponent component = process.getOutputList().getComponent(i);
-            connectionPath.append(SWEHelper.getComponentPath(component));
-            possibleConnectionItems.add(connectionPath.toString());
-        }
-
-        for (int i = 0; i < process.getNumParameters(); i++) {
-            StringBuilder connectionPath = new StringBuilder();
-            connectionPath.append("parameters/");
-            DataComponent component = process.getParameterList().getComponent(i);
-            connectionPath.append(SWEHelper.getComponentPath(component));
-            possibleConnectionItems.add(connectionPath.toString());
-        }
+        collectFromIOList("inputs", process.getInputList(), possibleConnectionItems);
+        collectFromIOList("outputs", process.getOutputList(), possibleConnectionItems);
+        collectFromIOList("parameters", process.getParameterList(), possibleConnectionItems);
 
         if (process instanceof AggregateProcess aggregate) {
-            OgcPropertyList<AbstractProcess> components =  aggregate.getComponentList();
+            OgcPropertyList<AbstractProcess> components = aggregate.getComponentList();
             for (int i = 0; i < aggregate.getNumComponents(); i++) {
                 var component = components.getProperties().get(i);
-                StringBuilder connectionPath = new StringBuilder();
-                connectionPath.append("components/" + component.getName() + "/");
+                String prefix = "components/" + component.getName() + "/";
                 List<String> possibleComponentPaths = getPossibleConnectionItems(component.getValue());
-                possibleConnectionItems.addAll(possibleComponentPaths.stream().map(s -> connectionPath + s).toList());
+                possibleConnectionItems.addAll(possibleComponentPaths.stream()
+                        .map(s -> prefix + s)
+                        .toList());
             }
         }
 
         return possibleConnectionItems;
+    }
+
+    private void collectFromIOList(String prefix, IOPropertyList ioList, List<String> paths) {
+        for (int i = 0; i < ioList.size(); i++) {
+            DataComponent component = ioList.getComponent(i);
+            String topLevelPath = prefix + "/" + component.getName();
+            paths.add(topLevelPath);  // inputs/sensorLocation
+            collectNestedPaths(topLevelPath, component, paths);
+        }
+    }
+
+    private void collectNestedPaths(String parentPath, DataComponent component, List<String> paths) {
+        for (int i = 0; i < component.getComponentCount(); i++) {
+            DataComponent child = component.getComponent(i);
+            String childPath = parentPath + "/" + child.getName();
+            paths.add(childPath);
+            collectNestedPaths(childPath, child, paths);
+        }
     }
 
     private void addBaseItem(String name, String value) {
@@ -510,105 +599,118 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
         if (item == null)
             item = processTable.getItem(itemId);
         item.getItemProperty(PROP_NAME).setValue(component.getName());
-        item.getItemProperty(PROP_VALUE).setValue(component.getData().getDataType().toString());
+        String dataType = "UNKNOWN";
+        try {
+            dataType = component.getData().getDataType().toString();
+        } catch (Exception e) {}
+        item.getItemProperty(PROP_VALUE).setValue(dataType);
     }
 
     protected void refreshTable() {
-        // TODO: Refresh the process table with the current state of the aggregate process
-        // This should update the table with the current inputs, outputs, parameters, components, and connections
-        if (aggregateProcess == null)
-            return;
+        try {
+            // TODO: Refresh the process table with the current state of the aggregate process
+            // This should update the table with the current inputs, outputs, parameters, components, and connections
+            if (aggregateProcess == null)
+                return;
 
-        if (aggregateProcess.getNumInputs() > 0) {
-            processTable.setChildrenAllowed(PROP_INPUTS, true);
-            processTable.getItem(PROP_INPUTS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumInputs()));
-            for (int i = 0; i < aggregateProcess.getNumInputs(); i++) {
-                DataComponent input = aggregateProcess.getParameterList().getComponent(i);
-                var itemId = "inputs/" + SWEHelper.getComponentPath(input);
-                addOrUpdateIOComponent(itemId, input);
-                processTable.setParent(itemId, PROP_INPUTS);
-                processTable.setChildrenAllowed(itemId, false);
-            }
-        }
-        if (aggregateProcess.getNumOutputs() > 0) {
-            processTable.setChildrenAllowed(PROP_OUTPUTS, true);
-            processTable.getItem(PROP_OUTPUTS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumOutputs()));
-            for (int i = 0; i < aggregateProcess.getNumOutputs(); i++) {
-                DataComponent output = aggregateProcess.getOutputList().getComponent(i);
-                var itemId = "outputs/" + SWEHelper.getComponentPath(output);
-                addOrUpdateIOComponent(itemId, output);
-                processTable.setParent(itemId, PROP_OUTPUTS);
-                processTable.setChildrenAllowed(itemId, false);
-            }
-        }
-        if (aggregateProcess.getNumParameters() > 0) {
-            processTable.setChildrenAllowed(PROP_PARAMS, true);
-            processTable.getItem(PROP_PARAMS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumParameters()));
-            for (int i = 0; i < aggregateProcess.getNumParameters(); i++) {
-                DataComponent param = aggregateProcess.getParameterList().getComponent(i);
-                var itemId = "parameters/" + SWEHelper.getComponentPath(param);
-                addOrUpdateIOComponent(itemId, param);
-                processTable.setParent(itemId, PROP_PARAMS);
-                processTable.setChildrenAllowed(itemId, false);
-            }
-        }
-        if (aggregateProcess.getNumComponents() > 0) {
-            processTable.setChildrenAllowed(PROP_COMPS, true);
-            processTable.getItem(PROP_COMPS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumComponents()));
-            OgcPropertyList<AbstractProcess> comps =  aggregateProcess.getComponentList();
-            for (int i = 0; i < aggregateProcess.getNumComponents(); i++) {
-                OgcProperty<AbstractProcess> component = comps.getProperties().get(i);
-                AbstractProcess process = component.getValue();
-                Item item = processTable.addItem(component.getName());
-                if (item == null)
-                    item = processTable.getItem(component.getName());
-                item.getItemProperty(PROP_NAME).setValue(process.getName() + " (" + component.getName() + ")");
-                if (Objects.equals(process.getTypeOf().getHref(), DataStreamSource.INFO.getUri())) {
-                    // If data source, set value to the source UID
-                    item.getItemProperty(PROP_VALUE).setValue(((DataComponent)process.getParameter(DataStreamSource.SYSTEM_UID_PARAM)).getData().getStringValue());
-                } else if (Objects.equals(process.getTypeOf().getHref(), CommandStreamSink.INFO.getUri())) {
-                    // If data source, set value to the target UID / inputName
-                    item.getItemProperty(PROP_VALUE).setValue(
-                            ((DataComponent)process.getParameter(CommandStreamSink.SYSTEM_UID_PARAM)).getData().getStringValue() + "#"
-                            + ((DataComponent)process.getParameter(CommandStreamSink.OUTPUT_NAME_PARAM)).getData().getStringValue());
-                } else {
-                    StringBuilder paramsList = new StringBuilder();
-                    for (int paramIndex = 0; paramIndex < process.getParameterList().size(); paramIndex++) {
-                        DataComponent param = process.getParameterList().getComponent(paramIndex);
-                        paramsList.append(param.getName());
-                        if (paramIndex != process.getParameterList().size() - 1)
-                            paramsList.append(", ");
-                    }
-                    item.getItemProperty(PROP_VALUE).setValue(paramsList.toString());
+            if (aggregateProcess.getNumInputs() > 0) {
+                processTable.setChildrenAllowed(PROP_INPUTS, true);
+                processTable.getItem(PROP_INPUTS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumInputs()));
+                for (int i = 0; i < aggregateProcess.getNumInputs(); i++) {
+                    DataComponent input = aggregateProcess.getInputList().getComponent(i);
+                    var itemId = "inputs/" + SWEHelper.getComponentPath(input);
+                    addOrUpdateIOComponent(itemId, input);
+                    processTable.setParent(itemId, PROP_INPUTS);
+                    processTable.setChildrenAllowed(itemId, false);
                 }
-                processTable.setParent(component.getName(), PROP_COMPS);
-                processTable.setChildrenAllowed(component.getName(), false);
             }
-        }
-        if (aggregateProcess.getNumConnections() > 0) {
-            processTable.setChildrenAllowed(PROP_CONNS, true);
-            processTable.getItem(PROP_CONNS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumConnections()));
-            for (int i = 0; i < aggregateProcess.getNumConnections(); i++) {
-                Link connection = aggregateProcess.getConnectionList().get(i);
-                String itemId = connection.getSource() + "-" + connection.getDestination();
-                Item item = processTable.addItem(itemId);
-                if (item == null)
-                    item = processTable.getItem(itemId);
-                item.getItemProperty(PROP_NAME).setValue("Source Component: " + connection.getSource());
-                item.getItemProperty(PROP_VALUE).setValue("Destination Component: " + connection.getDestination());
-                processTable.setParent(itemId, PROP_CONNS);
-                processTable.setChildrenAllowed(itemId, false);
+            if (aggregateProcess.getNumOutputs() > 0) {
+                processTable.setChildrenAllowed(PROP_OUTPUTS, true);
+                processTable.getItem(PROP_OUTPUTS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumOutputs()));
+                for (int i = 0; i < aggregateProcess.getNumOutputs(); i++) {
+                    DataComponent output = aggregateProcess.getOutputList().getComponent(i);
+                    var itemId = "outputs/" + SWEHelper.getComponentPath(output);
+                    addOrUpdateIOComponent(itemId, output);
+                    processTable.setParent(itemId, PROP_OUTPUTS);
+                    processTable.setChildrenAllowed(itemId, false);
+                }
             }
+            if (aggregateProcess.getNumParameters() > 0) {
+                processTable.setChildrenAllowed(PROP_PARAMS, true);
+                processTable.getItem(PROP_PARAMS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumParameters()));
+                for (int i = 0; i < aggregateProcess.getNumParameters(); i++) {
+                    DataComponent param = aggregateProcess.getParameterList().getComponent(i);
+                    var itemId = "parameters/" + SWEHelper.getComponentPath(param);
+                    addOrUpdateIOComponent(itemId, param);
+                    processTable.setParent(itemId, PROP_PARAMS);
+                    processTable.setChildrenAllowed(itemId, false);
+                }
+            }
+            if (aggregateProcess.getNumComponents() > 0) {
+                processTable.setChildrenAllowed(PROP_COMPS, true);
+                processTable.getItem(PROP_COMPS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumComponents()));
+                OgcPropertyList<AbstractProcess> comps =  aggregateProcess.getComponentList();
+                for (int i = 0; i < aggregateProcess.getNumComponents(); i++) {
+                    OgcProperty<AbstractProcess> component = comps.getProperties().get(i);
+                    AbstractProcess process = component.getValue();
+                    Item item = processTable.addItem(component.getName());
+                    if (item == null)
+                        item = processTable.getItem(component.getName());
+                    item.getItemProperty(PROP_NAME).setValue(process.getName() + " (" + component.getName() + ")");
+                    if (Objects.equals(process.getTypeOf().getHref(), DataStreamSource.INFO.getUri())) {
+                        // If data source, set value to the source UID
+                        item.getItemProperty(PROP_VALUE).setValue(((DataComponent)process.getParameter(DataStreamSource.SYSTEM_UID_PARAM)).getData().getStringValue());
+                    } else if (Objects.equals(process.getTypeOf().getHref(), CommandStreamSink.INFO.getUri())) {
+                        // If data source, set value to the target UID / inputName
+                        item.getItemProperty(PROP_VALUE).setValue(
+                                ((DataComponent)process.getParameter(CommandStreamSink.SYSTEM_UID_PARAM)).getData().getStringValue() + "#"
+                                        + ((DataComponent)process.getParameter(CommandStreamSink.OUTPUT_NAME_PARAM)).getData().getStringValue());
+                    } else {
+                        StringBuilder paramsList = new StringBuilder();
+                        for (int paramIndex = 0; paramIndex < process.getParameterList().size(); paramIndex++) {
+                            DataComponent param = process.getParameterList().getComponent(paramIndex);
+                            paramsList.append(param.getName());
+                            if (paramIndex != process.getParameterList().size() - 1)
+                                paramsList.append(", ");
+                        }
+                        item.getItemProperty(PROP_VALUE).setValue(paramsList.toString());
+                    }
+                    processTable.setParent(component.getName(), PROP_COMPS);
+                    processTable.setChildrenAllowed(component.getName(), false);
+                }
+            }
+            if (aggregateProcess.getNumConnections() > 0) {
+                processTable.setChildrenAllowed(PROP_CONNS, true);
+                processTable.getItem(PROP_CONNS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumConnections()));
+                for (int i = 0; i < aggregateProcess.getNumConnections(); i++) {
+                    Link connection = aggregateProcess.getConnectionList().get(i);
+                    String itemId = connection.getSource() + "-" + connection.getDestination();
+                    Item item = processTable.addItem(itemId);
+                    if (item == null)
+                        item = processTable.getItem(itemId);
+                    item.getItemProperty(PROP_NAME).setValue("Source Component: " + connection.getSource());
+                    item.getItemProperty(PROP_VALUE).setValue("Destination Component: " + connection.getDestination());
+                    processTable.setParent(itemId, PROP_CONNS);
+                    processTable.setChildrenAllowed(itemId, false);
+                }
+            }
+        } catch (Exception e) {
+            getOshLogger().error("Error refreshing table", e);
         }
     }
+
     
-    
-    @Override
-    protected void beforeUpdateConfig() throws ProcessingException
-    {
-        if (module instanceof SMLProcessImpl)
-            saveProcessChain();
-    }
+//    @Override
+//    protected void beforeUpdateConfig() throws ProcessingException
+//    {
+//        // TODO
+//        if (config.isSaving)
+////        if (module instanceof SMLProcessImpl)
+//            saveProcessChain();
+//        else
+//            loadProcessChain();
+//
+//    }
 
     protected AggregateProcess getProcessChainFromFile() {
         // Read process as SensorML file if exists
@@ -627,21 +729,58 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
     
     protected void saveProcessChain()
     {
+
         // save SensorML file
-        String smlPath = config.getSensorMLPath();
-        if (!FileUtils.isSafeFilePath(smlPath)) {
-            DisplayUtils.showErrorPopup("Cannot save process chain: A valid SensorML file path must be provided", new IllegalArgumentException());
-            return;
+        AtomicReference<String> smlPath = new AtomicReference<>(config.getSensorMLPath());
+        if (!FileUtils.isSafeFilePath(smlPath.get())) {
+            Window popup = new Window();
+            popup.setWidth(300, Unit.PIXELS);
+            VerticalLayout layout = new VerticalLayout();
+            layout.setMargin(true);
+
+            TextField newFilePath = new TextField("SensorML File path");
+            newFilePath.setWidth(100, Unit.PERCENTAGE);
+
+            Button okButton = new Button("OK");
+            okButton.addClickListener(event -> {
+                smlPath.set(newFilePath.getValue());
+
+                writeProcess(smlPath.get());
+
+                popup.close();
+            });
+
+            layout.addComponents(newFilePath, okButton);
+
+            popup.setModal(true);
+            popup.setContent(layout);
+            popup.center();
+            getUI().addWindow(popup);
+        } else {
+            writeProcess(smlPath.get());
+        }
+    }
+
+    private void writeProcess(String path)
+    {
+        // Clear component I/O in case process implementation needs to use params to add I/O. Also, not needed in XML
+        for (var component : aggregateProcess.getComponentList())
+        {
+            component.getOutputList().clear();
+            component.getInputList().clear();
         }
 
-        try (OutputStream os = new BufferedOutputStream(new FileOutputStream(smlPath)))
+        try (OutputStream os = new BufferedOutputStream(new FileOutputStream(path)))
         {
             new SMLUtils(SMLUtils.V2_0).writeProcess(os, aggregateProcess, true);
-            DisplayUtils.showOperationSuccessful("Saved SensorML description to " + smlPath, 1000);
+            DisplayUtils.showOperationSuccessful("Saved SensorML description to " + path, 1000);
+
+            if (this.smlPathTextField != null)
+                this.smlPathTextField.setValue(path);
         }
         catch (Exception e)
         {
-            DisplayUtils.showErrorPopup(String.format("Cannot write SensorML description at '%s'", smlPath), e);
+            DisplayUtils.showErrorPopup(String.format("Cannot write SensorML description at '%s'", path), e);
         }
     }
 
