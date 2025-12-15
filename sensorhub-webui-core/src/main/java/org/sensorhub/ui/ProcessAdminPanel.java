@@ -18,7 +18,6 @@ import com.vaadin.event.Action;
 import com.vaadin.server.FontAwesome;
 import com.vaadin.ui.*;
 import com.vaadin.v7.data.Item;
-import com.vaadin.v7.data.util.BeanItem;
 import com.vaadin.v7.ui.ComboBox;
 import com.vaadin.v7.ui.TreeTable;
 import com.vaadin.v7.ui.VerticalLayout;
@@ -364,7 +363,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     actions.add(ADD_IO_ACTION);
                 } else if (target == PROP_PARAMS) {
                     actions.add(ADD_PARAMETER_ACTION);
-                }else if (target == PROP_COMPS) {
+                } else if (target == PROP_COMPS) {
                     actions.add(ADD_COMPONENT_ACTION);
                 } else if (target == PROP_CONNS) {
                     actions.add(ADD_CONNECTION_ACTION);
@@ -395,7 +394,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                         // If data source, show popup for selecting source system
                         if (info.equals(DataStreamSource.INFO)) {
                             SystemSelectionPopup popup = new SystemSelectionPopup(800, value -> {
-                                String producerURI = (String)value;
+                                String producerURI = (String) value;
                                 var outputComponentPopup = new SystemIOSelectionPopup(
                                         recordStructure -> {
                                             // TODO: Use full path for name in case user selects nested component. then we need to resolve parent as output name
@@ -405,8 +404,6 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                                         getParentHub().getDatabaseRegistry().getFederatedDatabase(),
                                         producerURI
                                 );
-//                                addDataSource(name, producerURI);
-//                                refreshTable();
 
                                 outputComponentPopup.setModal(true);
                                 getUI().addWindow(outputComponentPopup);
@@ -416,7 +413,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                             // If command, show system and IO popups
                         } else if (info.equals(CommandStreamSink.INFO)) {
                             SystemSelectionPopup popup = new SystemSelectionPopup(800, value -> {
-                                String consumerURI = (String)value;
+                                String consumerURI = (String) value;
                                 var inputComponentPopup = new SystemIOSelectionPopup(
                                         recordStructure -> {
                                             addCommandSink(name, consumerURI, ((DataComponent) recordStructure).getName());
@@ -443,7 +440,7 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                 } else if (action == CONFIGURE_PARAMS_ACTION) {
                     DataRecordImpl params = new DataRecordImpl();
                     params.setName("Parameters");
-                    for (AbstractSWEIdentifiable param: aggregateProcess.getComponent(target.toString()).getParameterList()) {
+                    for (AbstractSWEIdentifiable param : aggregateProcess.getComponent(target.toString()).getParameterList()) {
                         DataComponent dataComponent = (DataComponent) param;
                         params.addComponent(dataComponent.getName(), dataComponent);
                     }
@@ -510,7 +507,6 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     VerticalLayout layout = new VerticalLayout();
                     layout.setMargin(true);
 
-
                     ComboBox source = new ComboBox("Source");
                     source.setWidth(100, Unit.PERCENTAGE);
                     ComboBox destination = new ComboBox("Destination");
@@ -535,15 +531,119 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     popup.center();
                     getUI().addWindow(popup);
                 } else if (action == EDIT_CONNECTION_ACTION) {
+                    String itemId = target.toString();
+
+                    Link connectionToEdit = null;
+
+                    int connectionIndexToRemove = -1;
+                    for (int i = 0; i < aggregateProcess.getNumConnections(); i++) {
+                        Link conn = aggregateProcess.getConnectionList().get(i);
+                        String connId = conn.getSource().toString() + "-" + conn.getDestination().toString();
+
+                        if (connId.equals(itemId)) {
+                            connectionToEdit = conn;
+                            connectionIndexToRemove = i;
+                            break;
+                        }
+                    }
+
+
+                    Window popup = new Window("Edit Connection");
+                    popup.setWidth(300, Unit.PIXELS);
+                    VerticalLayout layout = new VerticalLayout();
+                    layout.setMargin(true);
+
+                    ComboBox source = new ComboBox("Source");
+                    source.setWidth(100, Unit.PERCENTAGE);
+                    ComboBox destination = new ComboBox("Destination");
+                    destination.setWidth(100, Unit.PERCENTAGE);
+
+                    List<String> possibleConnectionItems = getPossibleConnectionItems(aggregateProcess);
+
+                    source.addItems(possibleConnectionItems);
+                    destination.addItems(possibleConnectionItems);
+
+                    source.setValue(connectionToEdit.getSource());
+                    destination.setValue(connectionToEdit.getDestination());
+
+                    final int finalIndex = connectionIndexToRemove;
+                    Button updateButton = new Button("Update");
+                    updateButton.addClickListener(e -> {
+                        aggregateProcess.getConnectionList().get(finalIndex).setSource(source.getValue().toString());
+                        aggregateProcess.getConnectionList().get(finalIndex).setDestination(destination.getValue().toString());
+
+                        popup.close();
+                        refreshTable();
+                    });
+
+                    Button cancelButton = new Button("Cancel");
+                    cancelButton.addClickListener(e -> popup.close());
+
+                    HorizontalLayout buttonLayout = new HorizontalLayout(updateButton, cancelButton);
+                    buttonLayout.setSpacing(true);
+                    layout.addComponents(source, destination, buttonLayout);
+
+                    popup.setModal(true);
+                    popup.setContent(layout);
+                    popup.center();
+                    getUI().addWindow(popup);
 
                 } else if (action == DELETE_ACTION) {
+                    String itemId = target.toString();
 
+                    Object parent = table.getParent(target);
+                    String propName = table.getItem(parent).getItemProperty(PROP_NAME).getValue().toString();
+
+                    switch (propName) {
+                        case PROP_COMPS:
+                            if (parentName.contains(itemId)) {
+                                aggregateProcess.getComponentList().remove(itemId);
+                                break;
+                            }
+                            break;
+                        case PROP_PARAMS:
+                            if (itemId.contains(parentName)) {
+                                aggregateProcess.getParameterList().remove(parentName);
+                                break;
+                            }
+                            break;
+                        case PROP_CONNS:
+                            int idToRemove = -1;
+                            for (int i = 0; i < aggregateProcess.getNumConnections(); i++) {
+                                Link conn = aggregateProcess.getConnectionList().get(i);
+                                String connId = conn.getSource().toString() + "-" + conn.getDestination().toString();
+                                if (itemId.equals(connId)) {
+                                    idToRemove = i;
+                                    break;
+                                }
+                            }
+
+                            if (idToRemove >= 0) {
+                                aggregateProcess.getConnectionList().remove(idToRemove);
+                            }
+                            break;
+                        case PROP_INPUTS:
+                            if (itemId.contains(parentName)) {
+                                aggregateProcess.getInputList().remove(parentName);
+                                break;
+                            }
+                            break;
+                        case PROP_OUTPUTS:
+                            if (itemId.contains(parentName)) {
+                                aggregateProcess.getOutputList().remove(parentName);
+                                break;
+                            }
+                            break;
+                        default:
+                            getOshLogger().warn("Unknown type, cannot delete item ", parentName);
+                            break;
+                    }
+
+                    table.removeItem(itemId);
                 }
                 refreshTable();
             }
         });
-
-        refreshTable();
     }
 
     private List<String> getPossibleConnectionItems(AbstractProcess process) {
@@ -613,8 +713,16 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
             if (aggregateProcess == null)
                 return;
 
-            if (aggregateProcess.getNumInputs() > 0) {
-                processTable.setChildrenAllowed(PROP_INPUTS, true);
+            processTable.removeAllItems();
+            addBaseItem(PROP_INPUTS, "0");
+            addBaseItem(PROP_OUTPUTS, "0");
+            addBaseItem(PROP_PARAMS, "0");
+            addBaseItem(PROP_COMPS, "0");
+            addBaseItem(PROP_CONNS, "0");
+
+            if (aggregateProcess.getNumInputs() >= 0) {
+                if (aggregateProcess.getNumInputs() > 0)
+                    processTable.setChildrenAllowed(PROP_INPUTS, true);
                 processTable.getItem(PROP_INPUTS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumInputs()));
                 for (int i = 0; i < aggregateProcess.getNumInputs(); i++) {
                     DataComponent input = aggregateProcess.getInputList().getComponent(i);
@@ -624,8 +732,9 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     processTable.setChildrenAllowed(itemId, false);
                 }
             }
-            if (aggregateProcess.getNumOutputs() > 0) {
-                processTable.setChildrenAllowed(PROP_OUTPUTS, true);
+            if (aggregateProcess.getNumOutputs() >= 0) {
+                if (aggregateProcess.getNumOutputs() > 0)
+                    processTable.setChildrenAllowed(PROP_OUTPUTS, true);
                 processTable.getItem(PROP_OUTPUTS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumOutputs()));
                 for (int i = 0; i < aggregateProcess.getNumOutputs(); i++) {
                     DataComponent output = aggregateProcess.getOutputList().getComponent(i);
@@ -635,8 +744,9 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     processTable.setChildrenAllowed(itemId, false);
                 }
             }
-            if (aggregateProcess.getNumParameters() > 0) {
-                processTable.setChildrenAllowed(PROP_PARAMS, true);
+            if (aggregateProcess.getNumParameters() >= 0) {
+                if (aggregateProcess.getNumParameters() > 0)
+                    processTable.setChildrenAllowed(PROP_PARAMS, true);
                 processTable.getItem(PROP_PARAMS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumParameters()));
                 for (int i = 0; i < aggregateProcess.getNumParameters(); i++) {
                     DataComponent param = aggregateProcess.getParameterList().getComponent(i);
@@ -646,8 +756,9 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     processTable.setChildrenAllowed(itemId, false);
                 }
             }
-            if (aggregateProcess.getNumComponents() > 0) {
-                processTable.setChildrenAllowed(PROP_COMPS, true);
+            if (aggregateProcess.getNumComponents() >= 0) {
+                if (aggregateProcess.getNumComponents() > 0)
+                    processTable.setChildrenAllowed(PROP_COMPS, true);
                 processTable.getItem(PROP_COMPS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumComponents()));
                 OgcPropertyList<AbstractProcess> comps =  aggregateProcess.getComponentList();
                 for (int i = 0; i < aggregateProcess.getNumComponents(); i++) {
@@ -679,8 +790,9 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                     processTable.setChildrenAllowed(component.getName(), false);
                 }
             }
-            if (aggregateProcess.getNumConnections() > 0) {
-                processTable.setChildrenAllowed(PROP_CONNS, true);
+            if (aggregateProcess.getNumConnections() >= 0) {
+                if (aggregateProcess.getNumConnections() > 0)
+                    processTable.setChildrenAllowed(PROP_CONNS, true);
                 processTable.getItem(PROP_CONNS).getItemProperty(PROP_VALUE).setValue(String.valueOf(aggregateProcess.getNumConnections()));
                 for (int i = 0; i < aggregateProcess.getNumConnections(); i++) {
                     Link connection = aggregateProcess.getConnectionList().get(i);
@@ -698,19 +810,6 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
             getOshLogger().error("Error refreshing table", e);
         }
     }
-
-    
-//    @Override
-//    protected void beforeUpdateConfig() throws ProcessingException
-//    {
-//        // TODO
-//        if (config.isSaving)
-////        if (module instanceof SMLProcessImpl)
-//            saveProcessChain();
-//        else
-//            loadProcessChain();
-//
-//    }
 
     protected AggregateProcess getProcessChainFromFile() {
         // Read process as SensorML file if exists
