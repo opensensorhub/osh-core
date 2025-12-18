@@ -79,6 +79,10 @@ public class SWEControlForm extends SWEEditForm
         }
     }
 
+    @Override
+    protected void buildForm() {
+        buildForm(null);
+    }
 
     protected void buildForm(ClickListener submitListener)
     {
