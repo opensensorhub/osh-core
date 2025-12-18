@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.sensorhub.api.processing.IProcessProvider;
 import org.sensorhub.api.processing.ProcessingException;
+import org.sensorhub.impl.processing.StreamDataSource;
 import org.sensorhub.ui.api.UIConstants;
 import org.vast.process.ProcessInfo;
 import com.vaadin.ui.Alignment;
@@ -65,7 +66,7 @@ public class ProcessSelectionPopup extends Window implements UIConstants
         setWidth(1000.0f, Unit.PIXELS);
         buildDialog(providers, callback);
     }
-    
+
     
     protected void buildDialog(Collection<IProcessProvider> providers, final ProcessSelectionCallback callback)
     {
@@ -81,7 +82,7 @@ public class ProcessSelectionPopup extends Window implements UIConstants
         table.addContainerProperty(PROP_DESC, String.class, null);
         table.addContainerProperty(PROP_VERSION, String.class, null);
         table.addContainerProperty(PROP_AUTHOR, String.class, null);
-        table.setColumnHeaders(new String[] {"Name", "Description", "Version", "Author"});
+        table.setColumnHeaders("Name", "Description", "Version", "Author");
         table.setColumnWidth(PROP_NAME, 250);
         table.setPageLength(10);
         table.setMultiSelect(false);
@@ -97,8 +98,8 @@ public class ProcessSelectionPopup extends Window implements UIConstants
             
             for (ProcessInfo info: provider.getProcessMap().values())
             {
-                // skip data sources as they are inserted separately
-                if (info.getUri().contains(":datasource:"))
+                // For simplicity, don't let users choose this one
+                if (info == StreamDataSource.INFO)
                     continue;
                 
                 Object id = table.addItem(new Object[] {
@@ -112,20 +113,21 @@ public class ProcessSelectionPopup extends Window implements UIConstants
         }
         layout.addComponent(table);
         
-        // link to more modules
-        Button installNew = new Button("Install More Packages...");
-        installNew.setStyleName(STYLE_LINK);
-        layout.addComponent(installNew);
-        layout.setComponentAlignment(installNew, Alignment.MIDDLE_RIGHT);
-        installNew.addClickListener(new ClickListener()
-        {
-            @Override
-            public void buttonClick(ClickEvent event)
-            {
-                //close();
-                getUI().addWindow(new DownloadModulesPopup());
-            }
-        });
+//        // link to more modules
+//        Button installNew = new Button("Install More Packages...");
+//        installNew.setStyleName(STYLE_LINK);
+//        layout.addComponent(installNew);
+//        layout.setComponentAlignment(installNew, Alignment.MIDDLE_RIGHT);
+        // TODO: Use check OSGi logic
+//        installNew.addClickListener(new ClickListener()
+//        {
+//            @Override
+//            public void buttonClick(ClickEvent event)
+//            {
+//                //close();
+//                getUI().addWindow(new DownloadModulesPopup());
+//            }
+//        });
         
         // buttons bar
         HorizontalLayout buttons = new HorizontalLayout();
