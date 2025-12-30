@@ -14,6 +14,7 @@ Copyright (C) 2012-2017 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.command;
 
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import org.sensorhub.api.command.ICommandStatus.CommandStatusCode;
 import org.sensorhub.api.common.BigId;
@@ -78,6 +79,18 @@ public interface IStreamingControlInterface extends IEventProducer
     public default DataEncoding getCommandEncoding()
     {
         return new TextEncodingImpl();
+    }
+    
+    
+    /**
+     * Gets the control stream valid time. If null is returned, the valid start time of the
+     * parent system will be used, or if an older version of the same control stream already 
+     * exists, current time will be used instead.
+     * @return the timestamp to use for the valid start time of the control stream
+     */
+    public default Instant getValidStartTime()
+    {
+        return null;
     }
     
     

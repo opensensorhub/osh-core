@@ -266,7 +266,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
         var newDsHandler = addOrUpdateDataStream(
             output.getName(),
             output.getRecordDescription(),
-            output.getRecommendedEncoding());
+            output.getRecommendedEncoding(),
+            output.getValidStartTime());
             
         // replace and cleanup old handler
         var oldDsHandler = dataStreamHandlers.get(output.getName());
@@ -331,14 +332,16 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                 controlInput.getCommandDescription(),
                 controlInput.getCommandEncoding(),
                 ((IStreamingControlInterfaceWithResult) controlInput).getResultDescription(),
-                ((IStreamingControlInterfaceWithResult) controlInput).getResultEncoding());
+                ((IStreamingControlInterfaceWithResult) controlInput).getResultEncoding(),
+                controlInput.getValidStartTime());
         }
         else
         {
             newCsHandler = addOrUpdateCommandStream(
                 controlInput.getName(),
                 controlInput.getCommandDescription(),
-                controlInput.getCommandEncoding());
+                controlInput.getCommandEncoding(),
+                controlInput.getValidStartTime());
         }
             
         // replace and cleanup old handler and subscription

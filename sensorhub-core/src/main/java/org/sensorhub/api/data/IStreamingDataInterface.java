@@ -14,6 +14,7 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.data;
 
+import java.time.Instant;
 import org.sensorhub.api.event.IEventProducer;
 import net.opengis.swe.v20.DataBlock;
 import net.opengis.swe.v20.DataComponent;
@@ -105,4 +106,16 @@ public interface IStreamingDataInterface extends IEventProducer
      * @return sampling period in seconds or {@link Double#NaN} if unknown
      */
     public double getAverageSamplingPeriod();
+    
+    
+    /**
+     * Gets the datastream valid time. If null is returned, the valid start time of the
+     * parent system will be used, or if an older version of the same datastream already 
+     * exists with the parent system time, current time will be used instead.
+     * @return the timestamp to use for the valid start time of the datastream
+     */
+    public default Instant getValidStartTime()
+    {
+        return null;
+    }
 }
