@@ -356,6 +356,8 @@ subprojects {
                 }
             }
             repositories {
+                mavenLocal()
+                mavenCentral()
                 maven {
                     name = "GitHubPackages"
                     url = "https://maven.pkg.github.com/opensensorhub/osh-core"
