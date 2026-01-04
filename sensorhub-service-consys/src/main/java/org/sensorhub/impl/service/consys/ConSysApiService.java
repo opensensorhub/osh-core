@@ -158,7 +158,7 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         
         // init thread pool
         threadPool = Executors.newScheduledThreadPool(
-            Runtime.getRuntime().availableProcessors(),
+            config.threadPoolSize,
             new NamedThreadFactory("CSApi-Pool"));
 
         // init timeout monitor

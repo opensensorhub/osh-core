@@ -79,6 +79,10 @@ public class ConSysApiServiceConfig extends OGCServiceConfig
     public List<String> uriPrefixMap = new ArrayList<>();
 
 
+    @DisplayInfo(label="Thread Pool Size", desc="Number of threads used by the service to handle incoming requests")
+    public int threadPoolSize = Runtime.getRuntime().availableProcessors();
+
+
     public ConSysApiServiceConfig()
     {
         this.moduleClass = ConSysApiService.class.getCanonicalName();
