@@ -36,6 +36,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.net.http.HttpResponse.BodySubscriber;
 import java.net.http.HttpResponse.BodySubscribers;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,6 +53,7 @@ import java.util.stream.StreamSupport;
 import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandData;
+import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.DataStreamInfo;
@@ -80,6 +82,11 @@ import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.system.SystemBindingGeoJson;
 import org.sensorhub.impl.service.consys.system.SystemBindingSmlJson;
+import org.sensorhub.impl.service.consys.task.CommandBindingJson;
+import org.sensorhub.impl.service.consys.task.CommandBindingSweCommon;
+import org.sensorhub.impl.service.consys.task.CommandHandler;
+import org.sensorhub.impl.service.consys.task.CommandStatusBindingJson;
+import org.sensorhub.impl.service.consys.task.CommandStatusHandler.CommandStatusHandlerContextData;
 import org.sensorhub.impl.service.consys.task.CommandStreamBindingJson;
 import org.sensorhub.impl.service.consys.task.CommandStreamSchemaBindingJson;
 import org.sensorhub.utils.Lambdas;
@@ -90,6 +97,10 @@ import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
+import com.google.common.net.UrlEscapers;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
@@ -101,8 +112,9 @@ public class ConSysApiClient
     static final String SYSTEMS_COLLECTION = "systems";
     static final String DEPLOYMENTS_COLLECTION = "deployments";
     static final String DATASTREAMS_COLLECTION = "datastreams";
-    static final String CONTROLS_COLLECTION = "controlstreams";
     static final String OBSERVATIONS_COLLECTION = "observations";
+    static final String CONTROLSTREAMS_COLLECTION = "controlstreams";
+    static final String COMMANDS_COLLECTION = "commands";
     static final String SUBSYSTEMS_COLLECTION = "subsystems";
     static final String SF_COLLECTION = "samplingFeatures";
 
@@ -123,6 +135,7 @@ public class ConSysApiClient
     protected Authenticator authenticator;
     protected HttpClient http;
     protected URI endpoint;
+    protected String token;
 
 
     protected ConSysApiClient() {}
@@ -134,7 +147,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IDerivedProperty> getPropertyById(String id, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROPERTIES_COLLECTION + "/" + id), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROPERTIES_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -246,7 +259,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IProcedureWithDesc> getProcedureById(String id, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "/" + id), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -264,7 +277,7 @@ public class ConSysApiClient
     
     public CompletableFuture<IProcedureWithDesc> getProcedureByUid(String uid, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?id=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(PROCEDURES_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -361,7 +374,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ISystemWithDesc> getSystemById(String id, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + id), format, body -> {
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -379,7 +392,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ISystemWithDesc> getSystemByUid(String uid, ResourceFormat format) throws ExecutionException, InterruptedException
     {
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?id=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -560,10 +573,10 @@ public class ConSysApiClient
     }
     
 
-    public CompletableFuture<IFeature> getSamplingFeatureById(String featureId)
+    public CompletableFuture<IFeature> getSamplingFeatureById(String id)
     {
         return sendGetRequest(
-                endpoint.resolve(SF_COLLECTION + "/" + featureId),
+                endpoint.resolve(SF_COLLECTION + "/" + urlPathEncode(id)),
                 ResourceFormat.GEOJSON,
                 body -> {
             try
@@ -582,7 +595,7 @@ public class ConSysApiClient
 
     public CompletableFuture<IFeature> getSamplingFeatureByUid(String uid, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + uid), format, body -> {
+        return sendGetRequest(endpoint.resolve(SF_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -626,9 +639,9 @@ public class ConSysApiClient
     }
     
     
-    protected CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String systemId, ResourceFormat format, int pageSize, int offset)
+    protected CompletableFuture<Stream<IFeature>> getSystemSamplingFeatures(String sysId, ResourceFormat format, int pageSize, int offset)
     {
-        var request = SYSTEMS_COLLECTION + "/" + systemId + "/" + SF_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        var request = SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + SF_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
         log.debug("{}", request);
         
         return sendGetRequest(endpoint.resolve(request), format, body -> {
@@ -705,7 +718,7 @@ public class ConSysApiClient
 
     public CompletableFuture<IDataStreamInfo> getDatastreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
-        var cf1 = sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id), format, body -> {
+        var cf1 = sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -740,8 +753,8 @@ public class ConSysApiClient
     
     public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
-        var obsFormatStr = URLEncoder.encode(obsFormat.getMimeType(), StandardCharsets.UTF_8);
-        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + id + "/schema?obsFormat="+obsFormatStr), format, body -> {
+        var obsFormatStr = urlQueryEncode(obsFormat.getMimeType());
+        return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id) + "/schema?obsFormat="+obsFormatStr), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -761,7 +774,7 @@ public class ConSysApiClient
     }
     
 
-    public CompletableFuture<String> addDataStream(String systemId, IDataStreamInfo datastream)
+    public CompletableFuture<String> addDataStream(String sysId, IDataStreamInfo datastream)
     {
         try
         {
@@ -772,7 +785,7 @@ public class ConSysApiClient
             binding.serialize(null, datastream, false);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + DATASTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -789,7 +802,7 @@ public class ConSysApiClient
     }
 
 
-    public CompletableFuture<Set<String>> addDataStreams(String systemId, Collection<IDataStreamInfo> datastreams)
+    public CompletableFuture<Set<String>> addDataStreams(String sysId, Collection<IDataStreamInfo> datastreams)
     {
         try
         {
@@ -815,7 +828,7 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + DATASTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -830,7 +843,7 @@ public class ConSysApiClient
     /* Control Streams */
     /*-----------------*/
 
-    public CompletableFuture<String> addControlStream(String systemId, ICommandStreamInfo cmdstream)
+    public CompletableFuture<String> addControlStream(String sysId, ICommandStreamInfo cmdstream)
     {
         try
         {
@@ -841,7 +854,7 @@ public class ConSysApiClient
             binding.serializeCreate(cmdstream);
 
             return sendPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + CONTROLSTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -858,7 +871,7 @@ public class ConSysApiClient
     }
 
 
-    public CompletableFuture<Set<String>> addControlStreams(String systemId, Collection<ICommandStreamInfo> cmdstreams)
+    public CompletableFuture<Set<String>> addControlStreams(String sysId, Collection<ICommandStreamInfo> cmdstreams)
     {
         try
         {
@@ -884,7 +897,7 @@ public class ConSysApiClient
             binding.endCollection(Collections.emptyList());
 
             return sendBatchPostRequest(
-                endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + CONTROLS_COLLECTION),
+                endpoint.resolve(SYSTEMS_COLLECTION + "/" + urlPathEncode(sysId) + "/" + CONTROLSTREAMS_COLLECTION),
                 ResourceFormat.JSON,
                 buffer.toByteArray());
         }
@@ -897,7 +910,7 @@ public class ConSysApiClient
 
     public CompletableFuture<ICommandStreamInfo> getControlStreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
-        var cf1 = sendGetRequest(endpoint.resolve(CONTROLS_COLLECTION + "/" + id), format, body -> {
+        var cf1 = sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -932,7 +945,8 @@ public class ConSysApiClient
 
     public CompletableFuture<ICommandStreamInfo> getControlStreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
-        return sendGetRequest(endpoint.resolve(CONTROLS_COLLECTION + "/" + id + "/schema?obsFormat=" + obsFormat), format, body -> {
+        var obsFormatStr = urlQueryEncode(format.getMimeType());
+        return sendGetRequest(endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + urlPathEncode(id) + "/schema?obsFormat=" + obsFormatStr), format, body -> {
             try
             {
                 var ctx = new RequestContext(body);
@@ -952,13 +966,13 @@ public class ConSysApiClient
     /* Observations */
     /*--------------*/
     // TODO: Be able to push different kinds of observations such as video
-    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs)
+    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs)
     {
         try
         {
             var buffer = new ByteArrayOutputStream();
             var ctx = new RequestContext(buffer);
-            ctx.setParent(null, dataStreamId, obs.getDataStreamID());
+            ctx.setParent(null, dsId, obs.getDataStreamID());
             ObsHandler.ObsHandlerContextData contextData = new ObsHandler.ObsHandlerContextData();
             contextData.dsInfo = dataStream;
             ctx.setData(contextData);
@@ -975,7 +989,7 @@ public class ConSysApiClient
             }
 
             return sendPostRequest(
-                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + dataStreamId + "/" + OBSERVATIONS_COLLECTION),
+                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(dsId) + "/" + OBSERVATIONS_COLLECTION),
                     ctx.getFormat(),
                     buffer.toByteArray());
         }
@@ -1006,7 +1020,7 @@ public class ConSysApiClient
     
     protected CompletableFuture<Stream<IObsData>> getObservations(String dsId, IDataStreamInfo dsInfo, TemporalFilter timeFilter, Set<String> foiIds, ResourceFormat format, int pageSize, int offset)
     {
-        var request = DATASTREAMS_COLLECTION + "/" + dsId + "/observations?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        var request = DATASTREAMS_COLLECTION + "/" + urlPathEncode(dsId) + "/observations?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
                 
         if (foiIds != null)
             request += "&foi=" + String.join(",", foiIds);
@@ -1015,6 +1029,24 @@ public class ConSysApiClient
         {
             if (timeFilter.isLatestTime())
                 request += "&resultTime=latest";
+            else {
+                request += "&phenomenonTime=";
+                
+                if (timeFilter.isCurrentTime())
+                    request += "now";
+                else if (timeFilter.endsNow())
+                    request += timeFilter.getMin() + "/now";
+                else if (timeFilter.beginsNow())
+                    request += "now/" + timeFilter.getMax();
+                else if (timeFilter.isAllTimes())
+                    request += "../..";
+                else if (timeFilter.getMin() == Instant.MIN)
+                    request += "../" + timeFilter.getMax();
+                else if (timeFilter.getMax() == Instant.MAX)
+                    request += timeFilter.getMin() + "/..";
+                else
+                    request += timeFilter.getMin() + "/" + timeFilter.getMax();
+            }
         }
         
         return sendGetRequest(endpoint.resolve(request), format, body -> {
@@ -1087,9 +1119,54 @@ public class ConSysApiClient
     /* Commands */
     /*----------*/
 
-    public CompletableFuture<String> sendCommand(String controlId, ICommandData cmd)
+    public CompletableFuture<ICommandStatus> sendCommand(String csId, ICommandStreamInfo cmdStream, ICommandData cmd)
     {
-        return null;
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+            ctx.setParent(null, csId, cmd.getCommandStreamID());
+            var contextData = new CommandHandler.CommandHandlerContextData();
+            contextData.csInfo = cmdStream;
+            ctx.setData(contextData);
+
+            if (cmdStream != null && cmdStream.getRecordEncoding() instanceof BinaryEncoding) {
+                ctx.setData(contextData);
+                ctx.setFormat(ResourceFormat.SWE_BINARY);
+                var binding = new CommandBindingSweCommon(ctx, new IdEncodersBase32(), false, null);
+                binding.serialize(null, cmd, false);
+            } else {
+                ctx.setFormat(ResourceFormat.JSON);
+                var binding = new CommandBindingJson(ctx, new IdEncodersBase32(), false, null);
+                binding.serialize(null, cmd, false);
+            }
+            
+            return sendPostRequestAndReadResponse(
+                    endpoint.resolve(CONTROLSTREAMS_COLLECTION + "/" + urlPathEncode(csId) + "/" + COMMANDS_COLLECTION),
+                    ctx.getFormat(),
+                    buffer.toByteArray(),
+                    responseBody -> {
+                        try
+                        {
+                            var respCtx = new RequestContext(responseBody);
+                            var respCtxData = new CommandStatusHandlerContextData();
+                            respCtxData.csInfo = cmdStream;
+                            respCtx.setData(respCtxData);
+                            respCtx.setFormat(ResourceFormat.JSON);
+                            var binding = new CommandStatusBindingJson(respCtx, new IdEncodersBase32(), true, null);
+                            return binding.deserialize();
+                        }
+                        catch (IOException e)
+                        {
+                            e.printStackTrace();
+                            throw new CompletionException(e);
+                        }
+                    });
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
     }
     
     
@@ -1103,27 +1180,35 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendGetRequestFallback(collectionUri, format, bodyMapper);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .GET()
-                .header(HttpHeaders.ACCEPT, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.ACCEPT, format.getMimeType());
+        
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         BodyHandler<T> bodyHandler = resp -> {
             BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
             return BodySubscribers.mapping(upstream, body -> {
-                var is = new ByteArrayInputStream(body);
-                return bodyMapper.apply(is);
+                if (resp.statusCode() == 200) {
+                    var is = new ByteArrayInputStream(body);
+                    return bodyMapper.apply(is);
+                } else {
+                    var error = new String(body);
+                    throw new CompletionException("HTTP error " + resp.statusCode() + ": " + error, null);
+                }
             });
         };
 
         return http.sendAsync(req, bodyHandler)
-                .thenApply(resp -> {
-                    if (resp.statusCode() == 200)
-                        return resp.body();
-                    else
-                        throw new CompletionException("HTTP error " + resp.statusCode(), null);
-                });
+            .thenApply(resp -> {
+                if (resp.statusCode() == 200)
+                    return resp.body();
+                else
+                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
+            });
     }
 
 
@@ -1143,6 +1228,8 @@ public class ConSysApiClient
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 
                 int responseCode = connection.getResponseCode();
                 if (responseCode == 200) {
@@ -1168,13 +1255,16 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendPostRequestFallback(collectionUri, format, body);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(resp -> {
                     if (resp.statusCode() == 201 || resp.statusCode() == 303) {
@@ -1185,6 +1275,50 @@ public class ConSysApiClient
                     } else
                         throw new CompletionException(resp.body(), null);
                 });
+    }
+
+
+    protected <T> CompletableFuture<T> sendPostRequestAndReadResponse(URI collectionUri, ResourceFormat format, byte[] requestBody, Function<InputStream, T> responseBodyMapper)
+    {
+        //if (!isHttpClientAvailable)
+        //    return sendPostRequestFallback(collectionUri, format, body);
+
+        var builder = HttpRequest.newBuilder()
+                .uri(collectionUri)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
+                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        
+        var req = builder.build();
+        BodyHandler<T> bodyHandler = resp -> {
+            BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
+            return BodySubscribers.mapping(upstream, body -> {
+                if (resp.statusCode() == 200) {
+                    var is = new ByteArrayInputStream(body);
+                    return responseBodyMapper.apply(is);
+                } else {
+                    var bodyStr = new String(body);
+                    try {
+                        var jsonError = (JsonObject)JsonParser.parseString(bodyStr);
+                        throw new CompletionException(jsonError.get("message").getAsString(), null);
+                    } catch (JsonSyntaxException e) {
+                        throw new CompletionException("HTTP error " + resp.statusCode() + ": " + bodyStr, null);
+                    }
+                }
+            });
+        };
+
+        return http.sendAsync(req, bodyHandler)
+            .thenApply(resp -> {
+                if (resp.statusCode() == 200)
+                    return resp.body();
+                else
+                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
+            });
     }
 
 
@@ -1205,6 +1339,8 @@ public class ConSysApiClient
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -1237,13 +1373,16 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendPutRequestFallback(collectionUri, format, body);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(HttpResponse::statusCode);
     }
@@ -1266,6 +1405,8 @@ public class ConSysApiClient
                 connection.setRequestMethod("PUT");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -1289,12 +1430,15 @@ public class ConSysApiClient
         if (!isHttpClientAvailable)
             return sendBatchPostRequestFallback(collectionUri, format, body);
 
-        var req = HttpRequest.newBuilder()
+        var builder = HttpRequest.newBuilder()
                 .uri(collectionUri)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType())
-                .build();
-
+                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                
+        if (token != null)
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            
+        var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(Lambdas.checked(resp -> {
                     if (resp.statusCode() == 201 || resp.statusCode() == 303) {
@@ -1331,6 +1475,8 @@ public class ConSysApiClient
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
+                if (token != null)
+                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -1440,6 +1586,24 @@ public class ConSysApiClient
             else
                 reader.skipValue();
         }
+    }
+    
+    
+    protected String urlPathEncode(String value)
+    {
+        return UrlEscapers.urlPathSegmentEscaper().escape(value);
+    }
+    
+    
+    protected String urlQueryEncode(String value)
+    {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+    
+    
+    public void setAuthToken(String token)
+    {
+        this.token = token;
     }
     
 

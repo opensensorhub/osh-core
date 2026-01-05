@@ -295,6 +295,12 @@ public class SystemTransactionHandler
     
     public DataStreamTransactionHandler addOrUpdateDataStream(String outputName, DataComponent dataStruct, DataEncoding dataEncoding) throws DataStoreException
     {
+        return addOrUpdateDataStream(outputName, dataStruct, dataEncoding, null);
+    }
+    
+    
+    public DataStreamTransactionHandler addOrUpdateDataStream(String outputName, DataComponent dataStruct, DataEncoding dataEncoding, Instant validStartTime) throws DataStoreException
+    {
         Asserts.checkNotNullOrEmpty(outputName, "outputName");
         Asserts.checkNotNull(dataStruct, DataComponent.class);
         Asserts.checkNotNull(dataEncoding, DataEncoding.class);
@@ -303,11 +309,18 @@ public class SystemTransactionHandler
         var sysName = getSystemDescStore().get(sysKey).getName();
         var dsName = Strings.isNullOrEmpty(dataStruct.getLabel()) ? outputName : dataStruct.getLabel();
         
+        // compute valid time extent
+        TimeExtent validTime = null;
+        if (validStartTime != null) {
+            validTime = TimeExtent.endNow(validStartTime);
+        }
+        
         // create datastream info
         dataStruct.setName(outputName);
         var dsInfo = new DataStreamInfo.Builder()
             .withName(sysName + " - " + dsName)
             .withSystem(FeatureId.NULL_FEATURE)
+            .withValidTime(validTime)
             .withRecordDescription(dataStruct)
             .withRecordEncoding(dataEncoding)
             .build();
@@ -363,39 +376,43 @@ public class SystemTransactionHandler
                 addedEvent = new DataStreamAddedEvent(sysUID, outputName);
                 log.debug("Added datastream {}#{} with valid time {}", sysUID, outputName, validTime);
             }
-            
-            // if observations were already recorded and structure has changed, create a new datastream
-            if (hasObs &&
-               (!DataComponentChecks.checkStructCompatible(oldDsInfo.getRecordStructure(), dsInfo.getRecordStructure()) ||
-                !DataComponentChecks.checkEncodingEquals(oldDsInfo.getRecordEncoding(), dsInfo.getRecordEncoding())))
-            {
-                // set validTime to current time
-                dsInfo = DataStreamInfo.Builder.from(dsInfo)
-                    .withValidTime(TimeExtent.endNow(Instant.now()))
-                    .build();
-                
-                dsKey = dataStreamStore.add(dsInfo);
-                addedEvent = new DataStreamAddedEvent(sysUID, outputName);
-                log.debug("Added datastream {}#{} with new data structure", sysUID, outputName);
-            }
-            
-            // if something else has changed, update existing datastream
-            else if (!DataComponentChecks.checkStructEquals(oldDsInfo.getRecordStructure(), dsInfo.getRecordStructure()) ||
-                     !DataComponentChecks.checkEncodingEquals(oldDsInfo.getRecordEncoding(), dsInfo.getRecordEncoding()) ||
-                     !Objects.equals(oldDsInfo.getName(), dsInfo.getName()) ||
-                     !Objects.equals(oldDsInfo.getDescription(), dsInfo.getDescription()))
-            {
-                var dsHandler = new DataStreamTransactionHandler(dsKey, oldDsInfo, rootHandler);
-                dsHandler.update(dsInfo);
-                dsInfo = dsHandler.getDataStreamInfo();
-                log.debug("Updated datastream {}#{}", sysUID, outputName);
-            }
-            
-            // else don't update and return existing key
             else
             {
-                dsInfo = oldDsInfo;
-                log.debug("No changes to datastream {}#{}", sysUID, outputName);
+                // compare properties of old and new datastreams
+                var sameName = Objects.equals(oldDsInfo.getName(), dsInfo.getName());
+                var sameDescription = Objects.equals(oldDsInfo.getDescription(), dsInfo.getDescription());
+                var sameRecordStruct = DataComponentChecks.checkStructEquals(oldDsInfo.getRecordStructure(), dsInfo.getRecordStructure());
+                var sameRecordEncoding = DataComponentChecks.checkEncodingEquals(oldDsInfo.getRecordEncoding(), dsInfo.getRecordEncoding());
+                var recordStructCompatible = sameRecordStruct || DataComponentChecks.checkStructCompatible(oldDsInfo.getRecordStructure(), dsInfo.getRecordStructure());
+                            
+                // if observations were already recorded and structure has changed, create a new datastream
+                if (hasObs && (!recordStructCompatible || !sameRecordEncoding))
+                {
+                    // set validTime to current time
+                    dsInfo = DataStreamInfo.Builder.from(dsInfo)
+                        .withValidTime(TimeExtent.endNow(Instant.now()))
+                        .build();
+                    
+                    dsKey = dataStreamStore.add(dsInfo);
+                    addedEvent = new DataStreamAddedEvent(sysUID, outputName);
+                    log.debug("Added datastream {}#{} with new data structure", sysUID, outputName);
+                }
+                
+                // if something else has changed, update existing datastream
+                else if (!sameRecordStruct || !sameRecordEncoding || !sameName || !sameDescription)
+                {
+                    var dsHandler = new DataStreamTransactionHandler(dsKey, oldDsInfo, rootHandler);
+                    dsHandler.update(dsInfo);
+                    dsInfo = dsHandler.getDataStreamInfo();
+                    log.debug("Updated datastream {}#{}", sysUID, outputName);
+                }
+                
+                // else don't update and return existing key
+                else
+                {
+                    dsInfo = oldDsInfo;
+                    log.debug("No changes to datastream {}#{}", sysUID, outputName);
+                }
             }
         }
         
@@ -409,11 +426,23 @@ public class SystemTransactionHandler
     
     public CommandStreamTransactionHandler addOrUpdateCommandStream(String commandName, DataComponent dataStruct, DataEncoding dataEncoding) throws DataStoreException
     {
-        return addOrUpdateCommandStream(commandName, dataStruct, dataEncoding, null, null);
+        return addOrUpdateCommandStream(commandName, dataStruct, dataEncoding, null, null, null);
+    }
+    
+    
+    public CommandStreamTransactionHandler addOrUpdateCommandStream(String commandName, DataComponent dataStruct, DataEncoding dataEncoding, Instant validStartTime) throws DataStoreException
+    {
+        return addOrUpdateCommandStream(commandName, dataStruct, dataEncoding, null, null, validStartTime);
     }
     
     
     public CommandStreamTransactionHandler addOrUpdateCommandStream(String commandName, DataComponent dataStruct, DataEncoding dataEncoding, DataComponent resultStruct, DataEncoding resultEncoding) throws DataStoreException
+    {
+        return addOrUpdateCommandStream(commandName, dataStruct, dataEncoding, resultStruct, resultEncoding, null);
+    }
+    
+    
+    public CommandStreamTransactionHandler addOrUpdateCommandStream(String commandName, DataComponent dataStruct, DataEncoding dataEncoding, DataComponent resultStruct, DataEncoding resultEncoding, Instant validStartTime) throws DataStoreException
     {
         Asserts.checkNotNullOrEmpty(commandName, "commandName");
         Asserts.checkNotNull(dataStruct, DataComponent.class);
@@ -425,11 +454,18 @@ public class SystemTransactionHandler
         var fullName = sysName + " - " + csName;
         dataStruct.setName(commandName);
         
+        // compute valid time extent
+        TimeExtent validTime = null;
+        if (validStartTime != null) {
+            validTime = TimeExtent.endNow(validStartTime);
+        }
+        
         // create command stream info
         // with or without command result
         ICommandStreamInfo csInfo = new CommandStreamInfo.Builder()
             .withName(fullName)
             .withSystem(FeatureId.NULL_FEATURE)
+            .withValidTime(validTime)
             .withRecordDescription(dataStruct)
             .withRecordEncoding(dataEncoding)
             .withResultDescription(resultStruct)
@@ -487,39 +523,48 @@ public class SystemTransactionHandler
                 addedEvent = new CommandStreamAddedEvent(sysUID, commandName);
                 log.debug("Added command stream {}#{} with valid time {}", sysUID, commandName, validTime);
             }
-
-            // if observations were already recorded and structure has changed, create a new datastream
-            if (hasCommands &&
-               (!DataComponentChecks.checkStructCompatible(oldCsInfo.getRecordStructure(), csInfo.getRecordStructure()) ||
-                !DataComponentChecks.checkEncodingEquals(oldCsInfo.getRecordEncoding(), csInfo.getRecordEncoding())))
-            {
-                // set validTime to current time
-                csInfo = CommandStreamInfo.Builder.from(csInfo)
-                    .withValidTime(TimeExtent.endNow(Instant.now()))
-                    .build();
-
-                csKey = commandStreamStore.add(csInfo);
-                addedEvent = new CommandStreamAddedEvent(sysUID, commandName);
-                log.debug("Added command stream {}#{} with new data structure", sysUID, commandName);
-            }
-
-            // if something else has changed, update existing command stream
-            else if (!DataComponentChecks.checkStructEquals(oldCsInfo.getRecordStructure(), csInfo.getRecordStructure()) ||
-                     !DataComponentChecks.checkEncodingEquals(oldCsInfo.getRecordEncoding(), csInfo.getRecordEncoding()) ||
-                     !Objects.equals(oldCsInfo.getName(), csInfo.getName()) ||
-                     !Objects.equals(oldCsInfo.getDescription(), csInfo.getDescription()))
-            {
-                var csHandler = new CommandStreamTransactionHandler(csKey, oldCsInfo, rootHandler);
-                csHandler.update(csInfo);
-                csInfo = csHandler.getCommandStreamInfo();
-                log.debug("Updated command stream {}#{}", sysUID, commandName);
-            }
-
-            // else don't update and return existing key
             else
             {
-                csInfo = oldCsInfo;
-                log.debug("No changes to command stream {}#{}", sysUID, commandName);
+                // compare properties of old and new command streams
+                var sameName = Objects.equals(oldCsInfo.getName(), csInfo.getName());
+                var sameDescription = Objects.equals(oldCsInfo.getDescription(), csInfo.getDescription());
+                
+                var sameParamStruct = DataComponentChecks.checkStructEquals(oldCsInfo.getRecordStructure(), csInfo.getRecordStructure());
+                var sameParamEncoding = DataComponentChecks.checkEncodingEquals(oldCsInfo.getRecordEncoding(), csInfo.getRecordEncoding());
+                var paramStructCompatible = sameParamStruct || DataComponentChecks.checkStructCompatible(oldCsInfo.getRecordStructure(), csInfo.getRecordStructure());
+                
+                var sameResultStruct = DataComponentChecks.checkStructEqualsNullAllowed(oldCsInfo.getResultStructure(), csInfo.getResultStructure());
+                var sameResultEncoding = DataComponentChecks.checkEncodingEqualsNullAllowed(oldCsInfo.getResultEncoding(), csInfo.getResultEncoding());
+                var resultStructCompatible = sameResultStruct || DataComponentChecks.checkStructCompatibleNullAllowed(oldCsInfo.getResultStructure(), csInfo.getResultStructure());
+                
+                // if observations were already recorded and structure has changed, create a new datastream
+                if (hasCommands && (!paramStructCompatible || !sameParamEncoding || !resultStructCompatible || !sameResultEncoding))
+                {
+                    // set validTime to current time
+                    csInfo = CommandStreamInfo.Builder.from(csInfo)
+                        .withValidTime(TimeExtent.endNow(Instant.now()))
+                        .build();
+    
+                    csKey = commandStreamStore.add(csInfo);
+                    addedEvent = new CommandStreamAddedEvent(sysUID, commandName);
+                    log.debug("Added command stream {}#{} with new data structure", sysUID, commandName);
+                }
+    
+                // if something else has changed, update existing command stream
+                else if (!sameParamStruct || !sameParamEncoding || !sameResultStruct || !sameResultEncoding || !sameName || !sameDescription)
+                {
+                    var csHandler = new CommandStreamTransactionHandler(csKey, oldCsInfo, rootHandler);
+                    csHandler.update(csInfo);
+                    csInfo = csHandler.getCommandStreamInfo();
+                    log.debug("Updated command stream {}#{}", sysUID, commandName);
+                }
+    
+                // else don't update and return existing key
+                else
+                {
+                    csInfo = oldCsInfo;
+                    log.debug("No changes to command stream {}#{}", sysUID, commandName);
+                }
             }
         }
         

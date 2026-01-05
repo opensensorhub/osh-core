@@ -241,6 +241,29 @@ public class FederatedObsStore extends ReadOnlyDataStore<BigId, IObsData, ObsFie
 
 
     @Override
+    public long countMatchingEntries(ObsFilter filter)
+    {
+        // if any kind of internal IDs are used, we need to dispatch the correct filter
+        // to the corresponding DB so we create this map
+        var filterDispatchMap = getFilterDispatchMap(filter);
+
+        if (filterDispatchMap != null)
+        {
+            return filterDispatchMap.values().stream()
+                    .mapToLong(v -> v.db.getObservationStore().countMatchingEntries((ObsFilter)v.filter))
+                    .reduce(0, Long::sum);
+        }
+
+        // otherwise scan all DBs
+        else
+        {
+            return parentDb.getAllObsDatabases().stream()
+                    .mapToLong(db -> db.getObservationStore().countMatchingEntries(filter))
+                    .reduce(0, Long::sum);
+        }
+    }
+
+    @Override
     public Stream<BigId> selectObservedFois(ObsFilter filter)
     {
         // if any kind of internal IDs are used, we need to dispatch the correct filter

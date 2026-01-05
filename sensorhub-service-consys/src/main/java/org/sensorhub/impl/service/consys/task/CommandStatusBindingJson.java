@@ -17,8 +17,11 @@ package org.sensorhub.impl.service.consys.task;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Collection;
+import org.sensorhub.api.command.CommandResult;
 import org.sensorhub.api.command.CommandStatus;
+import org.sensorhub.api.command.ICommandResult;
 import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.command.ICommandStatus.CommandStatusCode;
 import org.sensorhub.api.common.BigId;
@@ -29,17 +32,24 @@ import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceBindingJson;
 import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.task.CommandStatusHandler.CommandStatusHandlerContextData;
+import org.vast.cdm.common.DataStreamParser;
+import org.vast.cdm.common.DataStreamWriter;
+import org.vast.swe.fast.JsonDataParserGson;
+import org.vast.swe.fast.JsonDataWriterGson;
 import org.vast.util.ReaderException;
 import org.vast.util.TimeExtent;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import net.opengis.swe.v20.DataBlock;
 
 
 public class CommandStatusBindingJson extends ResourceBindingJson<BigId, ICommandStatus>
 {
     CommandStatusHandlerContextData contextData;
     ICommandStatusStore statusStore;
+    DataStreamParser resultReader;
+    DataStreamWriter resultWriter;
 
     
     public CommandStatusBindingJson(RequestContext ctx, IdEncoders idEncoders, boolean forReading, ICommandStatusStore cmdStore) throws IOException
@@ -90,7 +100,7 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
                     var code = CommandStatusCode.valueOf(reader.nextString());
                     status.withStatusCode(code);
                 }
-                else if ("progress".equals(propName))
+                else if ("percentCompletion".equals(propName))
                 {
                     var percent = reader.nextInt();
                     status.withProgress(percent);
@@ -99,6 +109,47 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
                 {
                     var msg = reader.nextString().trim();
                     status.withMessage(msg);
+                }
+                else if ("results".equals(propName))
+                {
+                    var dsIdList = new ArrayList<BigId>();
+                    var obsIdList = new ArrayList<BigId>();
+                    var recList = new ArrayList<DataBlock>();
+                    
+                    reader.beginArray();
+                    while (reader.hasNext())
+                    {
+                        reader.beginObject();
+                        
+                        while (reader.hasNext())
+                        {
+                            propName = reader.nextName();
+                            
+                            if (propName.equals("data")) {
+                                var resultReader = new JsonDataParserGson(reader);
+                                resultReader.setDataComponents(contextData.csInfo.getResultStructure());
+                                recList.add(resultReader.parseNextBlock());
+                            }
+                            else
+                                reader.skipValue();
+                            
+                            // TODO add support for observation and datastream references
+                        }
+                        
+                        reader.endObject();
+                    }
+                    reader.endArray();
+                    
+                    ICommandResult result = null;
+                    if (!recList.isEmpty())
+                        result = CommandResult.withData(recList);
+                    else if (!obsIdList.isEmpty())
+                        result = CommandResult.withObservations(obsIdList);
+                    else if (!dsIdList.isEmpty())
+                        result = CommandResult.withDatastreams(dsIdList);
+                    
+                    if (result != null)
+                        status.withResult(result);
                 }
                 else
                     reader.skipValue();
@@ -142,6 +193,9 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
         writer.name("reportTime").value(status.getReportTime().toString());
         writer.name("statusCode").value(status.getStatusCode().toString());
         
+        if (status.getProgress() >= 0)
+            writer.name("percentCompletion").value(status.getProgress());
+                
         if (status.getExecutionTime() != null)
         {
             writer.name("executionTime").beginArray()
@@ -150,42 +204,62 @@ public class CommandStatusBindingJson extends ResourceBindingJson<BigId, IComman
                 .endArray();
         }
         
-        if (status.getProgress() >= 0)
-            writer.name("progress").value(status.getProgress());
+        if (status.getMessage() != null) 
+            writer.name("message").value(status.getMessage());
         
+        int resultNum = 1; // temporary ID for now
         if (status.getResult() != null)
         {
             var result = status.getResult();
-            writer.name("result").beginObject();
+            writer.name("results").beginArray();
             
-            // whole datastream
-            if (result.getDataStreamID() != null)
+            // datastream references
+            if (result.getDataStreamIDs() != null)
             {
-                var dsId = idEncoders.getDataStreamIdEncoder().encodeID(result.getDataStreamID());
-                writer.name("datastream@id").value(dsId);
-            }
-            
-            // obs references
-            else if (result.getObservationRefs() != null)
-            {
-                writer.name("obsRefs").beginArray();
-                for (var bigId: result.getObservationRefs())
-                {
-                    var obsId = idEncoders.getObsIdEncoder().encodeID(bigId);
-                    writer.value(obsId);
+                for (var dsId: result.getDataStreamIDs()) {
+                    writer.beginObject();
+                    writer.name("id").value(Integer.toString(resultNum++));
+                    var id = idEncoders.getDataStreamIdEncoder().encodeID(dsId);
+                    writer.name("datastream@id").value(id);
+                    writer.name("datastream@link").value(ctx.getApiRootURL() + "/datastreams/" + id);
+                    writer.endObject();
                 }
-                writer.endArray();
             }
             
-            // inline obs
-            else if (status.getResult().getObservations() != null)
-                writer.name("inline").value(true);
+            // observation references
+            else if (result.getObservationIDs() != null)
+            {
+                for (var obsId: result.getObservationIDs())
+                {
+                    writer.beginObject();
+                    writer.name("id").value(Integer.toString(resultNum++));
+                    var id = idEncoders.getObsIdEncoder().encodeID(obsId);
+                    writer.name("observation@id").value(id);
+                    writer.name("observation@link").value(ctx.getApiRootURL() + "/observations/" + id);
+                    writer.endObject();
+                }
+            }
             
-            writer.endObject();
+            // inline data
+            else if (status.getResult().getInlineRecords() != null)
+            {
+                var resultWriter = new JsonDataWriterGson(writer);
+                resultWriter.setDataComponents(contextData.csInfo.getResultStructure());
+                
+                writer.setSerializeNulls(true);
+                for (var rec: result.getInlineRecords())
+                {
+                    writer.beginObject();
+                    writer.name("id").value(Integer.toString(resultNum++));
+                    writer.name("data");
+                    resultWriter.write(rec);
+                    writer.endObject();
+                }
+                writer.setSerializeNulls(false);
+            }
+            
+            writer.endArray();
         }
-        
-        if (status.getMessage() != null)
-            writer.name("message").value(status.getMessage());
         
         writer.endObject();
         writer.flush();

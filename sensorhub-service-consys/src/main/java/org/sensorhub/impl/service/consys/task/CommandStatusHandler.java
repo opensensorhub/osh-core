@@ -60,12 +60,12 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
     final ScheduledExecutorService threadPool;
     
     
-    static class CommandStatusHandlerContextData
+    public static class CommandStatusHandlerContextData
     {
-        BigId streamID;
-        ICommandStreamInfo csInfo;
-        BigId foiId;
-        CommandStreamTransactionHandler csHandler;
+        public BigId streamID;
+        public ICommandStreamInfo csInfo;
+        public BigId foiId;
+        public CommandStreamTransactionHandler csHandler;
     }
     
     
@@ -89,13 +89,19 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
         ctx.setData(contextData);
         
         // try to fetch command stream since it's needed to configure binding
-        var dsID = ctx.getParentID();
-        if (dsID != null)
+        Asserts.checkState(ctx.getParentID() != null);
+        BigId csID = null;
+        if (ctx.getParentRef().type instanceof CommandHandler)
         {
-            var parentType = ctx.getParentRef().type;
-            if (parentType instanceof CommandStreamHandler)
-                contextData.csInfo = db.getCommandStreamStore().get(new CommandStreamKey(dsID));
+            var cmd = db.getCommandStore().get(ctx.getParentID());
+            csID = cmd.getCommandStreamID();
         }
+        else if (ctx.getParentRef().type instanceof CommandStreamHandler)
+            csID = ctx.getParentID();
+        
+        Asserts.checkNotNull(csID, BigId.class);
+        contextData.csInfo = db.getCommandStreamStore().get(new CommandStreamKey(csID));
+        Asserts.checkNotNull(contextData.csInfo, ICommandStreamInfo.class);
         
         if (forReading)
         {
@@ -103,7 +109,7 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
             Asserts.checkNotNull(contextData.csInfo, ICommandStreamInfo.class);
             
             // create transaction handler here so it can be reused multiple times
-            contextData.streamID = dsID;
+            contextData.streamID = csID;
             contextData.csHandler = transactionHandler.getCommandStreamHandler(contextData.streamID);
             if (contextData.csHandler == null)
                 throw ServiceErrors.notWritable();

@@ -42,6 +42,7 @@ import org.sensorhub.impl.service.consys.procedure.ProcedureStoreWrapper;
 import org.sensorhub.impl.service.consys.property.PropertyStoreWrapper;
 import org.sensorhub.impl.service.consys.system.SystemStoreWrapper;
 import org.sensorhub.impl.service.consys.task.CommandStoreWrapper;
+import org.sensorhub.impl.service.consys.task.CommandStreamIdEncoder;
 import org.sensorhub.impl.service.consys.task.CommandStreamStoreWrapper;
 import org.vast.util.Asserts;
 
@@ -308,7 +309,10 @@ public class HandlerContext implements IObsSystemDatabase, IProcedureDatabase, I
     
     public IdEncoder getCommandStreamIdEncoder()
     {
-        return idEncoders.getCommandStreamIdEncoder();
+        return new CommandStreamIdEncoder(
+            idEncoders.getCommandStreamIdEncoder(),
+            curieResolver,
+            commandStreamStore);
     }
     
     

@@ -14,6 +14,7 @@ Copyright (C) 2012-2017 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.command;
 
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import org.sensorhub.api.command.ICommandStatus.CommandStatusCode;
 import org.sensorhub.api.common.BigId;
@@ -82,6 +83,18 @@ public interface IStreamingControlInterface extends IEventProducer
     
     
     /**
+     * Gets the control stream valid time. If null is returned, the valid start time of the
+     * parent system will be used, or if an older version of the same control stream already 
+     * exists, current time will be used instead.
+     * @return the timestamp to use for the valid start time of the control stream
+     */
+    public default Instant getValidStartTime()
+    {
+        return null;
+    }
+    
+    
+    /**
      * Validates the command parameters synchronously. This is called before
      * the command is submitted for execution (it is used to avoid persisting invalid
      * commands on the sensor hub).
@@ -107,9 +120,10 @@ public interface IStreamingControlInterface extends IEventProducer
      * are then sent via the dedicated event channel, using the same task ID,
      * to provide status updates to the caller.
      * </p><p>
-     * The future should only complete exceptionally if there is an unexpected error.
-     * All errors associated to the processing of the command by the receiver system
-     * should be reported via a status object instead.
+     * The future should only complete exceptionally if there is an unexpected error
+     * or internal error that should not be reported to the caller. Otherwise, all
+     * errors associated to the processing of the command by the receiver system
+     * should be reported in the status object instead.
      * </p>
      * @param command Command data (with ID set)
      * @return A future that will be completed normally when the system is ready to

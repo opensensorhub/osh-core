@@ -53,12 +53,12 @@ public class CommandBindingSweCommon extends ResourceBinding<BigId, ICommandData
         super(ctx, idEncoders);
         this.contextData = (CommandHandlerContextData)ctx.getData();
         
-        var dsInfo = contextData.dsInfo;
+        var dsInfo = contextData.csInfo;
         if (forReading)
         {
             var is = ctx.getInputStream();
             paramsReader = getSweCommonParser(dsInfo, is, ctx.getFormat());
-            timeStampIndexer = SWEHelper.getTimeStampIndexer(contextData.dsInfo.getRecordStructure());
+            timeStampIndexer = SWEHelper.getTimeStampIndexer(contextData.csInfo.getRecordStructure());
             
             var user = ctx.getSecurityHandler().getCurrentUser();
             this.userID = user != null ? user.getId() : "api";

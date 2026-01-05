@@ -340,14 +340,16 @@ public class CommandStreamTransactionHandler implements IEventListener
         if (subscriber != null)
             connectStatusReceiver(correlationID, subscriber);
         
-        // reject command if no command receiver is listening
+        // if this is connected to a local driver, reject command if no command receiver is listening
         var cmdPublisher = getCommandDataEventPublisher();
-        if (cmdPublisher.getNumberOfSubscribers() == 0)
-        {
-            publishStatusEvent(
-                correlationID,
-                CommandStatus.rejected(BigId.NONE, "Receiving system is disabled"));
-            return;
+        if (this.rootHandler instanceof SystemRegistryTransactionHandler) {
+            if (cmdPublisher.getNumberOfSubscribers() == 0)
+            {
+                publishStatusEvent(
+                    correlationID,
+                    CommandStatus.rejected(BigId.NONE, "Receiving system is disabled"));
+                return;
+            }
         }
         
         // send command to bus

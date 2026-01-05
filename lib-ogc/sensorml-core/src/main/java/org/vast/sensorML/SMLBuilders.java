@@ -35,6 +35,7 @@ import net.opengis.OgcPropertyList;
 import net.opengis.gml.v32.AbstractGeometry;
 import net.opengis.gml.v32.Point;
 import net.opengis.gml.v32.TimeIndeterminateValue;
+import net.opengis.gml.v32.TimePeriod;
 import net.opengis.gml.v32.impl.ReferenceImpl;
 import net.opengis.sensorml.v20.AbstractPhysicalProcess;
 import net.opengis.sensorml.v20.AbstractProcess;
@@ -195,6 +196,28 @@ public class SMLBuilders
         {
             return addIdentifier(term.build());
         }
+
+        /**
+         * Adds a custom classifier
+         * @param label Label of classifier (e.g. "Sensor Type")
+         * @param def Definition URI of classifier (link to online definition)
+         * @param value Classifier value
+         * @return This builder for chaining
+         */
+        public B addClassifier(String label, String def, String codespace, String value)
+        {
+            Asserts.checkNotNull(label, "label");
+            Asserts.checkNotNull(def, "definition");
+            Asserts.checkNotNull(value, "value");
+
+            Term term = smlFac.newTerm();
+            term.setDefinition(def);
+            term.setCodeSpace(codespace);
+            term.setLabel(label);
+            term.setValue(value);
+            
+            return addClassifier(term);
+        }
         
         /**
          * Adds a classifier to the default list (first one in document)
@@ -221,6 +244,12 @@ public class SMLBuilders
         public B addClassifier(TermBuilder term)
         {
             return addClassifier(term.build());
+        }
+        
+        public B validTimePeriod(TimePeriod tp)
+        {
+            instance.addValidTimeAsTimePeriod(tp);
+            return (B)this;
         }
         
         public B validTimePeriod(OffsetDateTime begin, OffsetDateTime end)
@@ -351,6 +380,12 @@ public class SMLBuilders
             if (uri != null)
                 URI.create(uri); // validate URI
             instance.setDefinition(uri);
+            return (B)this;
+        }
+        
+        public B assetType(String term)
+        {
+            this.addClassifier("Asset Type", "cs:AssetType", null, term);
             return (B)this;
         }
         

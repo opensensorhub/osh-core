@@ -14,14 +14,13 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.command;
 
-import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
+import java.util.List;
 import org.sensorhub.api.common.BigId;
-import org.sensorhub.api.data.IObsData;
-import org.sensorhub.api.data.ObsData;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.ogc.xlink.IXlinkReference;
 import org.vast.util.Asserts;
 import net.opengis.swe.v20.DataBlock;
 
@@ -36,9 +35,10 @@ import net.opengis.swe.v20.DataBlock;
  */
 public class CommandResult implements ICommandResult
 {
-    protected BigId dataStreamID;
+    protected Collection<DataBlock> inlineRecords;
     protected Collection<BigId> obsIDs;
-    protected Collection<IObsData> obsList;
+    protected Collection<BigId> dsIDs;
+    protected Collection<IXlinkReference<?>> links;
     
     
     protected CommandResult()
@@ -48,94 +48,115 @@ public class CommandResult implements ICommandResult
     
     
     /**
-     * Declare an entire datastream as result
-     * @param dataStreamID The ID of the datastream that contains the result
+     * Add an entire datastream to the command result
+     * @param dataStreamID The internal ID of the datastream that contains the result
      * @return The result object
      */
-    public static ICommandResult withEntireDatastream(BigId dataStreamID)
+    public static ICommandResult withDatastream(BigId dataStreamID)
     {
+        return withDatastreams(List.of(dataStreamID));
+    }
+    
+    
+    /**
+     * Create a command result with multiple datastream references
+     * @param dataStreamIDs The internal IDs of the datastreams
+     * @return The result object
+     */
+    public static ICommandResult withDatastreams(Collection<BigId> dataStreamIDs)
+    {
+        Asserts.checkNotNull(dataStreamIDs, Collection.class);
+        
         var res = new CommandResult();
-        res.dataStreamID = Asserts.checkNotNull(dataStreamID, "dataStreamID");
+        res.dsIDs = new ArrayList<>();
+        res.dsIDs.addAll(dataStreamIDs);
         return res;
     }
     
     
     /**
-     * Declare certain obs from an existing datastream as result
-     * @param dataStreamID The ID of the datastream that contains the result
-     * @param obsIDs IDs of observations that constitute the result
+     * Create a command result with a single observation
+     * @param obsID The internal ID of the observation
      * @return The result object
      */
-    public static ICommandResult withObsInDatastream(BigId dataStreamID, Collection<BigId> obsIDs)
+    public static ICommandResult withObservation(BigId obsID)
     {
+        return withObservations(List.of(obsID));
+    }
+    
+    
+    /**
+     * Create a command result with multiple observation references
+     * @param obsIDs The internal IDs of the observations
+     * @return The result object
+     */
+    public static ICommandResult withObservations(Collection<BigId> obsIDs)
+    {
+        Asserts.checkNotNull(obsIDs, Collection.class);
+        
         var res = new CommandResult();
-        res.dataStreamID = Asserts.checkNotNull(dataStreamID, "dataStreamID");
-        res.obsIDs = Collections.unmodifiableCollection(Asserts.checkNotNullOrEmpty(obsIDs, "obsIDs"));
+        res.obsIDs = new ArrayList<>();
+        res.obsIDs.addAll(obsIDs);
         return res;
     }
     
     
     /**
-     * Add observations to a command result
-     * @param obsList List of observations to be added to the datastream of the result
-     * @return The result object
-     */
-    public static ICommandResult withObs(Collection<IObsData> obsList)
-    {
-        var res = new CommandResult();
-        res.obsList = Collections.unmodifiableCollection(Asserts.checkNotNull(obsList, "obsList"));
-        return res;
-    }
-    
-    
-    /**
-     * Add observations to a command result
-     * @param obs A single observation to return as the result
-     * @return The result object
-     */
-    public static ICommandResult withSingleObs(IObsData obs)
-    {
-        var res = new CommandResult();
-        res.obsList = Set.of(Asserts.checkNotNull(obs, IObsData.class));
-        return res;
-    }
-    
-    
-    /**
-     * Add data to a command result
-     * @param data A single observation result to return as the command result
+     * Create a command result with single record
+     * @param data The data record to add
      * @return The result object
      */
     public static ICommandResult withData(DataBlock data)
     {
+        return withData(List.of(data));
+    }
+    
+    
+    /**
+     * Add multiple data records to the inline command result
+     * @param records The list of data records to add
+     * @return The result object
+     */
+    public static ICommandResult withData(Collection<DataBlock> records)
+    {
+        Asserts.checkNotNull(records, Collection.class);
+        
         var res = new CommandResult();
-        var obs = new ObsData.Builder()
-            .withPhenomenonTime(Instant.now())
-            .withResult(data)
-            .build();
-        res.obsList = Set.of(Asserts.checkNotNull(obs, IObsData.class));
+        res.inlineRecords = new ArrayList<>();
+        res.inlineRecords.addAll(records);
         return res;
     }
 
 
     @Override
-    public Collection<IObsData> getObservations()
+    public Collection<DataBlock> getInlineRecords()
     {
-        return obsList;
+        return inlineRecords != null ?
+            Collections.unmodifiableCollection(inlineRecords) : null;
     }
 
 
     @Override
-    public Collection<BigId> getObservationRefs()
+    public Collection<BigId> getObservationIDs()
     {
-        return obsIDs;
+        return obsIDs != null ?
+            Collections.unmodifiableCollection(obsIDs) : null;
     }
 
 
     @Override
-    public BigId getDataStreamID()
+    public Collection<BigId> getDataStreamIDs()
     {
-        return dataStreamID;
+        return dsIDs != null ?
+            Collections.unmodifiableCollection(dsIDs) : null;
+    }
+
+
+    @Override
+    public Collection<IXlinkReference<?>> getExternalLinks()
+    {
+        return links != null ?
+            Collections.unmodifiableCollection(links) : null;
     }
     
     

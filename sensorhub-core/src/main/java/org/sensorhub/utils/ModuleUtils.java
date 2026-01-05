@@ -28,10 +28,10 @@ import org.sensorhub.api.module.IModuleProvider;
 import org.sensorhub.api.module.ModuleConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.impl.StaticLoggerBinder;
 import org.vast.util.Asserts;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.util.ContextInitializer;
+import ch.qos.logback.classic.util.LogbackMDCAdapter;
 
 
 public class ModuleUtils
@@ -115,7 +115,7 @@ public class ModuleUtils
         }
         catch (IOException e)
         {
-            log.debug("Cannot access JAR manifest for {}", clazz);
+            log.trace("Cannot access JAR manifest for {}", clazz);
         }
         
         return null;
@@ -218,11 +218,10 @@ public class ModuleUtils
         String moduleID = module.getLocalID();
 
         // if module config wasn't initialized or logback not available, use class logger
-        StaticLoggerBinder binder = StaticLoggerBinder.getSingleton();
-        if (moduleID == null || NO_ID_FLAG.equals(moduleID) ||
-            !binder.getLoggerFactoryClassStr().contains("logback"))
+        if (moduleID == null || NO_ID_FLAG.equals(moduleID)) {
             return LoggerFactory.getLogger(module.getClass());
-        
+        }
+
         // generate instance ID
         String instanceID = Integer.toHexString(moduleID.hashCode());
         instanceID = instanceID.replace("-", ""); // remove minus sign if any
@@ -232,6 +231,7 @@ public class ModuleUtils
         {
             LoggerContext logContext = new LoggerContext();
             logContext.setName(FileUtils.safeFileName(moduleID));
+            logContext.setMDCAdapter(new LogbackMDCAdapter());
             logContext.putProperty(LOG_MODULE_ID, FileUtils.safeFileName(moduleID));
             logContext.putProperty(LOG_MODULE_NAME, module.getName());
             new ContextInitializer(logContext).autoConfig();

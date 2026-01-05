@@ -22,6 +22,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import org.sensorhub.api.command.CommandEvent;
+import org.sensorhub.api.command.CommandStatus;
 import org.sensorhub.api.command.ICommandReceiver;
 import org.sensorhub.api.command.IStreamingControlInterface;
 import org.sensorhub.api.command.IStreamingControlInterfaceWithResult;
@@ -265,7 +266,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
         var newDsHandler = addOrUpdateDataStream(
             output.getName(),
             output.getRecordDescription(),
-            output.getRecommendedEncoding());
+            output.getRecommendedEncoding(),
+            output.getValidStartTime());
             
         // replace and cleanup old handler
         var oldDsHandler = dataStreamHandlers.get(output.getName());
@@ -330,14 +332,16 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                 controlInput.getCommandDescription(),
                 controlInput.getCommandEncoding(),
                 ((IStreamingControlInterfaceWithResult) controlInput).getResultDescription(),
-                ((IStreamingControlInterfaceWithResult) controlInput).getResultEncoding());
+                ((IStreamingControlInterfaceWithResult) controlInput).getResultEncoding(),
+                controlInput.getValidStartTime());
         }
         else
         {
             newCsHandler = addOrUpdateCommandStream(
                 controlInput.getName(),
                 controlInput.getCommandDescription(),
-                controlInput.getCommandEncoding());
+                controlInput.getCommandEncoding(),
+                controlInput.getValidStartTime());
         }
             
         // replace and cleanup old handler and subscription
@@ -364,6 +368,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
     {
         csHandler.connectCommandReceiver(new Subscriber<CommandEvent>() {
             Subscription sub;
+            static final String ERROR_MESSAGE = "Error dispatching command to {}. ";
+            static final String DISPATCH_STOP_MESSAGE = "No more commands will be processed.";
             
             @Override
             public void onSubscribe(Subscription sub)
@@ -383,12 +389,20 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
                             .thenAccept(status -> {
                                 csHandler.sendStatus(event.getCorrelationID(), status);
                                 sub.request(1);
+                            })
+                            .exceptionally(e -> {
+                                DefaultSystemRegistry.log.error(ERROR_MESSAGE, csHandler.csInfo.getFullName(), e);
+                                csHandler.sendStatus(event.getCorrelationID(),
+                                    CommandStatus.failed(event.getCommand().getID(), "Internal error processing command"));
+                                sub.request(1);
+                                return null; // return type is Void
                             });
                     }
                     catch (Exception e)
                     {
-                        onError(e);
-                        sub.request(1);
+                        DefaultSystemRegistry.log.error(ERROR_MESSAGE + DISPATCH_STOP_MESSAGE,
+                            csHandler.csInfo.getFullName(), e);
+                        sub.cancel();
                     }
                 });
             }
@@ -396,7 +410,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
             @Override
             public void onError(Throwable e)
             {
-                DefaultSystemRegistry.log.error("Error dispatching commands to {} / {}", driver.getName(), controlInput.getName(), e);
+                DefaultSystemRegistry.log.error(ERROR_MESSAGE + DISPATCH_STOP_MESSAGE,
+                    csHandler.csInfo.getFullName(), e);
             }
 
             @Override

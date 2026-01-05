@@ -18,13 +18,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
+import org.sensorhub.api.command.CommandResult;
+import org.sensorhub.api.command.CommandStatus;
 import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoders;
 import org.sensorhub.api.database.IObsSystemDatabase;
+import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.SWECommonUtils;
-import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.resource.PropertyFilter;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceBinding;
@@ -33,6 +35,9 @@ import org.sensorhub.impl.service.consys.resource.ResourceLink;
 import org.sensorhub.impl.service.consys.task.CommandStatusHandler.CommandStatusHandlerContextData;
 import org.vast.cdm.common.DataStreamParser;
 import org.vast.cdm.common.DataStreamWriter;
+import org.vast.swe.fast.JsonDataParserGson;
+import org.vast.swe.fast.JsonDataWriterGson;
+import com.google.gson.stream.JsonWriter;
 
 
 public class CommandResultBindingSweCommon extends ResourceBinding<BigId, ICommandStatus>
@@ -75,10 +80,38 @@ public class CommandResultBindingSweCommon extends ResourceBinding<BigId, IComma
     }
     
     
+    public CommandResultBindingSweCommon(RequestContext ctx, IdEncoders idEncoders, boolean forReading, IObsSystemDatabase db, JsonWriter writer) throws IOException
+    {
+        super(ctx, idEncoders);
+        this.contextData = (CommandStatusHandlerContextData)ctx.getData();
+        var csInfo = contextData.csInfo;
+        
+        resultWriter = new JsonDataWriterGson(writer);
+        resultWriter.setDataComponents(csInfo.getResultStructure());
+        
+        ctx.setResponseContentType(ctx.getFormat().getMimeType());
+    }
+    
+    
     @Override
     public ICommandStatus deserialize() throws IOException
     {
-        throw ServiceErrors.notWritable();
+        try
+        {
+            var rec = resultReader.parseNextBlock();
+            if (rec == null)
+                return null;
+            
+            var result = CommandResult.withData(rec);
+            return new CommandStatus.Builder()
+                .withCommand(BigId.NONE)
+                .withResult(result)
+                .build();
+        }
+        catch (IOException e)
+        {
+            throw new ResourceParseException(e.getMessage());
+        }
     }
 
 
@@ -86,11 +119,11 @@ public class CommandResultBindingSweCommon extends ResourceBinding<BigId, IComma
     public void serialize(BigId key, ICommandStatus status, boolean showLinks) throws IOException
     {
         // if embedded result
-        var obsList = status.getResult().getObservations();
-        if (obsList != null)
+        var inlineRecords = status.getResult().getInlineRecords();
+        if (inlineRecords != null)
         {
-            for (var obs: obsList)
-                resultWriter.write(obs.getResult());
+            for (var rec: inlineRecords)
+                resultWriter.write(rec);
         }
     }
     
@@ -114,7 +147,11 @@ public class CommandResultBindingSweCommon extends ResourceBinding<BigId, IComma
     @Override
     public void startCollection() throws IOException
     {
-        resultWriter.startStream(true);
+        if (resultReader != null && resultReader instanceof JsonDataParserGson) {
+            ((JsonDataParserGson)resultReader).setHasArrayWrapper();
+        }
+        else
+            resultWriter.startStream(true);
     }
 
 
