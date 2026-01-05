@@ -156,6 +156,8 @@ public class SWEConstants
     public static final String UOM_UNITLESS = QUDT_UOM_PREFIX + "UNITLESS";
     public static final String UOM_UNITLESS_CODE = "1";
 
+    @Deprecated
+    public static final String DEF_SENSOR_NETWORK = SWE_SYS_URI_PREFIX + "SensorNetwork";
 
     private SWEConstants()
     {
