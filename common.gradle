@@ -19,7 +19,8 @@ allprojects {
   group = 'org.sensorhub'
   
   repositories {
-    maven { url "https://repo.maven.apache.org/maven2" }
+    mavenCentral()
+    mavenLocal()
   }
   
   // set build number to HEAD SHA-1
@@ -326,6 +327,13 @@ subprojects {
     // maven artifact content
     project.publishing {
       publications {
+        if (System.getenv("GITHUB_ACTOR") == null) {
+          throw new Exception("Environment variable GITHUB_ACTOR not set. Please set to your github username.")
+        }
+        
+        if (System.getenv("GITHUB_TOKEN") == null) {
+          throw new Exception("Environment variable GITHUB_TOKEN not set. Please generate and set to your personal access token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")
+        }
         mavenJava(MavenPublication) {
           from components.java
           pom.withXml {
@@ -357,7 +365,6 @@ subprojects {
       }
       repositories {
         mavenLocal()
-        mavenCentral()
         maven {
           name = "GitHubPackages"
           url = "https://maven.pkg.github.com/opensensorhub/osh-core"
