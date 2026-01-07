@@ -65,7 +65,7 @@ repositories {
 </servers>
 ```
 Where environment variables `GITHUB_ACTOR` and `GITHUB_TOKEN` are your GitHub username and PAT respectively.<br>
-[For instructions on how to generate PAT's](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+[Instructions on how to generate PATs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
 ## Building
 
