@@ -14,22 +14,22 @@ buildscript {
   }
 }
 
-    
-allprojects  {
+
+allprojects {
   group = 'org.sensorhub'
   
   repositories {
-    maven { url "https://repo.maven.apache.org/maven2" }
+    mavenCentral()
   }
   
   // set build number to HEAD SHA-1
   def stdout = new ByteArrayOutputStream()
   exec {
-      commandLine('git','rev-parse','--short','HEAD')
-      standardOutput = stdout
-      // hide errors and don't throw exception if not a git repo
-      errorOutput = new ByteArrayOutputStream()
-      ignoreExitValue = true
+    commandLine('git', 'rev-parse', '--short', 'HEAD')
+    standardOutput = stdout
+    // hide errors and don't throw exception if not a git repo
+    errorOutput = new ByteArrayOutputStream()
+    ignoreExitValue = true
   }
   ext.buildNumber = "$stdout".trim()
   
@@ -64,7 +64,7 @@ subprojects {
   eclipse {
     classpath {
       downloadJavadoc = true
-      file.whenMerged { 
+      file.whenMerged {
         entries.each {
           if (it.hasProperty('exported'))
             it.exported = true
@@ -72,7 +72,7 @@ subprojects {
       }
     }
   }
-    
+  
   // custom dependency configurations for embedding jars in OSGi bundle
   configurations {
     embeddedApi
@@ -82,13 +82,13 @@ subprojects {
     api.extendsFrom(embeddedApi)
     implementation.extendsFrom(embeddedImpl)
   }
-
+  
   // default test dependencies
   dependencies {
     testImplementation 'junit:junit:4.13'
     testImplementation 'xmlunit:xmlunit:1.6'
   }
-
+  
   // print test names
   test {
     testLogging {
@@ -118,8 +118,8 @@ subprojects {
     ext.getPackagesFromJar = { jarFile, packageSet ->
       //println jarFile
       FileSystems.newFileSystem(jarFile.toPath(), ClassLoader.getSystemClassLoader()).withCloseable { fs ->
-          def rootDir = fs.getPath('/')
-          getPackagesFromDir(rootDir, packageSet)
+        def rootDir = fs.getPath('/')
+        getPackagesFromDir(rootDir, packageSet)
       }
     }
     
@@ -141,10 +141,10 @@ subprojects {
             // of the manifest files
             if (rootDir.relativize(dir).toString().contains('\\')) {
               packageSet.add(rootDir.relativize(dir).toString()
-                      .replace('\\', '.') + '.*')
+                .replace('\\', '.') + '.*')
             } else {
               packageSet.add(rootDir.relativize(dir).toString()
-                      .replace('/', '.') + '.*')
+                .replace('/', '.') + '.*')
             }
           }
       }
@@ -152,13 +152,15 @@ subprojects {
     
     // help method to automatically find osgi activator class
     ext.findActivator = {
-      for (def classDir: sourceSets.main.output.classesDirs) {
+      for (def classDir : sourceSets.main.output.classesDirs) {
         def rootDir = classDir.toPath()
         def activatorClass = Files.walk(rootDir)
           .filter { it.toString().endsWith('Activator.class') }
-          .map { rootDir.relativize(it).toString()
-                   .replace(java.io.File.separatorChar, (char)'.')
-                   .replaceAll('.class$', '') }
+          .map {
+            rootDir.relativize(it).toString()
+              .replace(java.io.File.separatorChar, (char) '.')
+              .replaceAll('.class$', '')
+          }
           .findAny()
           .orElse(null)
         if (activatorClass)
@@ -176,10 +178,10 @@ subprojects {
         
         // ignore some common errors
         attributes '-fixupmessages': 'Classes found in the wrong directory; is:=ignore,' +
-                                     'Unused Import-Package instructions; is:=ignore,' +
-                                     'The default package \'.\' is not permitted by the Import-Package syntax; is:=ignore,' +
-                                     'Unused Export-Package instructions; is:=ignore,'
-          
+          'Unused Import-Package instructions; is:=ignore,' +
+          'The default package \'.\' is not permitted by the Import-Package syntax; is:=ignore,' +
+          'Unused Export-Package instructions; is:=ignore,'
+        
         // disable DS annotation processing
         if (!attributes['-dsannotations'])
           attributes '-dsannotations': '!*'
@@ -292,9 +294,23 @@ subprojects {
   
   assemble.dependsOn osgi
   
+  tasks.register('prePublish') {
+    if (System.getenv("GITHUB_ACTOR") == null) {
+      throw new Exception("Environment variable GITHUB_ACTOR not set. Please set to your github username.")
+    }
+    
+    if (System.getenv("GITHUB_TOKEN") == null) {
+      throw new Exception("Environment variable GITHUB_TOKEN not set. Please generate and set to your personal access token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")
+    }
+  }
+  
+  tasks.named('publish') { // This is a lifecycle task that runs all publish tasks
+    dependsOn 'prePublish'
+  }
+  
   // do stuff at the end in case subprojects add extra info
   afterEvaluate { project ->
-  
+    
     // set defaults for some OSGi manifest entries
     project.osgi {
       manifest {
@@ -320,9 +336,10 @@ subprojects {
         from project.osgi.manifest
       }
     }
-  
+    
     // maven artifact content
     project.publishing {
+      
       publications {
         mavenJava(MavenPublication) {
           from components.java
@@ -352,20 +369,30 @@ subprojects {
             } >> project.pom)
           }
         }
-      } 
+      }
+      repositories {
+        maven {
+          name = "GitHubPackages"
+          url = "https://maven.pkg.github.com/opensensorhub/osh-core"
+          credentials {
+            username = System.getenv("GITHUB_ACTOR")
+            password = System.getenv("GITHUB_TOKEN")
+          }
+        }
+      }
     }
   }
-
+  
   // disable jar task if no source is included
   if (!new File(project.projectDir, 'src').exists()) {
-	  tasks.osgi.enabled = false
+    tasks.osgi.enabled = false
     tasks.jar.enabled = false
   }
   
   // custom task to install in local maven repo
   task install
   install.dependsOn(build)
-  install.dependsOn(publishToMavenLocal)  
+  install.dependsOn(publishToMavenLocal)
 }
 
 
