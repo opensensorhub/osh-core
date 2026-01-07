@@ -20,7 +20,6 @@ allprojects {
   
   repositories {
     mavenCentral()
-    mavenLocal()
   }
   
   // set build number to HEAD SHA-1
@@ -372,7 +371,6 @@ subprojects {
         }
       }
       repositories {
-        mavenLocal()
         maven {
           name = "GitHubPackages"
           url = "https://maven.pkg.github.com/opensensorhub/osh-core"
