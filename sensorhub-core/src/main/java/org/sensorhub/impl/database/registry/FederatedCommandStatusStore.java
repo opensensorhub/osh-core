@@ -15,10 +15,13 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.database.registry;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.datastore.command.CommandFilter;
@@ -170,10 +173,13 @@ public class FederatedCommandStatusStore extends ReadOnlyDataStore<BigId, IComma
         
         if (cmdStreams.isEmpty())
             return Stream.empty();
+
+        Comparator<Entry<BigId, ICommandStatus>> comparator = Comparator.comparing(e -> e.getValue().getReportTime());
+        if (filter.getReportTime() != null && filter.getReportTime().descendingOrder())
+            comparator = comparator.reversed();
         
         // stream and merge commands from all selected command streams and time periods
-        var mergeSortIt = new MergeSortSpliterator<Entry<BigId, ICommandStatus>>(cmdStreams,
-            (e1, e2) -> e1.getValue().getReportTime().compareTo(e2.getValue().getReportTime()));
+        var mergeSortIt = new MergeSortSpliterator<Entry<BigId, ICommandStatus>>(cmdStreams, comparator);
                
         // stream output of merge sort iterator + apply limit
         return StreamSupport.stream(mergeSortIt, false)
