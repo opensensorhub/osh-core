@@ -38,24 +38,26 @@ public class SWEControlForm extends SWEEditForm
     transient Random random = new SecureRandom();
     
     
-    public SWEControlForm(final IStreamingControlInterface controlInput)
+    public SWEControlForm(final IStreamingControlInterface controlInput) { this(controlInput, null); }
+
+    public SWEControlForm(final IStreamingControlInterface controlInput, final ClickListener submitListener)
     {
         super(controlInput.getCommandDescription().copy());
         this.controlInput = controlInput;
         this.component.assignNewDataBlock();
-        buildForm();
+        buildForm(submitListener);
     }
     
-    
-    public SWEControlForm(final DataComponent params)
+    public SWEControlForm(final DataComponent params) { this(params, null); }
+
+    public SWEControlForm(final DataComponent params, ClickListener submitListener)
     {
         super(params.copy());
         this.addSpacing = true;
         this.controlSink = params;
         this.component.setData(params.getData());
-        buildForm();
+        buildForm(submitListener);
     }
-    
     
     @Override
     public void attach()
@@ -77,8 +79,12 @@ public class SWEControlForm extends SWEEditForm
         }
     }
 
+    @Override
+    protected void buildForm() {
+        buildForm(null);
+    }
 
-    protected void buildForm()
+    protected void buildForm(ClickListener submitListener)
     {
         super.buildForm();
         
@@ -116,5 +122,8 @@ public class SWEControlForm extends SWEEditForm
                 }
             }
         });
+
+        if (submitListener != null)
+            sendBtn.addClickListener(submitListener);
     }
 }

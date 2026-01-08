@@ -28,6 +28,7 @@ import org.vast.process.IProcessExec;
 import org.vast.process.ProcessInfo;
 import org.vast.sensorML.AbstractProcessImpl;
 import org.vast.sensorML.AggregateProcessImpl;
+import org.vast.sensorML.LinkImpl;
 import org.vast.sensorML.SMLUtils;
 import org.vast.swe.SWEHelper;
 import com.rits.cloning.Cloner;
@@ -178,27 +179,28 @@ public class ProcessFlowDiagram extends AbstractJavaScriptComponent
     {
         addFunction("onChangeLink", new JavaScriptFunction() {
             @Override
-            public void call(JsonArray args)
-            {
+            public void call(JsonArray args) {
                 Connection conn = new Connection();
                 conn.id = args.getString(0);
                 conn.src = args.getString(1);
                 conn.dest = args.getString(2);
-                addConnection(conn);
+                addConnection(conn);      // updates UI state
+                upsertProcessChainLink(conn); // <-- persist to processChain
                 notifyListeners();
-            }            
+            }
         });
-        
+
         addFunction("onRemoveLink", new JavaScriptFunction() {
             @Override
-            public void call(JsonArray args)
-            {
+            public void call(JsonArray args) {
                 String id = args.getString(0);
                 getState().connections.remove(id);
+                removeProcessChainLink(id); // <-- mirror removal
                 notifyListeners();
-            }            
+            }
         });
-        
+
+
         addFunction("onChangeElement", new JavaScriptFunction() {
             @Override
             public void call(JsonArray args)
@@ -226,34 +228,86 @@ public class ProcessFlowDiagram extends AbstractJavaScriptComponent
                 notifyListeners();
             }            
         });
-        
+
         addFunction("onContextMenu", new JavaScriptFunction() {
             @Override
-            public void call(JsonArray args)
-            {
+            public void call(JsonArray args) {
                 String action = args.getString(0);
                 String blockName = args.getString(1);
                 String portName = args.getString(2);
-                if ("addInput".equals(action))
-                    addExternalInput(blockName, portName);
-                else if ("setInput".equals(action))
-                    setInputValues(blockName, portName);
-                else if ("setParam".equals(action))
-                    setParamValues(blockName, portName);
+
+                // normalize action names coming from the UI
+                switch (action) {
+                    case "addInput":
+                    case "exposeInput":
+                    case "exposeAsInput":
+                    case "Expose as input":
+                        addExternalInput(blockName, portName);
+                        break;
+
+                    case "setInput":
+                    case "setValue":
+                    case "Set value":
+                        setInputValues(blockName, portName);
+                        break;
+
+                    case "setParam":
+                    case "setParameter":
+                        setParamValues(blockName, portName);
+                        break;
+
+                    default:
+                        // ignore unknowns to avoid NPEs
+                        return;
+                }
                 notifyListeners();
-            }            
+            }
         });
+
     }
-    
-    
-    protected void addExternalInput(String blockName, String portName)
-    {
+
+    protected void upsertProcessChainLink(Connection conn) {
+        // replace if same id exists
+        for (int i = 0; i < processChain.getConnectionList().size(); i++) {
+            Link l = processChain.getConnectionList().get(i);
+            if (conn.id != null && conn.id.equals(l.getId())) {
+                l.setSource(conn.src);
+                l.setDestination(conn.dest);
+                return;
+            }
+        }
+        // otherwise add a new link
+        Link l = new LinkImpl();
+        l.setId(conn.id != null ? conn.id : UUID.randomUUID().toString());
+        l.setSource(conn.src);
+        l.setDestination(conn.dest);
+        processChain.getConnectionList().add(l);
+    }
+
+    protected void removeProcessChainLink(String id) {
+        if (id == null) return;
+        List<Link> links = processChain.getConnectionList();
+        for (int i = links.size() - 1; i >= 0; i--) {
+            Link l = links.get(i);
+            if (id.equals(l.getId())) {
+                links.remove(i);
+            }
+        }
+    }
+
+
+
+    protected void addExternalInput(String blockName, String portName) {
+        for (Port p : getState().inputs) {
+            if (p.path.equals(portName)) return; // already exposed
+        }
         Port port = new Port();
         port.path = portName;
         getState().inputs.add(port);
     }
-    
-    
+
+
+
     protected void addExternalParam(String blockName, String portName)
     {
         
@@ -264,40 +318,33 @@ public class ProcessFlowDiagram extends AbstractJavaScriptComponent
     {
         
     }
-    
-    
-    protected void setInputValues(String blockName, String portName)
-    {
+
+
+    protected void setInputValues(String blockName, String portName) {
+        AbstractProcess process = processChain.getComponent(blockName);
+        DataComponent inputPort = process.getInputComponent(portName); // <-- FIXED
+        editValues("Set Input", inputPort);
+    }
+
+    protected void setParamValues(String blockName, String portName) {
         AbstractProcess process = processChain.getComponent(blockName);
         DataComponent paramPort = process.getParameterComponent(portName);
-        editValues(paramPort);
+        editValues("Set Parameter", paramPort);
     }
-    
-    
-    protected void setParamValues(String blockName, String portName)
-    {
-        AbstractProcess process = processChain.getComponent(blockName);
-        DataComponent paramPort = process.getParameterComponent(portName);
-        editValues(paramPort);
-    }
-    
-    
-    protected void editValues(DataComponent component)
-    {
-        Window popup = new Window("Set Parameter");
+
+    protected void editValues(String title, DataComponent component) {
+        Window popup = new Window(title);        // <-- dynamic title
         VerticalLayout content = new VerticalLayout();
         popup.setContent(content);
         popup.center();
-        
-        // retrieve param component
+
         SWEParamForm form = new SWEParamForm(component);
         content.addComponent(form);
-        
-        // Open it in the UI
         getUI().addWindow(popup);
     }
-    
-    
+
+
+
     protected void addDataSource(ProcessBlock b)
     {
         getState().dataSources.put(b.name, b);
