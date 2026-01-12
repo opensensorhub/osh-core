@@ -333,6 +333,13 @@ public abstract class AbstractSensorDriver implements ISensorDriver
         }
     }
 
+    protected void clearFois()
+    {
+        synchronized(foiMap)
+        {
+            foiMap.clear();
+        }
+    }
 
     @Override
     public boolean isEnabled()
