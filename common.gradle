@@ -369,12 +369,14 @@ subprojects {
     }
     
     project.tasks.named("generateMetadataFileForMavenJavaPublication") {
-      if (System.getenv("GITHUB_ACTOR") == null) {
-        throw new Exception("Environment variable GITHUB_ACTOR not set. Please set to your github username.")
-      }
-      
-      if (System.getenv("GITHUB_TOKEN") == null) {
-        throw new Exception("Environment variable GITHUB_TOKEN not set. Please generate and set to your personal access token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")
+      doFirst {
+        if (System.getenv("GITHUB_ACTOR") == null) {
+          throw new Exception("Environment variable GITHUB_ACTOR not set. Please set to your github username.")
+        }
+        
+        if (System.getenv("GITHUB_TOKEN") == null) {
+          throw new Exception("Environment variable GITHUB_TOKEN not set. Please generate and set to your personal access token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")
+        }
       }
     }
     
