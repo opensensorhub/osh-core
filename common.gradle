@@ -378,7 +378,7 @@ subprojects {
       }
     }
     
-    p.tasks.named("publishMavenJavaPublicationToGitHubPackagesRepository") {
+    project.tasks.named("publishMavenJavaPublicationToGitHubPackagesRepository") {
       onlyIf {
         //
         MavenArtifactRepository repo = repository as MavenArtifactRepository;
