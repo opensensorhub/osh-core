@@ -294,20 +294,6 @@ subprojects {
   
   assemble.dependsOn osgi
   
-  tasks.register('prePublish') {
-    if (System.getenv("GITHUB_ACTOR") == null) {
-      throw new Exception("Environment variable GITHUB_ACTOR not set. Please set to your github username.")
-    }
-    
-    if (System.getenv("GITHUB_TOKEN") == null) {
-      throw new Exception("Environment variable GITHUB_TOKEN not set. Please generate and set to your personal access token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")
-    }
-  }
-  
-  tasks.named('publish') { // This is a lifecycle task that runs all publish tasks
-    dependsOn 'prePublish'
-  }
-  
   // do stuff at the end in case subprojects add extra info
   afterEvaluate { project ->
     
@@ -379,6 +365,30 @@ subprojects {
             password = System.getenv("GITHUB_TOKEN")
           }
         }
+      }
+    }
+    
+    project.tasks.named("generateMetadataFileForMavenJavaPublication") {
+      if (System.getenv("GITHUB_ACTOR") == null) {
+        throw new Exception("Environment variable GITHUB_ACTOR not set. Please set to your github username.")
+      }
+      
+      if (System.getenv("GITHUB_TOKEN") == null) {
+        throw new Exception("Environment variable GITHUB_TOKEN not set. Please generate and set to your personal access token: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens")
+      }
+    }
+    
+    p.tasks.named("publishMavenJavaPublicationToGitHubPackagesRepository") {
+      onlyIf {
+        //
+        MavenArtifactRepository repo = repository as MavenArtifactRepository;
+        MavenPublication pub = publication as MavenPublication;
+        
+        HttpURLConnection connection = new URL("$repo.url/${pub.groupId.replace('.', '/')}/$pub.artifactId/$pub.version/$pub.artifactId-${pub.version}.jar").openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Authorization", "Basic ${new String(Base64.getEncoder().encode("$repo.credentials.username:$repo.credentials.password".bytes))}");
+        connection.connect();
+        return connection.responseCode == 404;
       }
     }
   }
