@@ -23,9 +23,11 @@ import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.h2.mvstore.DecisionMakerWithError;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVStore;
+import org.h2.mvstore.MVMap.Decision;
 import org.h2.mvstore.type.DataType;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.datastore.DataStoreException;
@@ -240,19 +242,8 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
     @Override
     public synchronized void clear()
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            mainIndex.clear();
-            fullTextIndex.clear();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        mainIndex.clear();
+        fullTextIndex.clear();
     }
 
 
@@ -312,30 +303,28 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
     
     protected V put(K key, V res, boolean replace) throws DataStoreException
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            // add to main index
-            V oldValue = mainIndex.put(key, res);
-            
-            // check if we're allowed to replace existing entry
-            boolean isNewEntry = (oldValue == null);
-            if (!isNewEntry)
+        // add to main index, conditionally
+        var decisionMaker = new DecisionMakerWithError<V>() {
+            @Override
+            public Decision decide(V existingValue, V providedValue)
             {
-                if (!replace)
-                    throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_KEY);
+                if (existingValue != null && !replace) {
+                    this.error = new DataStoreException(DataStoreUtils.ERROR_EXISTING_FEATURE_VERSION);
+                    return Decision.ABORT;
+                }
+                
+                return Decision.PUT;
             }
-            
-            updateIndexes(key, oldValue, res, isNewEntry);
-            return oldValue;
+        };
+        
+        V oldValue = mainIndex.operate(key, res, decisionMaker);
+        boolean isNewEntry = (oldValue == null);
+        if (decisionMaker.getError() != null) {
+            throw decisionMaker.getError();
         }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        
+        updateIndexes(key, oldValue, res, isNewEntry);
+        return oldValue;
     }
     
     
@@ -356,25 +345,13 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
         if (k == null)
             return null;
         
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-            
-        try
-        {
-            // remove from main index
-            V oldValue = mainIndex.remove(k);
-            if (oldValue == null)
-                return null;
-            
-            removeFromIndexes(k, oldValue);
-            
-            return oldValue;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        // remove from main index
+        V oldValue = mainIndex.remove(k);
+        if (oldValue == null)
+            return null;
+        
+        removeFromIndexes(k, oldValue);
+        return oldValue;
     }
     
     

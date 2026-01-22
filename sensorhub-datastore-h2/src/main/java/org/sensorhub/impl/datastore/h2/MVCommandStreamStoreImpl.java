@@ -23,10 +23,12 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.h2.mvstore.DecisionMakerWithError;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVStore;
 import org.h2.mvstore.MVVarLongDataType;
 import org.h2.mvstore.RangeCursor;
+import org.h2.mvstore.MVMap.Decision;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.IdProvider;
@@ -422,52 +424,52 @@ public class MVCommandStreamStoreImpl implements ICommandStreamStore
     {
         var csID = key.getInternalID().getIdAsLong();
         
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-
-        try
-        {
-            // add to main index
-            var oldValue = cmdStreamIndex.put(key, csInfo);
-            
-            // check if we're allowed to replace existing entry
-            boolean isNewEntry = (oldValue == null);
-            if (!isNewEntry && !replace)
-                throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
-            
-            // update sys/output index
-            // remove old entry if needed
-            if (oldValue != null && replace)
+        // abort if another commandstream already exists with same sys/input/validtime combination
+        MVTimeSeriesSystemKey sysCsAssocKey = new MVTimeSeriesSystemKey(csID,
+            csInfo.getSystemID().getInternalID().getIdAsLong(),
+            csInfo.getControlInputName(),
+            csInfo.getValidTime().begin().getEpochSecond());
+        if (!replace && cmdStreamBySystemIndex.containsKey(sysCsAssocKey))
+            throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_COMMANDSTREAM);
+        
+        // add to main index, conditionally
+        var decisionMaker = new DecisionMakerWithError<ICommandStreamInfo>() {
+            @Override
+            public Decision decide(ICommandStreamInfo existingValue, ICommandStreamInfo providedValue)
             {
-                var sysKey = new MVTimeSeriesSystemKey(csID,
-                    oldValue.getSystemID().getInternalID().getIdAsLong(),
-                    oldValue.getControlInputName(),
-                    oldValue.getValidTime().begin().getEpochSecond());
-                cmdStreamBySystemIndex.remove(sysKey);
+                if (existingValue != null && !replace) {
+                    this.error = new DataStoreException(DataStoreUtils.ERROR_EXISTING_COMMANDSTREAM);
+                    return Decision.ABORT;
+                }
+                
+                return Decision.PUT;
             }
-
-            // add new entry
-            var sysKey = new MVTimeSeriesSystemKey(csID,
-                csInfo.getSystemID().getInternalID().getIdAsLong(),
-                csInfo.getControlInputName(),
-                csInfo.getValidTime().begin().getEpochSecond());
-            var oldProcKey = cmdStreamBySystemIndex.put(sysKey, Boolean.TRUE);
-            if (oldProcKey != null && !replace)
-                throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+        };
+        
+        var oldValue = cmdStreamIndex.operate(key, csInfo, decisionMaker);
+        boolean isNewEntry = (oldValue == null);
             
-            // update full-text index
-            if (isNewEntry)
-                fullTextIndex.add(csID, csInfo);
-            else
-                fullTextIndex.update(csID, oldValue, csInfo);
-            
-            return oldValue;
-        }
-        catch (Exception e)
+        // update sys/input index
+        // remove old entry if needed
+        if (oldValue != null && replace)
         {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
+            MVTimeSeriesSystemKey oldSysCsAssocKey = new MVTimeSeriesSystemKey(csID,
+                oldValue.getSystemID().getInternalID().getIdAsLong(),
+                oldValue.getControlInputName(),
+                oldValue.getValidTime().begin().getEpochSecond());
+            cmdStreamBySystemIndex.remove(oldSysCsAssocKey);
         }
+
+        // add new system assoc
+        cmdStreamBySystemIndex.put(sysCsAssocKey, Boolean.TRUE);
+        
+        // update full-text index
+        if (isNewEntry)
+            fullTextIndex.add(csID, csInfo);
+        else
+            fullTextIndex.update(csID, oldValue, csInfo);
+        
+        return oldValue;
     }
 
 
@@ -477,56 +479,35 @@ public class MVCommandStreamStoreImpl implements ICommandStreamStore
         var csKey = DataStoreUtils.checkCommandStreamKey(key);
         var csID = csKey.getInternalID().getIdAsLong();
 
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        // remove all commands
+        if (commandStore != null)
+            commandStore.removeAllCommandsAndSeries(csID);
+        
+        // remove from main index
+        ICommandStreamInfo oldValue = cmdStreamIndex.remove(csKey);
+        if (oldValue == null)
+            return null;
 
-        try
-        {
-            // remove all commands
-            if (commandStore != null)
-                commandStore.removeAllCommandsAndSeries(csID);
-            
-            // remove from main index
-            ICommandStreamInfo oldValue = cmdStreamIndex.remove(csKey);
-            if (oldValue == null)
-                return null;
+        // remove entry in secondary index
+        cmdStreamBySystemIndex.remove(new MVTimeSeriesSystemKey(
+            oldValue.getSystemID().getInternalID().getIdAsLong(),
+            oldValue.getControlInputName(),
+            oldValue.getValidTime().begin()));
+        
+        // remove from full-text index
+        fullTextIndex.remove(csID, oldValue);
 
-            // remove entry in secondary index
-            cmdStreamBySystemIndex.remove(new MVTimeSeriesSystemKey(
-                oldValue.getSystemID().getInternalID().getIdAsLong(),
-                oldValue.getControlInputName(),
-                oldValue.getValidTime().begin()));
-            
-            // remove from full-text index
-            fullTextIndex.remove(csID, oldValue);
-
-            return oldValue;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        return oldValue;
     }
 
 
     @Override
     public synchronized void clear()
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-
-        try
-        {
-            commandStore.clear();
-            cmdStreamBySystemIndex.clear();
-            cmdStreamIndex.clear();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        commandStore.clear();
+        cmdStreamBySystemIndex.clear();
+        fullTextIndex.clear();
+        cmdStreamIndex.clear();
     }
 
 

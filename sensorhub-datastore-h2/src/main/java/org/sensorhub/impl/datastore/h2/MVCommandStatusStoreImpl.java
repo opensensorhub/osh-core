@@ -235,18 +235,7 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
     @Override
     public synchronized void clear()
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            statusIndex.clear();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        statusIndex.clear();
     }
 
 
@@ -337,70 +326,32 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
     @Override
     public synchronized BigId add(ICommandStatus status)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        // add to main index
+        MVCommandStatusKey key = new MVCommandStatusKey(
+            status.getCommandID(),
+            status.getReportTime());
+        statusIndex.put(key, status);
         
-        try
-        {
-            // add to main index
-            MVCommandStatusKey key = new MVCommandStatusKey(
-                status.getCommandID(),
-                status.getReportTime());
-            statusIndex.put(key, status);
-            
-            return key;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        return key;
     }
 
 
     @Override
     public synchronized ICommandStatus put(BigId key, ICommandStatus status)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            MVCommandStatusKey internalKey = toInternalKey(key);
-            ICommandStatus oldStatus = statusIndex.replace(internalKey, status);
-            if (oldStatus == null)
-                throw new UnsupportedOperationException("put can only be used to update existing keys");
-            return oldStatus;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        MVCommandStatusKey internalKey = toInternalKey(key);
+        ICommandStatus oldStatus = statusIndex.replace(internalKey, status);
+        if (oldStatus == null)
+            throw new UnsupportedOperationException("put can only be used to update existing status");
+        return oldStatus;
     }
 
 
     @Override
     public synchronized ICommandStatus remove(Object keyObj)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            MVCommandStatusKey key = toInternalKey(keyObj);
-            ICommandStatus oldCmd = statusIndex.remove(key);
-            
-            // don't check and remove empty command series here since in many cases they will be reused.
-            // it can be done automatically during cleanup/compaction phase or with specific method.
-            
-            return oldCmd;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        MVCommandStatusKey key = toInternalKey(keyObj);
+        return statusIndex.remove(key);
     }
     
 

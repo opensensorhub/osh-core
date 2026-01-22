@@ -64,6 +64,7 @@ public class MVFeatureDatabase extends AbstractModule<MVFeatureDatabaseConfig> i
                 builder.compress();
             
             mvStore = builder.open();
+            mvStore.setAutoCommitDelay(config.autoCommitPeriod*1000);
             mvStore.setVersionsToKeep(0);
             
             // open feature store
@@ -138,7 +139,7 @@ public class MVFeatureDatabase extends AbstractModule<MVFeatureDatabaseConfig> i
         checkStarted();
         
         // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        long currentVersion = mvStore.commit();
         try
         {
             return transaction.call();

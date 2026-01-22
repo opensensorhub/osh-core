@@ -23,10 +23,12 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.h2.mvstore.DecisionMakerWithError;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVStore;
 import org.h2.mvstore.MVVarLongDataType;
 import org.h2.mvstore.RangeCursor;
+import org.h2.mvstore.MVMap.Decision;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.IdProvider;
@@ -419,52 +421,52 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
     {
         var dsID = key.getInternalID().getIdAsLong();
         
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-
-        try
-        {
-            // add to main index
-            var oldValue = dataStreamIndex.put(key, dsInfo);
-            
-            // check if we're allowed to replace existing entry
-            boolean isNewEntry = (oldValue == null);
-            if (!isNewEntry && !replace)
-                throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
-            
-            // update sys/output index
-            // remove old entry if needed
-            if (oldValue != null && replace)
+        // abort if another datastream already exists with same sys/output/validtime combination
+        MVTimeSeriesSystemKey sysDsAssocKey = new MVTimeSeriesSystemKey(dsID,
+            dsInfo.getSystemID().getInternalID().getIdAsLong(),
+            dsInfo.getOutputName(),
+            dsInfo.getValidTime().begin().getEpochSecond());
+        if (!replace && dataStreamBySystemIndex.containsKey(sysDsAssocKey))
+            throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+        
+        // add to main index, conditionally
+        var decisionMaker = new DecisionMakerWithError<IDataStreamInfo>() {
+            @Override
+            public Decision decide(IDataStreamInfo existingValue, IDataStreamInfo providedValue)
             {
-                MVTimeSeriesSystemKey procKey = new MVTimeSeriesSystemKey(dsID,
-                    oldValue.getSystemID().getInternalID().getIdAsLong(),
-                    oldValue.getOutputName(),
-                    oldValue.getValidTime().begin().getEpochSecond());
-                dataStreamBySystemIndex.remove(procKey);
+                if (existingValue != null && !replace) {
+                    this.error = new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+                    return Decision.ABORT;
+                }
+                
+                return Decision.PUT;
             }
-
-            // add new entry
-            MVTimeSeriesSystemKey procKey = new MVTimeSeriesSystemKey(dsID,
-                dsInfo.getSystemID().getInternalID().getIdAsLong(),
-                dsInfo.getOutputName(),
-                dsInfo.getValidTime().begin().getEpochSecond());
-            var oldProcKey = dataStreamBySystemIndex.put(procKey, Boolean.TRUE);
-            if (oldProcKey != null && !replace)
-                throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+        };
+        
+        var oldValue = dataStreamIndex.operate(key, dsInfo, decisionMaker);
+        boolean isNewEntry = (oldValue == null);
             
-            // update full-text index
-            if (isNewEntry)
-                fullTextIndex.add(dsID, dsInfo);
-            else
-                fullTextIndex.update(dsID, oldValue, dsInfo);
-            
-            return oldValue;
-        }
-        catch (Exception e)
+        // update sys/output index
+        // remove old entry if needed
+        if (oldValue != null && replace)
         {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
+            MVTimeSeriesSystemKey oldSysDsAssocKey = new MVTimeSeriesSystemKey(dsID,
+                oldValue.getSystemID().getInternalID().getIdAsLong(),
+                oldValue.getOutputName(),
+                oldValue.getValidTime().begin().getEpochSecond());
+            dataStreamBySystemIndex.remove(oldSysDsAssocKey);
         }
+
+        // add new system assoc
+        dataStreamBySystemIndex.put(sysDsAssocKey, Boolean.TRUE);
+        
+        // update full-text index
+        if (isNewEntry)
+            fullTextIndex.add(dsID, dsInfo);
+        else
+            fullTextIndex.update(dsID, oldValue, dsInfo);
+        
+        return oldValue;
     }
 
 
@@ -474,56 +476,35 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
         var dsKey = DataStoreUtils.checkDataStreamKey(key);
         var dsID = dsKey.getInternalID().getIdAsLong();
 
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        // remove all obs
+        if (obsStore != null)
+            obsStore.removeAllObsAndSeries(dsID);
+        
+        // remove from main index
+        IDataStreamInfo oldValue = dataStreamIndex.remove(dsKey);
+        if (oldValue == null)
+            return null;
 
-        try
-        {
-            // remove all obs
-            if (obsStore != null)
-                obsStore.removeAllObsAndSeries(dsID);
-            
-            // remove from main index
-            IDataStreamInfo oldValue = dataStreamIndex.remove(dsKey);
-            if (oldValue == null)
-                return null;
+        // remove entry in secondary index
+        dataStreamBySystemIndex.remove(new MVTimeSeriesSystemKey(
+            oldValue.getSystemID().getInternalID().getIdAsLong(),
+            oldValue.getOutputName(),
+            oldValue.getValidTime().begin()));
+        
+        // remove from full-text index
+        fullTextIndex.remove(dsID, oldValue);
 
-            // remove entry in secondary index
-            dataStreamBySystemIndex.remove(new MVTimeSeriesSystemKey(
-                oldValue.getSystemID().getInternalID().getIdAsLong(),
-                oldValue.getOutputName(),
-                oldValue.getValidTime().begin()));
-            
-            // remove from full-text index
-            fullTextIndex.remove(dsID, oldValue);
-
-            return oldValue;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        return oldValue;
     }
 
 
     @Override
     public synchronized void clear()
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-
-        try
-        {
-            obsStore.clear();
-            dataStreamBySystemIndex.clear();
-            dataStreamIndex.clear();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        obsStore.clear();
+        dataStreamBySystemIndex.clear();
+        fullTextIndex.clear();
+        dataStreamIndex.clear();
     }
 
 

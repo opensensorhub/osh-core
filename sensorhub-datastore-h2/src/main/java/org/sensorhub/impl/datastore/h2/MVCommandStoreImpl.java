@@ -511,19 +511,8 @@ public class MVCommandStoreImpl implements ICommandStore
     @Override
     public synchronized void clear()
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            cmdRecordsIndex.clear();
-            cmdSeriesMainIndex.clear();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        cmdRecordsIndex.clear();
+        cmdSeriesMainIndex.clear();
     }
 
 
@@ -624,131 +613,87 @@ public class MVCommandStoreImpl implements ICommandStore
         if (!cmdStreamStore.containsKey(new CommandStreamKey(cmd.getCommandStreamID())))
             throw new IllegalStateException("Unknown command stream: " + cmd.getCommandStreamID()); 
             
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        MVTimeSeriesKey seriesKey = new MVTimeSeriesKey(
+            cmd.getCommandStreamID().getIdAsLong(),
+            cmd.getFoiID().getIdAsLong());
         
-        try
-        {
-            MVTimeSeriesKey seriesKey = new MVTimeSeriesKey(
-                cmd.getCommandStreamID().getIdAsLong(),
-                cmd.getFoiID().getIdAsLong());
-            
-            MVTimeSeriesInfo series = cmdSeriesMainIndex.computeIfAbsent(seriesKey, k -> {
-                return new MVTimeSeriesInfo(
-                    cmdRecordsIndex.isEmpty() ? 1 : cmdRecordsIndex.lastKey().seriesID + 1);
-            });
-            
-            // add to main command index
-            MVTimeSeriesRecordKey cmdKey = new MVTimeSeriesRecordKey(idScope, series.id, cmd.getIssueTime());
-            cmdRecordsIndex.put(cmdKey, cmd);
-            
-            return cmdKey;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        MVTimeSeriesInfo series = cmdSeriesMainIndex.computeIfAbsent(seriesKey, k -> {
+            return new MVTimeSeriesInfo(
+                cmdRecordsIndex.isEmpty() ? 1 : cmdRecordsIndex.lastKey().seriesID + 1);
+        });
+        
+        // add to main command index
+        MVTimeSeriesRecordKey cmdKey = new MVTimeSeriesRecordKey(idScope, series.id, cmd.getIssueTime());
+        cmdRecordsIndex.put(cmdKey, cmd);
+        
+        return cmdKey;
     }
 
 
     @Override
     public synchronized ICommandData put(BigId key, ICommandData cmd)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            MVTimeSeriesRecordKey cmdKey = toInternalKey(key);
-            ICommandData oldCmd = cmdRecordsIndex.replace(cmdKey, cmd);
-            if (oldCmd == null)
-                throw new UnsupportedOperationException("put can only be used to update existing keys");
-            return oldCmd;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        MVTimeSeriesRecordKey cmdKey = toInternalKey(key);
+        ICommandData oldCmd = cmdRecordsIndex.replace(cmdKey, cmd);
+        if (oldCmd == null)
+            throw new UnsupportedOperationException("put can only be used to update existing commands");
+        return oldCmd;
     }
 
 
     @Override
     public synchronized ICommandData remove(Object keyObj)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        MVTimeSeriesRecordKey key = toInternalKey(keyObj);
+        ICommandData oldCmd = cmdRecordsIndex.remove(key);
         
-        try
-        {
-            MVTimeSeriesRecordKey key = toInternalKey(keyObj);
-            ICommandData oldCmd = cmdRecordsIndex.remove(key);
-            
-            // also remove status reports associated to this command
-            cmdStatusStore.removeAllStatus((BigId)keyObj);
-            
-            // don't check and remove empty command series here since in many cases they will be reused.
-            // it can be done automatically during cleanup/compaction phase or with specific method.
-            
-            return oldCmd;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }       
+        // also remove status reports associated to this command
+        cmdStatusStore.removeAllStatus((BigId)keyObj);
+        
+        // don't check and remove empty command series here since in many cases they will be reused.
+        // it can be done automatically during cleanup/compaction phase or with specific method.
+        
+        return oldCmd;      
     }
 
 
     @Override
     public synchronized long removeEntries(CommandFilter filter)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
+        // stream obs directly in case of filtering by internal IDs
+        if (filter.getInternalIDs() != null)
         {
-            // stream obs directly in case of filtering by internal IDs
-            if (filter.getInternalIDs() != null)
-            {
-                var cmdStream = filter.getInternalIDs().stream()
-                    .map(k -> toInternalKey(k))
-                    .filter(Objects::nonNull)
-                    .map(k -> cmdRecordsIndex.getEntry(k))
-                    .filter(Objects::nonNull);
+            var cmdStream = filter.getInternalIDs().stream()
+                .map(k -> toInternalKey(k))
+                .filter(Objects::nonNull)
+                .map(k -> cmdRecordsIndex.getEntry(k))
+                .filter(Objects::nonNull);
+            
+            return getPostFilteredResultStream(cmdStream, filter)
+                .peek(e -> remove(e.getKey()))
+                .count();
+        }
+        
+        // select obs series matching the filter
+        var timeParams = new TimeParams(filter);
+        return selectCommandSeries(filter)
+            .mapToLong(series -> {
+                var cmdStream = getCommandStream(series, 
+                    timeParams.issueTimeRange,
+                    timeParams.latestResultOnly);
                 
-                return getPostFilteredResultStream(cmdStream, filter)
+                // delete all matching record in series
+                var numRemoved = getPostFilteredResultStream(cmdStream, filter)
                     .peek(e -> remove(e.getKey()))
                     .count();
-            }
-            
-            // select obs series matching the filter
-            var timeParams = new TimeParams(filter);
-            return selectCommandSeries(filter)
-                .mapToLong(series -> {
-                    var cmdStream = getCommandStream(series, 
-                        timeParams.issueTimeRange,
-                        timeParams.latestResultOnly);
-                    
-                    // delete all matching record in series
-                    var numRemoved = getPostFilteredResultStream(cmdStream, filter)
-                        .peek(e -> remove(e.getKey()))
-                        .count();
-                    
-                    // delete series if it has no more records
-                    if (getCommandSeriesCount(series.id, H2Utils.ALL_TIMES_RANGE) == 0) {
-                        cmdSeriesMainIndex.remove(series.key);
-                    }   
-                    
-                    return numRemoved;
-                }).sum();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+                
+                // delete series if it has no more records
+                if (getCommandSeriesCount(series.id, H2Utils.ALL_TIMES_RANGE) == 0) {
+                    cmdSeriesMainIndex.remove(series.key);
+                }   
+                
+                return numRemoved;
+            }).sum();
     }
     
 

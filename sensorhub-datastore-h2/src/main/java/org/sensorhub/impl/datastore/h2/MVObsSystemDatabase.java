@@ -292,7 +292,7 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
         checkStarted();
         
         // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        long currentVersion = mvStore.commit();
         try
         {
             return transaction.call();

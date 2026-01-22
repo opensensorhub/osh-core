@@ -778,20 +778,9 @@ public class MVObsStoreImpl implements IObsStore
     @Override
     public synchronized void clear()
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-            
-        try
-        {
-            obsRecordsIndex.clear();
-            obsSeriesByFoiIndex.clear();
-            obsSeriesMainIndex.clear();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        obsRecordsIndex.clear();
+        obsSeriesByFoiIndex.clear();
+        obsSeriesMainIndex.clear();
     }
 
 
@@ -896,134 +885,91 @@ public class MVObsStoreImpl implements IObsStore
         if (obs.hasFoi() && foiStore != null && !foiStore.contains(obs.getFoiID()))
             throw new IllegalStateException("Unknown FOI: " + obs.getFoiID());
         
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        try
-        {
-            MVTimeSeriesKey seriesKey = new MVTimeSeriesKey(
-                obs.getDataStreamID().getIdAsLong(),
-                obs.getFoiID().getIdAsLong(),
-                obs.getResultTime().equals(obs.getPhenomenonTime()) ? Instant.MIN : obs.getResultTime());
+        MVTimeSeriesKey seriesKey = new MVTimeSeriesKey(
+            obs.getDataStreamID().getIdAsLong(),
+            obs.getFoiID().getIdAsLong(),
+            obs.getResultTime().equals(obs.getPhenomenonTime()) ? Instant.MIN : obs.getResultTime());
+        
+        MVTimeSeriesInfo series = obsSeriesMainIndex.computeIfAbsent(seriesKey, k -> {
+            // also update the FOI to series mapping if needed
+            obsSeriesByFoiIndex.putIfAbsent(seriesKey, Boolean.TRUE);
             
-            MVTimeSeriesInfo series = obsSeriesMainIndex.computeIfAbsent(seriesKey, k -> {
-                // also update the FOI to series mapping if needed
-                obsSeriesByFoiIndex.putIfAbsent(seriesKey, Boolean.TRUE);
-                
-                return new MVTimeSeriesInfo(
-                    obsRecordsIndex.isEmpty() ? 1 : obsRecordsIndex.lastKey().seriesID + 1);
-            });
-            
-            // add to main obs index
-            MVTimeSeriesRecordKey obsKey = new MVTimeSeriesRecordKey(idScope, series.id, obs.getPhenomenonTime());
-            obsRecordsIndex.put(obsKey, obs);
-            
-            return obsKey;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+            return new MVTimeSeriesInfo(
+                obsRecordsIndex.isEmpty() ? 1 : obsRecordsIndex.lastKey().seriesID + 1);
+        });
+        
+        // add to main obs index
+        MVTimeSeriesRecordKey obsKey = new MVTimeSeriesRecordKey(idScope, series.id, obs.getPhenomenonTime());
+        obsRecordsIndex.put(obsKey, obs);
+        
+        return obsKey;
     }
 
 
     @Override
     public synchronized IObsData put(BigId key, IObsData obs)
     {        
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
-        {
-            MVTimeSeriesRecordKey obsKey = toInternalKey(key);
-            IObsData oldObs = obsRecordsIndex.replace(obsKey, obs);
-            if (oldObs == null)
-                throw new UnsupportedOperationException("put can only be used to update existing entries");
-            return oldObs;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+        MVTimeSeriesRecordKey obsKey = toInternalKey(key);
+        IObsData oldObs = obsRecordsIndex.replace(obsKey, obs);
+        if (oldObs == null)
+            throw new UnsupportedOperationException("put can only be used to update existing observations");
+        return oldObs;
     }
 
 
     @Override
     public synchronized IObsData remove(Object keyObj)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
+        MVTimeSeriesRecordKey key = toInternalKey(keyObj);
+        IObsData oldObs = obsRecordsIndex.remove(key);
         
-        try
-        {
-            MVTimeSeriesRecordKey key = toInternalKey(keyObj);
-            IObsData oldObs = obsRecordsIndex.remove(key);
-            
-            // don't check and remove empty obs series here since in many cases they will be reused.
-            // it can be done automatically during cleanup/compaction phase or with specific method.
-            
-            return oldObs;
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }      
+        // don't check and remove empty obs series here since in many cases they will be reused.
+        // it can be done automatically during cleanup/compaction phase or with specific method.
+        
+        return oldObs;     
     }
 
 
     @Override
     public synchronized long removeEntries(ObsFilter filter)
     {
-        // store current version so we can rollback if an error occurs
-        long currentVersion = mvStore.getCurrentVersion();
-        
-        try
+        // stream obs directly in case of filtering by internal IDs
+        if (filter.getInternalIDs() != null)
         {
-            // stream obs directly in case of filtering by internal IDs
-            if (filter.getInternalIDs() != null)
-            {
-                var obsStream = filter.getInternalIDs().stream()
-                    .map(k -> toInternalKey(k))
-                    .filter(Objects::nonNull)
-                    .map(k -> obsRecordsIndex.getEntry(k))
-                    .filter(Objects::nonNull);
+            var obsStream = filter.getInternalIDs().stream()
+                .map(k -> toInternalKey(k))
+                .filter(Objects::nonNull)
+                .map(k -> obsRecordsIndex.getEntry(k))
+                .filter(Objects::nonNull);
+            
+            return getPostFilteredResultStream(obsStream, filter)
+                .peek(e -> remove(e.getKey()))
+                .count();
+        }
+        
+        // select obs series matching the filter
+        var timeParams = new TimeParams(filter);
+        return selectObsSeries(filter, timeParams)
+            .mapToLong(series -> {
+                var obsStream = getObsStream(series, 
+                    timeParams.resultTimeRange,
+                    timeParams.phenomenonTimeRange,
+                    timeParams.currentTimeOnly,
+                    timeParams.latestResultOnly);
                 
-                return getPostFilteredResultStream(obsStream, filter)
+                // delete all matching record in series
+                var numRemoved = getPostFilteredResultStream(obsStream, filter)
                     .peek(e -> remove(e.getKey()))
                     .count();
-            }
-            
-            // select obs series matching the filter
-            var timeParams = new TimeParams(filter);
-            return selectObsSeries(filter, timeParams)
-                .mapToLong(series -> {
-                    var obsStream = getObsStream(series, 
-                        timeParams.resultTimeRange,
-                        timeParams.phenomenonTimeRange,
-                        timeParams.currentTimeOnly,
-                        timeParams.latestResultOnly);
-                    
-                    // delete all matching record in series
-                    var numRemoved = getPostFilteredResultStream(obsStream, filter)
-                        .peek(e -> remove(e.getKey()))
-                        .count();
-                    
-                    // delete series if it has no more records
-                    if (getObsSeriesCount(series.id, H2Utils.ALL_TIMES_RANGE) == 0) {
-                        obsSeriesByFoiIndex.remove(series.key);
-                        obsSeriesMainIndex.remove(series.key);
-                    }   
-                    
-                    return numRemoved;
-                }).sum();
-        }
-        catch (Exception e)
-        {
-            mvStore.rollbackTo(currentVersion);
-            throw e;
-        }
+                
+                // delete series if it has no more records
+                if (getObsSeriesCount(series.id, H2Utils.ALL_TIMES_RANGE) == 0) {
+                    obsSeriesByFoiIndex.remove(series.key);
+                    obsSeriesMainIndex.remove(series.key);
+                }   
+                
+                return numRemoved;
+            }).sum();
     }
     
 
