@@ -2577,7 +2577,7 @@ public class SWEJsonBindings extends AbstractBindings
      */
     public void writeDataComponent(JsonWriter writer, DataComponent bean, boolean writeInlineValues) throws IOException
     {
-        writeDataComponent(writer, bean, writeInlineValues, bean.getName());
+        writeDataComponent(writer, bean, writeInlineValues, null);
     }
     
     

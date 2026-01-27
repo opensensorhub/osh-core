@@ -107,8 +107,8 @@ public class DataStreamSchemaBindingOmJson extends ResourceBindingJson<DataStrea
                         }
                         else
                         {
-                            if (resultStruct.getName() == null)
-                                resultStruct.setName("result");
+//                            if (resultStruct.getName() == null)
+//                                resultStruct.setName("result");
                             
                             resultStruct = swe.createRecord()
                                 .addField("time", swe.createTime().asPhenomenonTimeIsoUTC())
