@@ -106,12 +106,12 @@ public interface IDataStreamStore extends IResourceStore<DataStreamKey, IDataStr
     public default Entry<DataStreamKey, IDataStreamInfo> getLatestVersionEntry(String sysUID, String outputName)
     {
         var entryOpt = selectEntries(new DataStreamFilter.Builder()
-            .withSystems()
+                .withSystems()
                 .withUniqueIDs(sysUID)
                 .done()
-            .withOutputNames(outputName)
-            .build())
-        .findFirst();
+                .withOutputNames(outputName)
+                .build())
+                .max(Entry.comparingByKey());
         
         return entryOpt.isPresent() ? entryOpt.get() : null;
     }
