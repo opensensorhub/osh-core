@@ -14,33 +14,22 @@ Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.client;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.Authenticator;
-import java.net.HttpURLConnection;
 import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpResponse.BodyHandler;
-import java.net.http.HttpResponse.BodyHandlers;
-import java.net.http.HttpResponse.BodySubscriber;
-import java.net.http.HttpResponse.BodySubscribers;
 import java.nio.charset.StandardCharsets;
+
+import okhttp3.OkHttpClient;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.concurrent.CompletableFuture;
@@ -59,11 +48,14 @@ import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.DataStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
+import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.common.IdEncodersBase32;
-import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.client.http.HttpClientWrapper;
+import org.sensorhub.impl.service.consys.client.http.JavaHttpClientWrapper;
+import org.sensorhub.impl.service.consys.client.http.OkHttpClientWrapper;
 import org.sensorhub.impl.service.consys.feature.FoiBindingGeoJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingOmJson;
@@ -89,18 +81,13 @@ import org.sensorhub.impl.service.consys.task.CommandStatusBindingJson;
 import org.sensorhub.impl.service.consys.task.CommandStatusHandler.CommandStatusHandlerContextData;
 import org.sensorhub.impl.service.consys.task.CommandStreamBindingJson;
 import org.sensorhub.impl.service.consys.task.CommandStreamSchemaBindingJson;
-import org.sensorhub.utils.Lambdas;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
-import com.google.common.net.HttpHeaders;
 import com.google.common.net.UrlEscapers;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
@@ -132,8 +119,7 @@ public class ConSysApiClient
         }
     }
 
-    protected Authenticator authenticator;
-    protected HttpClient http;
+    protected HttpClientWrapper httpAdapter;
     protected URI endpoint;
     protected String token;
 
@@ -1177,336 +1163,31 @@ public class ConSysApiClient
 
     protected <T> CompletableFuture<T> sendGetRequest(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
     {
-        if (!isHttpClientAvailable)
-            return sendGetRequestFallback(collectionUri, format, bodyMapper);
-
-        var builder = HttpRequest.newBuilder()
-                .uri(collectionUri)
-                .GET()
-                .header(HttpHeaders.ACCEPT, format.getMimeType());
-        
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-            
-        var req = builder.build();
-        BodyHandler<T> bodyHandler = resp -> {
-            BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
-            return BodySubscribers.mapping(upstream, body -> {
-                if (resp.statusCode() == 200) {
-                    var is = new ByteArrayInputStream(body);
-                    return bodyMapper.apply(is);
-                } else {
-                    var error = new String(body);
-                    throw new CompletionException("HTTP error " + resp.statusCode() + ": " + error, null);
-                }
-            });
-        };
-
-        return http.sendAsync(req, bodyHandler)
-            .thenApply(resp -> {
-                if (resp.statusCode() == 200)
-                    return resp.body();
-                else
-                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
-            });
-    }
-
-
-    /**
-     * Fallback method for sending requests using HttpURLConnection.
-     * This is used when HttpClient is not available (e.g., on Android).
-     */
-    protected <T> CompletableFuture<T> sendGetRequestFallback(URI collectionUri, ResourceFormat format, Function<InputStream, T> bodyMapper)
-    {
-        return CompletableFuture.supplyAsync(() -> {
-            HttpURLConnection connection = null;
-            try {
-                if (authenticator != null)
-                    Authenticator.setDefault(authenticator);
-
-                URL url = collectionUri.toURL();
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty(HttpHeaders.ACCEPT, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-
-                int responseCode = connection.getResponseCode();
-                if (responseCode == 200) {
-                    try (InputStream is = connection.getInputStream()) {
-                        return bodyMapper.apply(is);
-                    }
-                } else {
-                    throw new CompletionException("HTTP error " + responseCode, null);
-                }
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
-        });
+        return httpAdapter.sendGetRequest(collectionUri, format, bodyMapper);
     }
 
 
     protected CompletableFuture<String> sendPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
     {
-        if (!isHttpClientAvailable)
-            return sendPostRequestFallback(collectionUri, format, body);
-
-        var builder = HttpRequest.newBuilder()
-                .uri(collectionUri)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-            
-        var req = builder.build();
-        return http.sendAsync(req, BodyHandlers.ofString())
-                .thenApply(resp -> {
-                    if (resp.statusCode() == 201 || resp.statusCode() == 303) {
-                        var location = resp.headers()
-                                .firstValue(HttpHeaders.LOCATION)
-                                .orElseThrow(() -> new IllegalStateException("Missing Location header in response"));
-                        return location.substring(location.lastIndexOf('/') + 1);
-                    } else
-                        throw new CompletionException(resp.body(), null);
-                });
+        return httpAdapter.sendPostRequest(collectionUri, format, body);
     }
 
 
     protected <T> CompletableFuture<T> sendPostRequestAndReadResponse(URI collectionUri, ResourceFormat format, byte[] requestBody, Function<InputStream, T> responseBodyMapper)
     {
-        //if (!isHttpClientAvailable)
-        //    return sendPostRequestFallback(collectionUri, format, body);
-
-        var builder = HttpRequest.newBuilder()
-                .uri(collectionUri)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
-                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-            
-        
-        var req = builder.build();
-        BodyHandler<T> bodyHandler = resp -> {
-            BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
-            return BodySubscribers.mapping(upstream, body -> {
-                if (resp.statusCode() == 200) {
-                    var is = new ByteArrayInputStream(body);
-                    return responseBodyMapper.apply(is);
-                } else {
-                    var bodyStr = new String(body);
-                    try {
-                        var jsonError = (JsonObject)JsonParser.parseString(bodyStr);
-                        throw new CompletionException(jsonError.get("message").getAsString(), null);
-                    } catch (JsonSyntaxException e) {
-                        throw new CompletionException("HTTP error " + resp.statusCode() + ": " + bodyStr, null);
-                    }
-                }
-            });
-        };
-
-        return http.sendAsync(req, bodyHandler)
-            .thenApply(resp -> {
-                if (resp.statusCode() == 200)
-                    return resp.body();
-                else
-                    throw new CompletionException("HTTP error " + resp.statusCode(), null);
-            });
-    }
-
-
-    /**
-     * Fallback method for sending requests using HttpURLConnection.
-     * This is used when HttpClient is not available (e.g., on Android).
-     */
-    protected CompletableFuture<String> sendPostRequestFallback(URI collectionUri, ResourceFormat format, byte[] body)
-    {
-        return CompletableFuture.supplyAsync(() -> {
-            HttpURLConnection connection = null;
-            try {
-                if (authenticator != null)
-                    Authenticator.setDefault(authenticator);
-
-                URL url = collectionUri.toURL();
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("POST");
-                connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
-                connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-                connection.setDoOutput(true);
-
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(body);
-                }
-
-                int responseCode = connection.getResponseCode();
-                if (responseCode == 201 || responseCode == 303) {
-                    String location = connection.getHeaderField(HttpHeaders.LOCATION);
-                    if (location == null) {
-                        throw new IllegalStateException("Missing Location header in response.");
-                    }
-                    return location.substring(location.lastIndexOf('/') + 1);
-                } else {
-                    throw new CompletionException(connection.getResponseMessage(), null);
-                }
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
-        });
+        return httpAdapter.sendPostRequestAndReadResponse(collectionUri, format, requestBody, responseBodyMapper);
     }
 
 
     protected CompletableFuture<Integer> sendPutRequest(URI collectionUri, ResourceFormat format, byte[] body)
     {
-        if (!isHttpClientAvailable)
-            return sendPutRequestFallback(collectionUri, format, body);
-
-        var builder = HttpRequest.newBuilder()
-                .uri(collectionUri)
-                .PUT(HttpRequest.BodyPublishers.ofByteArray(body))
-                .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-            
-        var req = builder.build();
-        return http.sendAsync(req, BodyHandlers.ofString())
-                .thenApply(HttpResponse::statusCode);
-    }
-
-
-    /**
-     * Fallback method for sending requests using HttpURLConnection.
-     * This is used when HttpClient is not available (e.g., on Android).
-     */
-    protected CompletableFuture<Integer> sendPutRequestFallback(URI collectionUri, ResourceFormat format, byte[] body)
-    {
-        return CompletableFuture.supplyAsync(() -> {
-            HttpURLConnection connection = null;
-            try {
-                if (authenticator != null)
-                    Authenticator.setDefault(authenticator);
-
-                URL url = collectionUri.toURL();
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("PUT");
-                connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
-                connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-                connection.setDoOutput(true);
-
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(body);
-                }
-
-                return connection.getResponseCode();
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
-        });
+        return httpAdapter.sendPutRequest(collectionUri, format, body);
     }
 
 
     protected CompletableFuture<Set<String>> sendBatchPostRequest(URI collectionUri, ResourceFormat format, byte[] body)
     {
-        if (!isHttpClientAvailable)
-            return sendBatchPostRequestFallback(collectionUri, format, body);
-
-        var builder = HttpRequest.newBuilder()
-                .uri(collectionUri)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-            
-        var req = builder.build();
-        return http.sendAsync(req, BodyHandlers.ofString())
-                .thenApply(Lambdas.checked(resp -> {
-                    if (resp.statusCode() == 201 || resp.statusCode() == 303) {
-                        var idList = new LinkedHashSet<String>();
-                        try (JsonReader reader = new JsonReader(new StringReader(resp.body()))) {
-                            reader.beginArray();
-                            while (reader.hasNext()) {
-                                var uri = reader.nextString();
-                                idList.add(uri.substring(uri.lastIndexOf('/') + 1));
-                            }
-                            reader.endArray();
-                        }
-                        return idList;
-                    } else
-                        throw new ResourceParseException(resp.body());
-                }));
-    }
-
-
-    /**
-     * Fallback method for sending requests using HttpURLConnection.
-     * This is used when HttpClient is not available (e.g., on Android).
-     */
-    protected CompletableFuture<Set<String>> sendBatchPostRequestFallback(URI collectionUri, ResourceFormat format, byte[] body)
-    {
-        return CompletableFuture.supplyAsync(() -> {
-            HttpURLConnection connection = null;
-            try {
-                if (authenticator != null) {
-                    Authenticator.setDefault(authenticator);
-                }
-
-                URL url = collectionUri.toURL();
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("POST");
-                connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-                connection.setDoOutput(true);
-
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(body);
-                }
-
-                int responseCode = connection.getResponseCode();
-                if (responseCode == 201 || responseCode == 303) {
-                    Set<String> idList = new LinkedHashSet<>();
-                    try (InputStream is = connection.getInputStream();
-                         JsonReader reader = new JsonReader(new InputStreamReader(is))) {
-                        reader.beginArray();
-                        while (reader.hasNext()) {
-                            String uri = reader.nextString();
-                            idList.add(uri.substring(uri.lastIndexOf('/') + 1));
-                        }
-                        reader.endArray();
-                    }
-                    return idList;
-                } else {
-                    throw new ResourceParseException(connection.getResponseMessage());
-                }
-            } catch (IOException e) {
-                throw new CompletionException(e);
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
-        });
+        return httpAdapter.sendBatchPostRequest(collectionUri, format, body);
     }
     
     
@@ -1604,8 +1285,19 @@ public class ConSysApiClient
     public void setAuthToken(String token)
     {
         this.token = token;
+        if (httpAdapter != null)
+            httpAdapter.setAuthToken(token);
     }
-    
+
+
+    /**
+     * Returns the HTTP client adapter used by this client.
+     * @return the HTTP client adapter
+     */
+    public HttpClientWrapper getHttpAdapter()
+    {
+        return httpAdapter;
+    }
 
 
     /* Builder stuff */
@@ -1620,12 +1312,16 @@ public class ConSysApiClient
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
         HttpClient.Builder httpClientBuilder;
+        OkHttpClient.Builder okHttpClientBuilder;
+        Authenticator authenticator;
 
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
             if (isHttpClientAvailable)
                 this.httpClientBuilder = HttpClient.newBuilder();
+            else
+                this.okHttpClientBuilder = new OkHttpClient.Builder();
 
             try
             {
@@ -1639,10 +1335,15 @@ public class ConSysApiClient
             }
         }
 
+        public ConSysApiClientBuilder useHttpAdapter(HttpClientWrapper adapter)
+        {
+            instance.httpAdapter = adapter;
+            return this;
+        }
 
         public ConSysApiClientBuilder useHttpClient(HttpClient http)
         {
-            instance.http = http;
+            instance.httpAdapter = new JavaHttpClientWrapper(http);
             return this;
         }
 
@@ -1652,15 +1353,15 @@ public class ConSysApiClient
             if (!Strings.isNullOrEmpty(user))
             {
                 var finalPwd = password != null ? password : new char[0];
-                instance.authenticator = new Authenticator() {
+                this.authenticator = new Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
                         return new PasswordAuthentication(user, finalPwd);
                     }
                 };
 
-                if (isHttpClientAvailable)
-                    httpClientBuilder.authenticator(instance.authenticator);
+                if (isHttpClientAvailable && httpClientBuilder != null)
+                    httpClientBuilder.authenticator(this.authenticator);
             }
 
             return this;
@@ -1670,8 +1371,26 @@ public class ConSysApiClient
         @Override
         public ConSysApiClient build()
         {
-            if (isHttpClientAvailable && instance.http == null)
-                instance.http = httpClientBuilder.build();
+            if (instance.httpAdapter == null)
+            {
+                if (isHttpClientAvailable) {
+                    var httpClient = httpClientBuilder.build();
+                    instance.httpAdapter = new JavaHttpClientWrapper(httpClient);
+                } else {
+                    // Use OkHttp when Java HttpClient is not available (e.g., Android)
+                    var okHttpClient = okHttpClientBuilder.build();
+                    var adapter = new OkHttpClientWrapper(okHttpClient);
+                    // Uncomment below to use HttpURLConnection instead:
+                    // var adapter = new HttpURLConnectionAdapter();
+                    if (authenticator != null)
+                        adapter.setAuthenticator(authenticator);
+                    instance.httpAdapter = adapter;
+                }
+            }
+
+            if (instance.token != null)
+                instance.httpAdapter.setAuthToken(instance.token);
+
             return instance;
         }
     }
