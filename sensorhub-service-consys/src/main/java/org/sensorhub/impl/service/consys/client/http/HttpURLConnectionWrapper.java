@@ -23,16 +23,11 @@ import com.google.gson.stream.JsonReader;
 public class HttpURLConnectionWrapper implements HttpClientWrapper
 {
     protected Authenticator authenticator;
-    protected String token;
 
     public HttpURLConnectionWrapper()
     {
     }
 
-    public HttpURLConnectionWrapper(Authenticator authenticator)
-    {
-        this.authenticator = authenticator;
-    }
 
     @Override
     public <T> CompletableFuture<T> sendGetRequest(URI uri, ResourceFormat format, Function<InputStream, T> bodyMapper)
@@ -47,8 +42,6 @@ public class HttpURLConnectionWrapper implements HttpClientWrapper
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 
                 int responseCode = connection.getResponseCode();
                 if (responseCode == 200) {
@@ -82,8 +75,7 @@ public class HttpURLConnectionWrapper implements HttpClientWrapper
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -124,8 +116,7 @@ public class HttpURLConnectionWrapper implements HttpClientWrapper
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -164,8 +155,7 @@ public class HttpURLConnectionWrapper implements HttpClientWrapper
                 connection.setRequestMethod("PUT");
                 connection.setRequestProperty(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType());
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -197,8 +187,7 @@ public class HttpURLConnectionWrapper implements HttpClientWrapper
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty(HttpHeaders.CONTENT_TYPE, format.getMimeType());
-                if (token != null)
-                    connection.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
                 connection.setDoOutput(true);
 
                 try (OutputStream os = connection.getOutputStream()) {
@@ -231,14 +220,4 @@ public class HttpURLConnectionWrapper implements HttpClientWrapper
         });
     }
 
-    @Override
-    public void setAuthToken(String token)
-    {
-        this.token = token;
-    }
-
-    public void setAuthenticator(Authenticator authenticator)
-    {
-        this.authenticator = authenticator;
-    }
 }
