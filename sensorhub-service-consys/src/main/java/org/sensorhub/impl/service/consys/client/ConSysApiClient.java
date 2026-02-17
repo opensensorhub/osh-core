@@ -14,6 +14,7 @@ Copyright (C) 2023 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.service.consys.client;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,9 +28,11 @@ import java.nio.charset.StandardCharsets;
 
 import okhttp3.OkHttpClient;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.concurrent.CompletableFuture;
@@ -88,6 +91,8 @@ import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.base.Strings;
 import com.google.common.net.UrlEscapers;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
@@ -121,7 +126,7 @@ public class ConSysApiClient
 
     protected HttpClientWrapper httpAdapter;
     protected URI endpoint;
-    protected String token;
+    protected TokenHandler tokenHandler;
 
 
     protected ConSysApiClient() {}
@@ -735,8 +740,35 @@ public class ConSysApiClient
             return cf1;
         
     }
-    
-    
+    public CompletableFuture<IDataStreamInfo> getDataStreams(String systemId, ResourceFormat format)
+    {
+
+        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+
+                var binding = new DataStreamBindingJson(ctx, null, null, true, Collections.emptyMap()) {
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
+                    {
+                        var reader = super.getJsonReader(is);
+                        skipToCollectionItems(reader);
+                        return reader;
+                    }
+                };
+
+                return binding.deserialize();
+
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+
+    }
+
     public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
         var obsFormatStr = urlQueryEncode(obsFormat.getMimeType());
@@ -823,7 +855,133 @@ public class ConSysApiClient
             throw new IllegalStateException("Error initializing binding", e);
         }
     }
+    public CompletableFuture<Stream<Map.Entry<String, IDataStreamInfo>>> getSystemDataStreams(String systemId, ResourceFormat format)
+    {
+        return getSystemDataStreams(systemId, format, 100);
+    }
 
+    public CompletableFuture<Stream<Map.Entry<String, IDataStreamInfo>>> getSystemDataStreams(String systemId, ResourceFormat format, int maxPageSize)
+    {
+        return getResourcesWithPaging((pageSize, offset) -> {
+            try {
+                return getSystemDataStreams(systemId, format, pageSize, offset).get();
+            }
+            catch (Exception e) {
+                throw new IOException("Error loading datastreams", e);
+            }
+        }, maxPageSize);
+    }
+
+    protected CompletableFuture<Stream<Map.Entry<String, IDataStreamInfo>>> getSystemDataStreams(String systemId, ResourceFormat format, int pageSize, int offset)
+    {
+        var request = SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        log.debug("{}", request);
+
+        return sendGetRequest(endpoint.resolve(request), format, body -> {
+            try
+            {
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                body.transferTo(baos);
+                InputStream firstClone = new ByteArrayInputStream(baos.toByteArray());
+                InputStream secondClone = new ByteArrayInputStream(baos.toByteArray());
+
+                var ids = new ArrayDeque<>();
+                var bytes = firstClone.readAllBytes();
+
+                var jsonString = new String(bytes, StandardCharsets.UTF_8);
+
+                JsonObject jsonObj = JsonParser.parseString(jsonString).getAsJsonObject();
+                var items = jsonObj.get("items").getAsJsonArray();
+
+                for (var item: items) {
+                    ids.add(item.getAsJsonObject().get("id").getAsString());
+                }
+
+                var ctx = new RequestContext(secondClone);
+
+                var binding = new DataStreamBindingJson(ctx, new IdEncodersBase32(), null, true, Collections.emptyMap()) {
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
+                    {
+                        var reader = super.getJsonReader(is);
+                        skipToCollectionItems(reader);
+                        return reader;
+                    }
+                };
+
+
+                return StreamSupport.stream(new Spliterator<Map.Entry<String, IDataStreamInfo>>() {
+
+                    @Override
+                    public int characteristics()
+                    {
+                        return Spliterator.ORDERED | Spliterator.DISTINCT;
+                    }
+
+                    @Override
+                    public long estimateSize()
+                    {
+                        return Long.MAX_VALUE;
+                    }
+
+                    @Override
+                    public boolean tryAdvance(Consumer<? super Map.Entry<String, IDataStreamInfo>> consumer)
+                    {
+                        try
+                        {
+                            var f = binding.deserialize();
+                            if (f != null)
+                            {
+                                consumer.accept(Map.<String, IDataStreamInfo>entry((String) ids.pop(), f));
+                                return true;
+                            }
+
+                            return false;
+                        }
+                        catch (IOException e)
+                        {
+                            throw new IllegalStateException("Error parsing datastream", e);
+                        }
+                    }
+
+                    @Override
+                    public Spliterator<Map.Entry<String, IDataStreamInfo>> trySplit()
+                    {
+                        return null;
+                    }
+
+                }, false);
+
+
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+
+    public CompletableFuture<Integer> updateDataStream(String dataStreamId, IDataStreamInfo dataStreamInfo)
+    {
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new DataStreamBindingJson(ctx, new IdEncodersBase32(), null,false, Collections.emptyMap());
+            binding.serialize(null, dataStreamInfo, false);
+
+            return sendPutRequest(
+                    endpoint.resolve(DATASTREAMS_COLLECTION + "/" + dataStreamId),
+                    ResourceFormat.JSON,
+                    buffer.toByteArray());
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
 
     /*-----------------*/
     /* Control Streams */
@@ -951,8 +1109,14 @@ public class ConSysApiClient
     /*--------------*/
     /* Observations */
     /*--------------*/
+
+    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore)
+    {
+        return pushObs(dataStreamId, dataStream, obs, obsStore, null);
+    }
+
     // TODO: Be able to push different kinds of observations such as video
-    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs)
+    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore, String foiId)
     {
         try
         {
@@ -966,12 +1130,19 @@ public class ConSysApiClient
             if (dataStream != null && dataStream.getRecordEncoding() instanceof BinaryEncoding) {
                 ctx.setData(contextData);
                 ctx.setFormat(ResourceFormat.SWE_BINARY);
-                var binding = new ObsBindingSweCommon(ctx, new IdEncodersBase32(), false, null);
+                var binding = new ObsBindingSweCommon(ctx, new IdEncodersBase32(), false, obsStore);
                 binding.serialize(null, obs, false);
             } else {
                 ctx.setFormat(ResourceFormat.OM_JSON);
-                var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), false, null);
+                var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), false, obsStore);
                 binding.serialize(null, obs, false);
+
+                if (foiId != null) {
+                    JsonObject payload = JsonParser.parseString(buffer.toString()).getAsJsonObject();
+                    payload.addProperty("foi@id", foiId);
+                    buffer.reset();
+                    buffer.write(payload.toString().getBytes());
+                }
             }
 
             return sendPostRequest(
@@ -1281,13 +1452,6 @@ public class ConSysApiClient
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
     
-    
-    public void setAuthToken(String token)
-    {
-        this.token = token;
-        if (httpAdapter != null)
-            httpAdapter.setAuthToken(token);
-    }
 
 
     /**
@@ -1335,18 +1499,6 @@ public class ConSysApiClient
             }
         }
 
-        public ConSysApiClientBuilder useHttpAdapter(HttpClientWrapper adapter)
-        {
-            instance.httpAdapter = adapter;
-            return this;
-        }
-
-        public ConSysApiClientBuilder useHttpClient(HttpClient http)
-        {
-            instance.httpAdapter = new JavaHttpClientWrapper(http);
-            return this;
-        }
-
 
         public ConSysApiClientBuilder simpleAuth(String user, char[] password)
         {
@@ -1371,27 +1523,22 @@ public class ConSysApiClient
         @Override
         public ConSysApiClient build()
         {
-            if (instance.httpAdapter == null)
-            {
+            if (instance.httpAdapter == null) {
                 if (isHttpClientAvailable) {
                     var httpClient = httpClientBuilder.build();
-                    instance.httpAdapter = new JavaHttpClientWrapper(httpClient);
+                    instance.httpAdapter = new JavaHttpClientWrapper(httpClient, instance.tokenHandler);
                 } else {
-                    // Use OkHttp when Java HttpClient is not available (e.g., Android)
                     var okHttpClient = okHttpClientBuilder.build();
-                    var adapter = new OkHttpClientWrapper(okHttpClient);
-                    // Uncomment below to use HttpURLConnection instead:
-                    // var adapter = new HttpURLConnectionAdapter();
-                    if (authenticator != null)
-                        adapter.setAuthenticator(authenticator);
-                    instance.httpAdapter = adapter;
+                    instance.httpAdapter = new OkHttpClientWrapper(okHttpClient, instance.tokenHandler);;
                 }
             }
-
-            if (instance.token != null)
-                instance.httpAdapter.setAuthToken(instance.token);
-
             return instance;
+        }
+
+        public ConSysApiClientBuilder tokenHandler(ConSysOAuthConfig conSysOAuth) {
+
+            instance.tokenHandler = new TokenHandler(conSysOAuth);
+            return this;
         }
     }
 }

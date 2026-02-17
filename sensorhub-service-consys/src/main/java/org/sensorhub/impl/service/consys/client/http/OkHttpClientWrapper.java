@@ -30,11 +30,8 @@ import okhttp3.ResponseBody;
 
 public class OkHttpClientWrapper implements HttpClientWrapper
 {
-    static final Logger log = LoggerFactory.getLogger(OkHttpClientWrapper.class);
     protected OkHttpClient http;
-    protected String token;
     protected TokenHandler tokenHandler;
-    protected Authenticator authenticator;
 
     public OkHttpClientWrapper(OkHttpClient http)
     {
@@ -154,7 +151,6 @@ public class OkHttpClientWrapper implements HttpClientWrapper
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 future.complete(response.code());
-                log.debug("Response: {}", response.code());
                 response.close();
             }
         });
@@ -262,22 +258,6 @@ public class OkHttpClientWrapper implements HttpClientWrapper
         });
 
         return future;
-    }
-
-    @Override
-    public void setAuthToken(String token)
-    {
-        this.token = token;
-    }
-
-    public OkHttpClient getOkHttpClient()
-    {
-        return http;
-    }
-
-    public void setAuthenticator(Authenticator authenticator)
-    {
-        this.authenticator = authenticator;
     }
 
     protected void addAuthHeader(Request.Builder requestBuilder)

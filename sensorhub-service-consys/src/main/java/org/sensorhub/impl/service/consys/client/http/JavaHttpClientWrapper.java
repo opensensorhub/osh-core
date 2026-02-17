@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.client.TokenHandler;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.utils.Lambdas;
 import com.google.common.net.HttpHeaders;
@@ -43,9 +44,15 @@ import com.google.gson.stream.JsonReader;
 public class JavaHttpClientWrapper implements HttpClientWrapper
 {
     protected HttpClient http;
-    protected String token;
+    protected TokenHandler tokenHandler;
+
     public JavaHttpClientWrapper(HttpClient http) {
         this.http = http;
+    }
+
+    public JavaHttpClientWrapper(HttpClient http, TokenHandler tokenHandler) {
+        this.http = http;
+        this.tokenHandler = tokenHandler;
     }
 
     @Override
@@ -56,8 +63,12 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .GET()
                 .header(HttpHeaders.ACCEPT, format.getMimeType());
 
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        if (tokenHandler != null) {
+            if (tokenHandler.isExpired()) {
+                tokenHandler.refreshAccessToken();
+            }
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
+        }
 
         var req = builder.build();
         BodyHandler<T> bodyHandler = resp -> {
@@ -92,9 +103,12 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-
+        if (tokenHandler != null) {
+            if (tokenHandler.isExpired()) {
+                tokenHandler.refreshAccessToken();
+            }
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
+        }
         var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(resp -> {
@@ -118,9 +132,12 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-
+        if (tokenHandler != null) {
+            if (tokenHandler.isExpired()) {
+                tokenHandler.refreshAccessToken();
+            }
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
+        }
         var req = builder.build();
         BodyHandler<T> bodyHandler = resp -> {
             BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
@@ -159,8 +176,13 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+
+        if (tokenHandler != null) {
+            if (tokenHandler.isExpired()) {
+                tokenHandler.refreshAccessToken();
+            }
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
+        }
 
         var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
@@ -176,8 +198,12 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (token != null)
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        if (tokenHandler != null) {
+            if (tokenHandler.isExpired()) {
+                tokenHandler.refreshAccessToken();
+            }
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
+        }
 
         var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
@@ -198,10 +224,4 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 }));
     }
 
-
-    @Override
-    public void setAuthToken(String token)
-    {
-        this.token = token;
-    }
 }

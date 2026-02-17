@@ -29,5 +29,4 @@ public interface HttpClientWrapper
     <T> CompletableFuture<T> sendPostRequestAndReadResponse(URI uri, ResourceFormat format, byte[] body, Function<InputStream, T> responseBodyMapper);
     CompletableFuture<Integer> sendPutRequest(URI uri, ResourceFormat format, byte[] body);
     CompletableFuture<Set<String>> sendBatchPostRequest(URI uri, ResourceFormat format, byte[] body);
-    void setAuthToken(String token);
 }

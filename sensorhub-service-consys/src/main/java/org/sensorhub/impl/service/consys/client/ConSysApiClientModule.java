@@ -61,6 +61,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         private BigId internalID;
         private String sysUID;
         private Flow.Subscription subscription;
+        public long lastEventTime = Long.MIN_VALUE;
+        public int measPeriodMs = 1000;
+        public int errorCount = 0;
     }
 
     public ConSysApiClientModule()
@@ -99,10 +102,16 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         this.dataBaseView = config.dataSourceSelector.getFilteredView(getParentHub());
 
-        this.client = ConSysApiClient.
-                newBuilder(apiEndpointUrl)
-                .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
-                .build();
+        if (config.conSysOAuth.oAuthEnabled) {
+            this.client = ConSysApiClient.newBuilder(apiEndpointUrl)
+                    .tokenHandler(config.conSysOAuth)
+                    .build();
+        } else {
+            this.client = ConSysApiClient.
+                    newBuilder(apiEndpointUrl)
+                    .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
+                    .build();
+        }
     }
 
     @Override
@@ -316,17 +325,79 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         List<StreamInfo> addedStreams = new ArrayList<>();
 
-        dataBaseView.getDataStreamStore().selectEntries(
+        var dataStreamEntries = dataBaseView.getDataStreamStore().selectEntries(
                 new DataStreamFilter.Builder()
                         .withSystems(new SystemFilter.Builder()
-                            .withUniqueIDs(system.system.getUniqueIdentifier())
-                            .build())
-                        .build())
-                .forEach((entry) -> {
-                    if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
-                        addedStreams.add(registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue()));
-                });
+                                .withUniqueIDs(system.system.getUniqueIdentifier())
+                                .build())
+                        .build()).toList();
+
+        var systemDataStreamList = new ArrayList<Map.Entry<String,IDataStreamInfo>>();
+        try {
+            var systemDataStream = client.getSystemDataStreams(system.systemID, ResourceFormat.JSON).get().toList();
+
+            systemDataStreamList.addAll(systemDataStream);
+        } catch (InterruptedException | ExecutionException e) {
+            reportError("Error getting system datastreams", new Throwable(e.getMessage()));
+        }
+
+        for (var entry : dataStreamEntries) {
+            // check each entry against the systemDataStreamList with outputName and systemUID
+
+            var filteredListByUniqueId = systemDataStreamList.stream().filter(dataStreamInfo ->
+                    dataStreamInfo.getValue().getSystemID().getUniqueID().equals(entry.getValue().getSystemID().getUniqueID()));
+
+            var filterListByOutputName = filteredListByUniqueId.filter(dataStreamInfo ->
+                    dataStreamInfo.getValue().getOutputName().equals(entry.getValue().getOutputName())).toList();
+
+            if (filterListByOutputName.isEmpty()) {
+                if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
+                    addedStreams.add(registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue()));
+            } else {
+                // get id and update the existing datastream
+                var datastream = filterListByOutputName.get(0);
+
+
+                var newEntry = new DataStreamInfo.Builder()
+                        .withName(entry.getValue().getName())
+                        .withDescription(entry.getValue().getDescription())
+                        .withSystem(entry.getValue().getSystemID())
+                        .withRecordDescription(entry.getValue().getRecordStructure())
+                        .withRecordEncoding(entry.getValue().getRecordEncoding())
+                        .withDeployment(entry.getValue().getDeploymentID())
+                        .withProcedure(entry.getValue().getProcedureID())
+                        .withFeatureOfInterest(datastream.getValue().getFeatureOfInterestID())
+                        .withSamplingFeature(datastream.getValue().getSamplingFeatureID())
+//                        .withFeatureOfInterest(FeatureId.NULL_FEATURE)
+//                        .withSamplingFeature(FeatureId.NULL_FEATURE)
+                        .withPhenomenonTimeInterval(entry.getValue().getPhenomenonTimeInterval())
+                        .withResultTimeInterval(entry.getValue().getResultTimeInterval())
+                        .withValidTime(entry.getValue().getValidTime())
+                        .build();
+
+                addedStreams.add(registerUpdatedDataStream(entry.getKey().getInternalID(), datastream.getKey(), newEntry));
+
+//                    statusNumber = client.updateDataStream(datastream.getKey(), newEntry).get();
+            }
+        }
+
         return addedStreams;
+    }
+
+    protected StreamInfo registerUpdatedDataStream(BigId dsId, String dataStreamId, IDataStreamInfo dataStream)
+    {
+        var dsTopicId = EventUtils.getDataStreamDataTopicID(dataStream);
+        client.updateDataStream(dataStreamId, dataStream);
+
+        StreamInfo streamInfo = new StreamInfo();
+        streamInfo.dataStreamID = dataStreamId;
+        streamInfo.dataStream = dataStream;
+        streamInfo.topicID = dsTopicId;
+        streamInfo.sysUID = dataStream.getSystemID().getUniqueID();
+        streamInfo.internalID = dsId;
+
+        dataStreams.put(dsTopicId, streamInfo);
+        return streamInfo;
     }
 
     protected StreamInfo registerDataStream(BigId dsId, String systemID, IDataStreamInfo dataStream)
@@ -403,7 +474,12 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                                 .withLatestResult()
                                 .build())
                             .forEach(obs ->
-                                client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs));
+                                client.pushObs(
+                                        streamInfo.dataStreamID,
+                                        streamInfo.dataStream,
+                                        obs,
+                                        this.dataBaseView.getObservationStore()
+                                ));
 
                         getLogger().info("Starting Connected Systems data push for stream {} with UID {} to Connected Systems endpoint {}",
                                 streamInfo.dataStreamID, streamInfo.sysUID, apiEndpointUrl);
@@ -432,10 +508,20 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
         for(var obs : e.getObservations()) {
+            String foiID = null;
+            if (obs.hasFoi()) {
+                var registeredFoiID = registeredFeatureIDs.get(obs.getFoiID());
+                if (registeredFoiID != null)
+                    foiID = registeredFoiID;
+            }
             client.pushObs(
                     streamInfo.dataStreamID,
                     streamInfo.dataStream,
-                    obs);
+                    obs,
+                    this.dataBaseView.getObservationStore(),
+                    foiID
+            );
+            streamInfo.lastEventTime = e.getTimeStamp();
         }
     }
 
@@ -587,6 +673,11 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 }
             });
         }
+    }
+
+    public Map<String, StreamInfo> getDataStreams()
+    {
+        return dataStreams;
     }
 
 }
