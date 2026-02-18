@@ -29,17 +29,23 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 
 import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.client.ConSysApiClientConfig;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 
 import com.google.common.net.HttpHeaders;
 import com.google.gson.stream.JsonReader;
 
-public class HttpURLConnectionWrapper implements HttpClientWrapper
+public class IHttpURLConnection implements IHttpClient
 {
     protected Authenticator authenticator;
 
-    public HttpURLConnectionWrapper()
+    public IHttpURLConnection()
     {
+    }
+
+    @Override
+    public void setConfig(ConSysApiClientConfig config) {
+
     }
 
 

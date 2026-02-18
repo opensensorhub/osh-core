@@ -19,6 +19,7 @@ import org.sensorhub.api.config.DisplayInfo;
 import org.sensorhub.impl.comm.HTTPConfig;
 import org.sensorhub.impl.comm.RobustIPConnectionConfig;
 import org.sensorhub.impl.datastore.view.ObsSystemDatabaseViewConfig;
+import org.sensorhub.impl.service.consys.client.http.JavaHttpClient;
 
 public class ConSysApiClientConfig extends ClientConfig {
 
@@ -37,10 +38,13 @@ public class ConSysApiClientConfig extends ClientConfig {
     @DisplayInfo(label="OAuth Options", desc="Allows for the usage of OAuth Client Credentials (\"bearer\") tokens for instead of basic authentication")
     public ConSysOAuthConfig conSysOAuth = new ConSysOAuthConfig();
 
+    public String httpClientImplClass;
+
     public ConSysApiClientConfig()
     {
         this.moduleClass = ConSysApiClientModule.class.getCanonicalName();
         this.conSys.resourcePath = "/sensorhub/api";
+        this.httpClientImplClass = JavaHttpClient.class.getCanonicalName();
     }
 
 }

@@ -17,6 +17,8 @@ package org.sensorhub.impl.service.consys.client.http;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.client.ConSysApiClientConfig;
 import org.sensorhub.impl.service.consys.client.TokenHandler;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.utils.Lambdas;
@@ -41,18 +44,29 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 
 
-public class JavaHttpClientWrapper implements HttpClientWrapper
+public class JavaHttpClient implements IHttpClient
 {
     protected HttpClient http;
     protected TokenHandler tokenHandler;
 
-    public JavaHttpClientWrapper(HttpClient http) {
-        this.http = http;
-    }
+    public JavaHttpClient() {}
 
-    public JavaHttpClientWrapper(HttpClient http, TokenHandler tokenHandler) {
-        this.http = http;
-        this.tokenHandler = tokenHandler;
+    @Override
+    public void setConfig(ConSysApiClientConfig config) {
+        if (config.conSysOAuth != null) {
+            this.tokenHandler = new TokenHandler(config.conSysOAuth);
+        }
+
+        this.http = HttpClient.newBuilder()
+                .authenticator(new Authenticator() {
+                    @Override
+                    protected PasswordAuthentication getPasswordAuthentication() {
+                        var finalPwd = config.conSys.password != null ? config.conSys.password : new char[0];
+
+                        return new PasswordAuthentication(config.conSys.user, (char[]) finalPwd);
+                    }
+                })
+                .build();
     }
 
     @Override
@@ -63,12 +77,8 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .GET()
                 .header(HttpHeaders.ACCEPT, format.getMimeType());
 
-        if (tokenHandler != null) {
-            if (tokenHandler.isExpired()) {
-                tokenHandler.refreshAccessToken();
-            }
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
-        }
+        addAuthHeader(builder);
+
 
         var req = builder.build();
         BodyHandler<T> bodyHandler = resp -> {
@@ -103,12 +113,8 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (tokenHandler != null) {
-            if (tokenHandler.isExpired()) {
-                tokenHandler.refreshAccessToken();
-            }
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
-        }
+        addAuthHeader(builder);
+
         var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
                 .thenApply(resp -> {
@@ -132,12 +138,8 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (tokenHandler != null) {
-            if (tokenHandler.isExpired()) {
-                tokenHandler.refreshAccessToken();
-            }
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
-        }
+        addAuthHeader(builder);
+
         var req = builder.build();
         BodyHandler<T> bodyHandler = resp -> {
             BodySubscriber<byte[]> upstream = BodySubscribers.ofByteArray();
@@ -176,13 +178,7 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .header(HttpHeaders.ACCEPT, ResourceFormat.JSON.getMimeType())
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-
-        if (tokenHandler != null) {
-            if (tokenHandler.isExpired()) {
-                tokenHandler.refreshAccessToken();
-            }
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
-        }
+        addAuthHeader(builder);
 
         var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
@@ -198,12 +194,7 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .header(HttpHeaders.CONTENT_TYPE, format.getMimeType());
 
-        if (tokenHandler != null) {
-            if (tokenHandler.isExpired()) {
-                tokenHandler.refreshAccessToken();
-            }
-            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenHandler.getToken());
-        }
+        addAuthHeader(builder);
 
         var req = builder.build();
         return http.sendAsync(req, BodyHandlers.ofString())
@@ -224,4 +215,13 @@ public class JavaHttpClientWrapper implements HttpClientWrapper
                 }));
     }
 
+    protected void addAuthHeader(HttpRequest.Builder requestBuilder)
+    {
+        if (tokenHandler != null) {
+            if (tokenHandler.isExpired()) {
+                tokenHandler.refreshAccessToken();
+            }
+            requestBuilder.header("Authorization", "Bearer " + tokenHandler.getToken());
+        }
+    }
 }

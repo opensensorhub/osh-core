@@ -26,7 +26,6 @@ import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 
-import okhttp3.OkHttpClient;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -48,17 +47,15 @@ import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.command.ICommandStatus;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
+import org.sensorhub.api.common.SensorHubException;
 import org.sensorhub.api.data.DataStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
-import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.common.IdEncodersBase32;
-import org.sensorhub.impl.service.consys.client.http.HttpClientWrapper;
-import org.sensorhub.impl.service.consys.client.http.JavaHttpClientWrapper;
-import org.sensorhub.impl.service.consys.client.http.OkHttpClientWrapper;
+import org.sensorhub.impl.service.consys.client.http.IHttpClient;
 import org.sensorhub.impl.service.consys.feature.FoiBindingGeoJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingOmJson;
@@ -111,25 +108,26 @@ public class ConSysApiClient
     static final String SF_COLLECTION = "samplingFeatures";
 
     static final Logger log = LoggerFactory.getLogger(ConSysApiClient.class);
-
-    protected static boolean isHttpClientAvailable;
-
-    static {
-        // Check if HttpClient is available. Will not be available on Android.
-        try {
-            Class.forName("java.net.http.HttpClient");
-            isHttpClientAvailable = true;
-        } catch (ClassNotFoundException e) {
-            isHttpClientAvailable = false;
-        }
-    }
-
-    protected HttpClientWrapper httpAdapter;
     protected URI endpoint;
     protected TokenHandler tokenHandler;
 
+    IHttpClient httpAdapter;
 
-    protected ConSysApiClient() {}
+    protected ConSysApiClient() {
+    }
+
+    public ConSysApiClient(ConSysApiClientConfig config) throws SensorHubException {
+        try {
+            httpAdapter = (IHttpClient) Class.forName(config.httpClientImplClass)
+                    .getDeclaredConstructor().newInstance();
+            httpAdapter.setConfig(config);
+            var tls = config.conSys.enableTLS ? "https://" : "http://";
+            this.endpoint = new URI(tls + config.conSys.remoteHost + ":" + config.conSys.remotePort + config.conSys.resourcePath);
+        } catch (Exception e) {
+            throw new SensorHubException("Failed to instantiate http client", e);
+        }
+
+    }
     
     
     /*------------*/
@@ -1441,17 +1439,6 @@ public class ConSysApiClient
     }
     
 
-
-    /**
-     * Returns the HTTP client adapter used by this client.
-     * @return the HTTP client adapter
-     */
-    public HttpClientWrapper getHttpAdapter()
-    {
-        return httpAdapter;
-    }
-
-
     /* Builder stuff */
 
     public static ConSysApiClientBuilder newBuilder(String endpoint)
@@ -1464,27 +1451,19 @@ public class ConSysApiClient
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
         HttpClient.Builder httpClientBuilder;
-        OkHttpClient.Builder okHttpClientBuilder;
-        Authenticator authenticator;
-
+        ConSysApiClientConfig conSysApiClientConfig;
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
-            if (isHttpClientAvailable)
-                this.httpClientBuilder = HttpClient.newBuilder();
-            else
-                this.okHttpClientBuilder = new OkHttpClient.Builder();
+            this.httpClientBuilder = HttpClient.newBuilder();
+            this.conSysApiClientConfig = new ConSysApiClientConfig();
+        }
 
-            try
-            {
-                if (!endpoint.endsWith("/"))
-                    endpoint += "/";
-                instance.endpoint = new URI(endpoint);
-            }
-            catch (URISyntaxException e)
-            {
-                throw new IllegalArgumentException("Invalid URI " + endpoint);
-            }
+
+        public ConSysApiClientBuilder useHttpClient(IHttpClient http)
+        {
+            instance.httpAdapter = http;
+            return this;
         }
 
 
@@ -1492,16 +1471,8 @@ public class ConSysApiClient
         {
             if (!Strings.isNullOrEmpty(user))
             {
-                var finalPwd = password != null ? password : new char[0];
-                this.authenticator = new Authenticator() {
-                    @Override
-                    protected PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(user, finalPwd);
-                    }
-                };
-
-                if (isHttpClientAvailable && httpClientBuilder != null)
-                    httpClientBuilder.authenticator(this.authenticator);
+                conSysApiClientConfig.conSys.user = user;
+                conSysApiClientConfig.conSys.password = new String(password);
             }
 
             return this;
@@ -1511,20 +1482,11 @@ public class ConSysApiClient
         @Override
         public ConSysApiClient build()
         {
-            if (instance.httpAdapter == null) {
-                if (isHttpClientAvailable) {
-                    var httpClient = httpClientBuilder.build();
-                    instance.httpAdapter = new JavaHttpClientWrapper(httpClient, instance.tokenHandler);
-                } else {
-                    var okHttpClient = okHttpClientBuilder.build();
-                    instance.httpAdapter = new OkHttpClientWrapper(okHttpClient, instance.tokenHandler);;
-                }
-            }
+            instance.httpAdapter.setConfig(conSysApiClientConfig);
             return instance;
         }
 
         public ConSysApiClientBuilder tokenHandler(ConSysOAuthConfig conSysOAuth) {
-
             instance.tokenHandler = new TokenHandler(conSysOAuth);
             return this;
         }

@@ -10,7 +10,6 @@ dependencies {
   testImplementation project(':sensorhub-datastore-h2')
   testImplementation 'commons-io:commons-io:1.3.2'  
   testImplementation 'org.jglue.fluent-json:fluent-json:2.0.3'
-  implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
 test {

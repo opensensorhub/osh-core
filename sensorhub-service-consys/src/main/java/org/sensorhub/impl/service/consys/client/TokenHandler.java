@@ -30,11 +30,7 @@ import java.net.URI;
 import java.net.URL;
 import java.text.MessageFormat;
 
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
+import ch.qos.logback.core.subst.Token;
 
 public class TokenHandler {
 
@@ -46,7 +42,7 @@ public class TokenHandler {
 
     private final ConSysOAuthConfig config;
 
-    TokenHandler(ConSysOAuthConfig config) {
+    public TokenHandler(ConSysOAuthConfig config) {
 
         this.config = config;
     }
@@ -55,45 +51,6 @@ public class TokenHandler {
         return token;
     }
 
-    public void refreshAccessToken(OkHttpClient httpClient) {
-
-        String data = MessageFormat.format(
-                "grant_type=client_credentials&client_id={0}&client_secret={1}",
-                config.clientID, config.clientSecret
-        );
-
-        RequestBody body = RequestBody.create(
-                data,
-                MediaType.parse("application/x-www-form-urlencoded")
-        );
-
-        Request request = new Request.Builder()
-                .url(config.tokenEndpoint)
-                .post(body)
-                .addHeader("Content-Type", "application/x-www-form-urlencoded")
-                .build();
-
-        try (Response response = httpClient.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                logger.error("Failed to retrieve access token: {}", response.code());
-                return;
-            }
-
-            if (response.body() == null) {
-                logger.error("Token response body is null");
-                return;
-            }
-
-            String responseBody = response.body().string();
-            JsonObject jsonObject = JsonParser.parseString(responseBody).getAsJsonObject();
-
-            token = jsonObject.get("access_token").getAsString();
-            expirationTime = jsonObject.get("expires_in").getAsLong() * 1000L + System.currentTimeMillis();
-
-        } catch (IOException e) {
-            logger.error("Failed to retrieve access token due to exception: {}", e.getMessage());
-        }
-    }
 
     public void refreshAccessToken() {
 

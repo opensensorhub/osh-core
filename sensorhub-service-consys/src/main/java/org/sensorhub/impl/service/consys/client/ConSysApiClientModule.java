@@ -115,17 +115,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void doInit() throws SensorHubException
     {
         this.dataBaseView = config.dataSourceSelector.getFilteredView(getParentHub());
-
-        if (config.conSysOAuth.oAuthEnabled) {
-            this.client = ConSysApiClient.newBuilder(apiEndpointUrl)
-                    .tokenHandler(config.conSysOAuth)
-                    .build();
-        } else {
-            this.client = ConSysApiClient.
-                    newBuilder(apiEndpointUrl)
-                    .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
-                    .build();
-        }
+        this.client = new ConSysApiClient(config);
     }
 
     @Override
