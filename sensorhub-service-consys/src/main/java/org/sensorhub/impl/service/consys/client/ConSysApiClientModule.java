@@ -477,8 +477,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                                 client.pushObs(
                                         streamInfo.dataStreamID,
                                         streamInfo.dataStream,
-                                        obs,
-                                        this.dataBaseView.getObservationStore()
+                                        obs
                                 ));
 
                         getLogger().info("Starting Connected Systems data push for stream {} with UID {} to Connected Systems endpoint {}",
@@ -517,9 +516,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             client.pushObs(
                     streamInfo.dataStreamID,
                     streamInfo.dataStream,
-                    obs,
-                    this.dataBaseView.getObservationStore(),
-                    foiID
+                    obs
             );
             streamInfo.lastEventTime = e.getTimeStamp();
         }

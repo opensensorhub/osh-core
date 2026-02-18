@@ -1110,13 +1110,8 @@ public class ConSysApiClient
     /* Observations */
     /*--------------*/
 
-    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore)
-    {
-        return pushObs(dataStreamId, dataStream, obs, obsStore, null);
-    }
-
     // TODO: Be able to push different kinds of observations such as video
-    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs, IObsStore obsStore, String foiId)
+    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs)
     {
         try
         {
@@ -1130,19 +1125,12 @@ public class ConSysApiClient
             if (dataStream != null && dataStream.getRecordEncoding() instanceof BinaryEncoding) {
                 ctx.setData(contextData);
                 ctx.setFormat(ResourceFormat.SWE_BINARY);
-                var binding = new ObsBindingSweCommon(ctx, new IdEncodersBase32(), false, obsStore);
+                var binding = new ObsBindingSweCommon(ctx, new IdEncodersBase32(), false, null);
                 binding.serialize(null, obs, false);
             } else {
                 ctx.setFormat(ResourceFormat.OM_JSON);
-                var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), false, obsStore);
+                var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), false, null);
                 binding.serialize(null, obs, false);
-
-                if (foiId != null) {
-                    JsonObject payload = JsonParser.parseString(buffer.toString()).getAsJsonObject();
-                    payload.addProperty("foi@id", foiId);
-                    buffer.reset();
-                    buffer.write(payload.toString().getBytes());
-                }
             }
 
             return sendPostRequest(

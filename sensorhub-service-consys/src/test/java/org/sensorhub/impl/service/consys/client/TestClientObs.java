@@ -83,7 +83,7 @@ public class TestClientObs extends TestClientBase
                 .withPhenomenonTime(ts)
                 .withResult(data)
                 .build();
-            var f = client.pushObs(dsId, dsInfo, obs, null);
+            var f = client.pushObs(dsId, dsInfo, obs);
             allFutures.add(f);
         }
         
