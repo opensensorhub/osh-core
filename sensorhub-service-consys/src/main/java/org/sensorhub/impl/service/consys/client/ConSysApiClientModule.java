@@ -103,11 +103,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         if (config.conSys.enableTLS)
             scheme += "s";
         apiEndpointUrl = scheme + "://" + config.conSys.remoteHost + ":" + config.conSys.remotePort;
-        if (config.conSys.resourcePath != null)
-        {
-            if (config.conSys.resourcePath.charAt(0) != '/')
-                apiEndpointUrl += '/';
-            apiEndpointUrl += config.conSys.resourcePath;
+        if (config.conSys.resourcePath != null && !config.conSys.resourcePath.isEmpty()) {
+            String path = config.conSys.resourcePath;
+            if (!path.startsWith("/"))
+                path = "/" + path;
+            if (!path.endsWith("/"))
+                path = path + "/";
+            apiEndpointUrl += path;
         }
     }
 
@@ -211,7 +213,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 var responseCode = client.updateSystem(systemID, system).get();
                 boolean successful = responseCode == 204;
                 if(!successful)
-                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
+                    throw new ClientException("Failed to update resource: " + apiEndpointUrl  + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
                 return systemID;
             }
         } catch (ExecutionException | InterruptedException | ClientException e) {

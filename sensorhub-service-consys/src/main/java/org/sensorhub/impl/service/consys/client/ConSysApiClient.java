@@ -121,8 +121,21 @@ public class ConSysApiClient
             httpAdapter = (IHttpClient) Class.forName(config.httpClientImplClass)
                     .getDeclaredConstructor().newInstance();
             httpAdapter.setConfig(config);
-            var tls = config.conSys.enableTLS ? "https://" : "http://";
-            this.endpoint = new URI(tls + config.conSys.remoteHost + ":" + config.conSys.remotePort + config.conSys.resourcePath);
+
+            String scheme= config.conSys.enableTLS ? "https" : "http";
+
+            String endpointUrl = scheme +"://" + config.conSys.remoteHost + ":" + config.conSys.remotePort;
+            if (config.conSys.resourcePath != null && !config.conSys.resourcePath.isEmpty())
+            {
+                String path = config.conSys.resourcePath;
+                if (!path.startsWith("/"))
+                    path = "/" + path;
+                if (!path.endsWith("/"))
+                    path = path + "/";
+                endpointUrl = endpointUrl + path;
+            }
+            this.endpoint = new URI(endpointUrl);
+
         } catch (Exception e) {
             throw new SensorHubException("Failed to instantiate http client", e);
         }

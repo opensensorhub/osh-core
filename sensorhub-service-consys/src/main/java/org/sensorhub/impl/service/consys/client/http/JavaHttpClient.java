@@ -53,7 +53,7 @@ public class JavaHttpClient implements IHttpClient
 
     @Override
     public void setConfig(ConSysApiClientConfig config) {
-        if (config.conSysOAuth != null) {
+        if (config.conSysOAuth.oAuthEnabled) {
             this.tokenHandler = new TokenHandler(config.conSysOAuth);
         }
 
@@ -61,9 +61,9 @@ public class JavaHttpClient implements IHttpClient
                 .authenticator(new Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
-                        var finalPwd = config.conSys.password != null ? config.conSys.password : new char[0];
+                        char[] finalPwd = config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0];
 
-                        return new PasswordAuthentication(config.conSys.user, (char[]) finalPwd);
+                        return new PasswordAuthentication(config.conSys.user, finalPwd);
                     }
                 })
                 .build();
