@@ -38,6 +38,7 @@ public class ConSysApiClientConfig extends ClientConfig {
     @DisplayInfo(label="OAuth Options", desc="Allows for the usage of OAuth Client Credentials (\"bearer\") tokens for instead of basic authentication")
     public ConSysOAuthConfig conSysOAuth = new ConSysOAuthConfig();
 
+    @DisplayInfo(label="Http Client Implementation", desc="Fully qualified class name of the HTTP client implementation to use")
     public String httpClientImplClass;
 
     public ConSysApiClientConfig()

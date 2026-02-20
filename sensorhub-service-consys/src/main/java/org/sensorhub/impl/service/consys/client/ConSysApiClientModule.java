@@ -349,7 +349,6 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
         for (var entry : dataStreamEntries) {
             // check each entry against the systemDataStreamList with outputName and systemUID
-
             var filteredListByUniqueId = systemDataStreamList.stream().filter(dataStreamInfo ->
                     dataStreamInfo.getValue().getSystemID().getUniqueID().equals(entry.getValue().getSystemID().getUniqueID()));
 
@@ -363,7 +362,6 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 // get id and update the existing datastream
                 var datastream = filterListByOutputName.get(0);
 
-
                 var newEntry = new DataStreamInfo.Builder()
                         .withName(entry.getValue().getName())
                         .withDescription(entry.getValue().getDescription())
@@ -374,16 +372,12 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                         .withProcedure(entry.getValue().getProcedureID())
                         .withFeatureOfInterest(datastream.getValue().getFeatureOfInterestID())
                         .withSamplingFeature(datastream.getValue().getSamplingFeatureID())
-//                        .withFeatureOfInterest(FeatureId.NULL_FEATURE)
-//                        .withSamplingFeature(FeatureId.NULL_FEATURE)
                         .withPhenomenonTimeInterval(entry.getValue().getPhenomenonTimeInterval())
                         .withResultTimeInterval(entry.getValue().getResultTimeInterval())
                         .withValidTime(entry.getValue().getValidTime())
                         .build();
 
                 addedStreams.add(registerUpdatedDataStream(entry.getKey().getInternalID(), datastream.getKey(), newEntry));
-
-//                    statusNumber = client.updateDataStream(datastream.getKey(), newEntry).get();
             }
         }
 
@@ -513,12 +507,6 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
         for(var obs : e.getObservations()) {
-            String foiID = null;
-            if (obs.hasFoi()) {
-                var registeredFoiID = registeredFeatureIDs.get(obs.getFoiID());
-                if (registeredFoiID != null)
-                    foiID = registeredFoiID;
-            }
             client.pushObs(
                     streamInfo.dataStreamID,
                     streamInfo.dataStream,

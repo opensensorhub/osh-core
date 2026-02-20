@@ -35,11 +35,11 @@ import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import com.google.common.net.HttpHeaders;
 import com.google.gson.stream.JsonReader;
 
-public class IHttpURLConnection implements IHttpClient
+public class HttpURLConnectionClient implements IHttpClient
 {
     protected Authenticator authenticator;
 
-    public IHttpURLConnection()
+    public HttpURLConnectionClient()
     {
     }
 
