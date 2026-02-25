@@ -1120,9 +1120,13 @@ public class ConSysApiClient
     /*--------------*/
     /* Observations */
     /*--------------*/
+    public CompletableFuture<String> pushObs(String dataStreamId, IDataStreamInfo dataStream, IObsData obs)
+    {
+        return pushObs(dataStreamId, dataStream, obs, null);
+    }
 
     // TODO: Be able to push different kinds of observations such as video
-    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs)
+    public CompletableFuture<String> pushObs(String dsId, IDataStreamInfo dataStream, IObsData obs, String foiId)
     {
         try
         {
@@ -1142,6 +1146,12 @@ public class ConSysApiClient
                 ctx.setFormat(ResourceFormat.OM_JSON);
                 var binding = new ObsBindingOmJson(ctx, new IdEncodersBase32(), false, null);
                 binding.serialize(null, obs, false);
+                if (foiId != null) {
+                    JsonObject payload = JsonParser.parseString(buffer.toString()).getAsJsonObject();
+                    payload.addProperty("foi@id", foiId);
+                    buffer.reset();
+                    buffer.write(payload.toString().getBytes());
+                }
             }
 
             return sendPostRequest(

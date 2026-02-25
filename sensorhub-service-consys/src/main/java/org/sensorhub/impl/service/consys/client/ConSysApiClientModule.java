@@ -507,10 +507,17 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
         for(var obs : e.getObservations()) {
+            String foiID = null;
+            if (obs.hasFoi()) {
+                var registeredFoiID = registeredFeatureIDs.get(obs.getFoiID());
+                if (registeredFoiID != null)
+                    foiID = registeredFoiID;
+            }
             client.pushObs(
                     streamInfo.dataStreamID,
                     streamInfo.dataStream,
-                    obs
+                    obs,
+                    foiID
             );
             streamInfo.lastEventTime = e.getTimeStamp();
         }
