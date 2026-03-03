@@ -191,11 +191,8 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             }
             
             // create new element data block
-            DataBlock newDblk;
-            if(args == null || args.length == 0) {
-                newDblk = array.getElementType().createDataBlock();
-            } else {
-                assert args[0] instanceof IDataAccessor;
+            DataBlock newDblk = array.getElementType().createDataBlock();
+            if (args != null && args.length > 0 && args[0] instanceof IDataAccessor) {
                 newDblk = ((IDataAccessor)args[0]).getDataBlock();
             }
             arrayData.add(newDblk);
