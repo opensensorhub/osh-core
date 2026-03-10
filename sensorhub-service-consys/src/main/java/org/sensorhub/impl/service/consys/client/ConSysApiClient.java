@@ -18,8 +18,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.Authenticator;
-import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -56,6 +54,7 @@ import org.sensorhub.api.semantic.IDerivedProperty;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.common.IdEncodersBase32;
 import org.sensorhub.impl.service.consys.client.http.IHttpClient;
+import org.sensorhub.impl.service.consys.client.http.JavaHttpClient;
 import org.sensorhub.impl.service.consys.feature.FoiBindingGeoJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingOmJson;
@@ -86,7 +85,7 @@ import org.slf4j.LoggerFactory;
 import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
-import com.google.common.base.Strings;
+
 import com.google.common.net.UrlEscapers;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -109,8 +108,10 @@ public class ConSysApiClient
 
     static final Logger log = LoggerFactory.getLogger(ConSysApiClient.class);
     protected URI endpoint;
-    protected TokenHandler tokenHandler;
-
+    protected ITokenHandler tokenHandler;
+    protected String user;
+    protected char[] password;
+    protected String token;
     IHttpClient httpAdapter;
 
     protected ConSysApiClient() {
@@ -718,7 +719,7 @@ public class ConSysApiClient
     /* Datastreams */
     /*-------------*/
 
-    public CompletableFuture<IDataStreamInfo> getDatastreamById(String id, ResourceFormat format, boolean fetchSchema)
+    public CompletableFuture<IDataStreamInfo> getDataStreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
         var cf1 = sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
@@ -736,7 +737,7 @@ public class ConSysApiClient
         
         if (fetchSchema)
         {
-            return cf1.thenCombine(getDatastreamSchema(id, ResourceFormat.SWE_JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
+            return cf1.thenCombine(getDataStreamSchema(id, ResourceFormat.SWE_JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
                 
                 schemaInfo.getRecordStructure().setName(dsInfo.getOutputName());
                 
@@ -751,15 +752,21 @@ public class ConSysApiClient
             return cf1;
         
     }
-    public CompletableFuture<IDataStreamInfo> getDataStreams(String systemId, ResourceFormat format)
-    {
 
-        return sendGetRequest(endpoint.resolve(SYSTEMS_COLLECTION + "/" + systemId + "/" + DATASTREAMS_COLLECTION), format, body -> {
+    public CompletableFuture<Stream<IDataStreamInfo>> getDataStreams(ResourceFormat format, int pageSize, int offset)
+    {
+        var request =  DATASTREAMS_COLLECTION + "?f=" + format + "&limit=" + pageSize + "&offset=" + offset;
+        log.debug("{}", request);
+
+        return sendGetRequest(endpoint.resolve(request), format, body -> {
             try
             {
-                var ctx = new RequestContext(body);
+                /*body.mark(100000);
+                ByteStreams.copy(body, System.out);
+                body.reset();*/
 
-                var binding = new DataStreamBindingJson(ctx, null, null, true, Collections.emptyMap()) {
+                var ctx = new RequestContext(body);
+                var binding = new DataStreamBindingJson(ctx, new IdEncodersBase32(), null, true, Collections.emptyMap()) {
                     protected JsonReader getJsonReader(InputStream is) throws IOException
                     {
                         var reader = super.getJsonReader(is);
@@ -768,8 +775,47 @@ public class ConSysApiClient
                     }
                 };
 
-                return binding.deserialize();
+                return StreamSupport.stream(new Spliterator<IDataStreamInfo>() {
 
+                    @Override
+                    public int characteristics()
+                    {
+                        return Spliterator.ORDERED | Spliterator.DISTINCT;
+                    }
+
+                    @Override
+                    public long estimateSize()
+                    {
+                        return Long.MAX_VALUE;
+                    }
+
+                    @Override
+                    public boolean tryAdvance(Consumer<? super IDataStreamInfo> consumer)
+                    {
+                        try
+                        {
+                            var f = binding.deserialize();
+                            if (f != null)
+                            {
+                                consumer.accept(f);
+                                return true;
+                            }
+
+                            return false;
+                        }
+                        catch (IOException e)
+                        {
+                            throw new IllegalStateException("Error parsing datastream", e);
+                        }
+                    }
+
+                    @Override
+                    public Spliterator<IDataStreamInfo> trySplit()
+                    {
+                        return null;
+                    }
+
+                }, false);
             }
             catch (IOException e)
             {
@@ -780,7 +826,7 @@ public class ConSysApiClient
 
     }
 
-    public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
+    public CompletableFuture<IDataStreamInfo> getDataStreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
         var obsFormatStr = urlQueryEncode(obsFormat.getMimeType());
         return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id) + "/schema?obsFormat="+obsFormatStr), format, body -> {
@@ -1460,7 +1506,11 @@ public class ConSysApiClient
     {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
-    
+
+    @Deprecated
+    public void setAuthToken(String token) {
+        this.token = token;
+    }
 
     /* Builder stuff */
 
@@ -1474,12 +1524,21 @@ public class ConSysApiClient
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
         HttpClient.Builder httpClientBuilder;
-        ConSysApiClientConfig conSysApiClientConfig;
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
             this.httpClientBuilder = HttpClient.newBuilder();
-            this.conSysApiClientConfig = new ConSysApiClientConfig();
+
+            try
+            {
+                if (!endpoint.endsWith("/"))
+                    endpoint += "/";
+                instance.endpoint = new URI(endpoint);
+            }
+            catch (URISyntaxException e)
+            {
+                throw new IllegalArgumentException("Invalid URI " + endpoint);
+            }
         }
 
 
@@ -1492,12 +1551,8 @@ public class ConSysApiClient
 
         public ConSysApiClientBuilder simpleAuth(String user, char[] password)
         {
-            if (!Strings.isNullOrEmpty(user))
-            {
-                conSysApiClientConfig.conSys.user = user;
-                conSysApiClientConfig.conSys.password = new String(password);
-            }
-
+            instance.user = user;
+            instance.password = password != null ? password : new char[0];
             return this;
         }
 
@@ -1505,12 +1560,13 @@ public class ConSysApiClient
         @Override
         public ConSysApiClient build()
         {
-            instance.httpAdapter.setConfig(conSysApiClientConfig);
+            if (instance.httpAdapter == null)
+                instance.httpAdapter = new JavaHttpClient(instance.user, instance.password, instance.tokenHandler);
             return instance;
         }
 
-        public ConSysApiClientBuilder tokenHandler(ConSysOAuthConfig conSysOAuth) {
-            instance.tokenHandler = new TokenHandler(conSysOAuth);
+        public ConSysApiClientBuilder tokenHandler(ITokenHandler tokenHandler) {
+            instance.tokenHandler = tokenHandler;
             return this;
         }
     }

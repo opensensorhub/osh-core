@@ -34,7 +34,8 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.client.ConSysApiClientConfig;
-import org.sensorhub.impl.service.consys.client.TokenHandler;
+import org.sensorhub.impl.service.consys.client.ITokenHandler;
+import org.sensorhub.impl.service.consys.client.OAuthTokenHandler;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.utils.Lambdas;
 import com.google.common.net.HttpHeaders;
@@ -47,14 +48,29 @@ import com.google.gson.stream.JsonReader;
 public class JavaHttpClient implements IHttpClient
 {
     protected HttpClient http;
-    protected TokenHandler tokenHandler;
+    protected ITokenHandler tokenHandler;
 
     public JavaHttpClient() {}
+
+    public JavaHttpClient(String user, char[] password, ITokenHandler tokenHandler) {
+        this.tokenHandler = tokenHandler;
+        var builder = HttpClient.newBuilder();
+        if (user != null && !user.isEmpty()) {
+            var finalPwd = password != null ? password : new char[0];
+            builder.authenticator(new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(user, finalPwd);
+                }
+            });
+        }
+        this.http = builder.build();
+    }
 
     @Override
     public void setConfig(ConSysApiClientConfig config) {
         if (config.conSysOAuth.oAuthEnabled) {
-            this.tokenHandler = new TokenHandler(config.conSysOAuth);
+            this.tokenHandler = new OAuthTokenHandler(config.conSysOAuth);
         }
 
         this.http = HttpClient.newBuilder()

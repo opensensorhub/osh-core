@@ -30,19 +30,20 @@ import java.net.URI;
 import java.net.URL;
 import java.text.MessageFormat;
 
-import ch.qos.logback.core.subst.Token;
-
-public class TokenHandler {
+/**
+ * Token handler impl for OAuth 2.0 Client
+ */
+public class OAuthTokenHandler implements ITokenHandler {
 
     private String token;
 
-    private static final Logger logger = LoggerFactory.getLogger(TokenHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(OAuthTokenHandler.class);
 
     private long expirationTime;
 
     private final ConSysOAuthConfig config;
 
-    public TokenHandler(ConSysOAuthConfig config) {
+    public OAuthTokenHandler(ConSysOAuthConfig config) {
 
         this.config = config;
     }
