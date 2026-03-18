@@ -50,7 +50,6 @@ public class SystemIOList extends VerticalLayout {
                 .withSystems(new SystemFilter.Builder().withUniqueIDs(systemUID).build())
                 .build();
 
-        // TODO Add nested IO also
         db.getDataStreamStore().select(dsFilter)
                 .forEach(ds -> {
                     String itemId = ds.getFullName();

@@ -30,6 +30,7 @@ import net.opengis.sensorml.v20.impl.SettingsImpl;
 import net.opengis.sensorml.v20.impl.ValueSettingImpl;
 import net.opengis.swe.v20.AbstractSWEIdentifiable;
 import net.opengis.swe.v20.DataComponent;
+import net.opengis.swe.v20.QuantityRange;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ import org.sensorhub.ui.data.MyBeanItem;
 import org.sensorhub.utils.FileUtils;
 import org.vast.data.DataRecordImpl;
 import org.vast.process.ProcessInfo;
+import org.vast.sensorML.AbstractProcessImpl;
 import org.vast.sensorML.AggregateProcessImpl;
 import org.vast.sensorML.LinkImpl;
 import org.vast.sensorML.SMLUtils;
@@ -155,9 +157,8 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
                 // SensorML path is the last text box in this config form
                 this.smlPathTextField = (com.vaadin.v7.ui.TextField) configForm.textBoxes.get(configForm.textBoxes.size()-1);
             }
-            var process = getProcessChainFromFile();
-            if (process == null)
-                process = new AggregateProcessImpl();
+            // Create new aggregate process by default
+            var process = new AggregateProcessImpl();
             process.setUniqueIdentifier(config.id);
             this.aggregateProcess = process;
         }
@@ -233,10 +234,12 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
         addLoadProcessBtn.addStyleName(STYLE_SMALL);
         buttonBar.addComponent(addLoadProcessBtn);
         addLoadProcessBtn.addClickListener( event -> {
-            var aggy = getProcessChainFromFile();
-            if (aggy == null)
-                getOshLogger().error("Error loading process chain, file name is null");
-            this.aggregateProcess = aggy;
+            var aggProcess = getProcessChainFromFile();
+            if (aggProcess == null)
+                DisplayUtils.showErrorPopup("Unable to load process chain from file", new IllegalStateException("Process file is null"));
+            else
+                DisplayUtils.showOperationSuccessful("Successfully loaded process chain!");
+            this.aggregateProcess = aggProcess;
             refreshTable();
         });
 
@@ -819,8 +822,13 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
 
         AggregateProcess process;
         try (InputStream is = new FileInputStream(smlPath)) {
-            process = (AggregateProcess) new SMLUtils(SMLUtils.V2_0).readProcess(is);
+            SMLUtils smlUtils = new SMLUtils(SMLUtils.V2_0);
+            process = (AggregateProcess) smlUtils.readProcess(is);
+
+            smlUtils.setProcessFactory(getParentHub().getProcessingManager());
+            smlUtils.makeProcessExecutable((AbstractProcessImpl) process, false);
         } catch (Exception e) {
+            DisplayUtils.showErrorPopup("Failed to load process from file", e);
             process = null;
         }
         return process;
@@ -862,11 +870,32 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
 
     private void writeProcess(String path)
     {
-        // Clear component I/O in case process implementation needs to use params to add I/O. Also, not needed in XML
         for (var component : aggregateProcess.getComponentList())
         {
+            Settings settings = new SettingsImpl();
+
+            // Convert inputs to settings
+            for (int i = 0; i < component.getInputList().size(); i++)
+            {
+                DataComponent input = component.getInputList().getComponent(i);
+                addSettingsFromComponent(settings, "inputs/" + input.getName(), input);
+            }
+
+            // Convert parameters to settings
+            for (int i = 0; i < component.getParameterList().size(); i++)
+            {
+                DataComponent param = component.getParameterList().getComponent(i);
+                addSettingsFromComponent(settings, "parameters/" + param.getName(), param);
+            }
+
+            // Set configuration and clear lists so only typeOf + configuration appear in XML,
+            // since these are the only parts required for executable process chains
+            if (settings.getNumSetValues() > 0)
+                component.setConfiguration(settings);
+
             component.getOutputList().clear();
             component.getInputList().clear();
+            component.getParameterList().clear();
         }
 
         try (OutputStream os = new BufferedOutputStream(new FileOutputStream(path)))
@@ -880,6 +909,30 @@ public class ProcessAdminPanel extends DataSourceAdminPanel<IProcessModule<?>>
         catch (Exception e)
         {
             DisplayUtils.showErrorPopup(String.format("Cannot write SensorML description at '%s'", path), e);
+        }
+    }
+
+    private void addSettingsFromComponent(Settings settings, String refPath, DataComponent component)
+    {
+        if (component instanceof QuantityRange)
+        {
+            double[] values = ((QuantityRange) component).getValue();
+            if (values != null)
+                settings.addSetValue(refPath, values[0] + " " + values[1]);
+        }
+        else if (component.getComponentCount() > 0)
+        {
+            // recurse into children for vector / record
+            for (int i = 0; i < component.getComponentCount(); i++)
+            {
+                DataComponent child = component.getComponent(i);
+                addSettingsFromComponent(settings, refPath + "/" + child.getName(), child);
+            }
+        }
+        else if (component.hasData())
+        {
+            // scalar component
+            settings.addSetValue(refPath, component.getData().getStringValue());
         }
     }
 

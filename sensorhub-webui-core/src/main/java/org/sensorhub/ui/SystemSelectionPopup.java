@@ -15,7 +15,6 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.ui;
 
 import org.sensorhub.api.database.IObsSystemDatabase;
-import org.sensorhub.api.event.EventUtils;
 import org.sensorhub.ui.ValueEntryPopup.ValueCallback;
 import org.sensorhub.ui.api.UIConstants;
 import com.vaadin.v7.data.Property.ValueChangeEvent;
