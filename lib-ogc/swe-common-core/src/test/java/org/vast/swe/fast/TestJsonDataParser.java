@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
+import org.vast.swe.SWEConstants;
 import org.vast.swe.SWEHelper;
 import com.google.common.collect.Lists;
 import net.opengis.swe.v20.Count;
@@ -230,6 +231,42 @@ public class TestJsonDataParser
         }
         
         writeReadAndCompare(dataStruct, records);
+    }
+
+    @Test
+    public void testWriteAndReadBackNestedVarSizeArray() throws IOException
+    {
+        // create record structure
+        SWEHelper fac = new SWEHelper();
+        Count sizeField;
+        Count subArraySizeField;
+        DataRecord dataStruct = fac.createRecord()
+                .addSamplingTimeIsoUTC("t0")
+                .addField("size", sizeField = fac.createCount()
+                        .id("NUM_POINTS")
+                        .build())
+                .addField("array", fac.createArray()
+                        .withSizeComponent(sizeField)
+                .withElement("arrayRecord", fac.createRecord()
+                        .addField("subArrayCount", subArraySizeField = fac.createCount()
+                                .id("NUM_SUB_POINTS")
+                                .build())
+                        .addField("subArray", fac.createArray()
+                                .withSizeComponent(subArraySizeField)
+                                .withElement("subArrayValue", fac.createCount().build()))
+                        .build())
+                    .build())
+                .build();
+
+        String json = "{ \"size\": 1, \"array\": [\n{\n\"subArrayCount\": 2,\n\"subArray\": [ 1, 2 ]\n}\n]}";
+
+        JsonDataParserGson parser = new JsonDataParserGson();
+        parser.setInput(new ByteArrayInputStream(json.getBytes()));
+        parser.setDataComponents(dataStruct);
+        parser.setDataComponentFilter(comp -> !(comp.getDefinition() != null && comp.getDefinition().equals(SWEConstants.DEF_SAMPLING_TIME)));
+        parser.parseNextBlock();
+
+        System.out.println("Successfully parsed nested variable-sized array");
     }
 
 }
