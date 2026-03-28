@@ -269,19 +269,15 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
         var reportTimeFilterBuilder = new TemporalFilter.Builder();
 
         // reportTime param
-        var issueTime = parseTimeStampArgToBuilder("reportTime", queryParams);
-        if (issueTime != null)
-            reportTimeFilterBuilder = issueTime;
+        var reportTime = parseTimeStampArgToBuilder("reportTime", queryParams);
+        if (reportTime != null)
+            reportTimeFilterBuilder = reportTime;
 
-        // chronological order. attach to reportTime filter
-        var descendingOrder = getSingleParam("order", queryParams);
-        if (descendingOrder != null && !descendingOrder.isBlank()
-                && ("desc".equals(descendingOrder) || "descending".equals(descendingOrder)))
-        {
-            reportTimeFilterBuilder.descendingOrder(true);
-        }
+        // chronological order, attached to reportTime filter
+        boolean isDescendingOrder = parseDescendingOrderArg(queryParams);
+        reportTimeFilterBuilder.descendingOrder(isDescendingOrder);
 
-        if (issueTime != null || descendingOrder != null)
+        if (reportTime != null || isDescendingOrder)
             builder.withReportTime(reportTimeFilterBuilder.build());
         
         // executionTime param

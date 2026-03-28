@@ -29,7 +29,6 @@ import java.util.stream.StreamSupport;
 import org.h2.mvstore.MVBTreeMap;
 import org.h2.mvstore.MVStore;
 import org.h2.mvstore.RangeCursor;
-import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.datastore.feature.IFoiStore;
@@ -461,7 +460,7 @@ public class MVObsStoreImpl implements IObsStore
             // TODO group by result time when series with different result times are selected
 
             Comparator<Entry<BigId, IObsData>> comparator = Comparator.comparing(e -> e.getValue().getPhenomenonTime());
-            if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().descendingOrder())
+            if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().isDescendingOrder())
                 comparator = comparator.reversed();
             
             // stream and merge obs from all selected datastreams and time periods

@@ -18,7 +18,6 @@ import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import org.sensorhub.api.command.ICommandData;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.datastore.feature.FoiFilter;
@@ -229,7 +228,7 @@ public class FederatedObsStore extends ReadOnlyDataStore<BigId, IObsData, ObsFie
             return Stream.empty();
 
         Comparator<Entry<BigId, IObsData>> comparator = Comparator.comparing(e -> e.getValue().getPhenomenonTime());
-        if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().descendingOrder())
+        if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().isDescendingOrder())
             comparator = comparator.reversed();
         
         // stream and merge obs from all selected datastreams and time periods

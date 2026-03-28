@@ -86,7 +86,7 @@ public class TemporalFilter extends RangeFilter<Instant>
     }
 
 
-    public boolean descendingOrder()
+    public boolean isDescendingOrder()
     {
         return descendingOrder;
     }

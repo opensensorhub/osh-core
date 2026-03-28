@@ -317,14 +317,10 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
             issueTimeFilterBuilder = issueTime;
 
         // chronological order, attached to issueTime filter
-        var descendingOrder = getSingleParam("order", queryParams);
-        if (descendingOrder != null && !descendingOrder.isBlank()
-        && ("desc".equals(descendingOrder) || "descending".equals(descendingOrder)))
-        {
-            issueTimeFilterBuilder.descendingOrder(true);
-        }
+        boolean isDescendingOrder = parseDescendingOrderArg(queryParams);
+        issueTimeFilterBuilder.descendingOrder(isDescendingOrder);
 
-        if (issueTime != null || descendingOrder != null)
+        if (issueTime != null || isDescendingOrder)
             builder.withIssueTime(issueTimeFilterBuilder.build());
         
         // status filter params

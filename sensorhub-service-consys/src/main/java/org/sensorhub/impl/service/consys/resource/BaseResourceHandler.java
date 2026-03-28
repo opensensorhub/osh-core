@@ -266,8 +266,6 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
         var binding = getBinding(ctx, false);
         binding.startCollection();
 
-        var data = dataStore.selectEntries(filter).toList();
-
         // fetch from DB and temporarily handle paging here
         try (var results = postProcessResultList(dataStore.selectEntries(filter), filter))
         {

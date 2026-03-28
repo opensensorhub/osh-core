@@ -479,7 +479,6 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         if (parent.internalID != null)
             builder.withDataStreams(parent.internalID);
 
-        // TODO attach to phenomenonTime
         var phenomenonTimeFilterBuilder = new TemporalFilter.Builder();
 
         // phenomenonTime param
@@ -488,14 +487,10 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
             phenomenonTimeFilterBuilder = phenomenonTime;
 
         // chronological order, attached to phenomenonTime filter
-        var descendingOrder = getSingleParam("order", queryParams);
-        if (descendingOrder != null && !descendingOrder.isBlank()
-                && ("desc".equals(descendingOrder) || "descending".equals(descendingOrder)))
-        {
-            phenomenonTimeFilterBuilder.descendingOrder(true);
-        }
+        boolean isDescendingOrder = parseDescendingOrderArg(queryParams);
+        phenomenonTimeFilterBuilder.descendingOrder(isDescendingOrder);
 
-        if (phenomenonTime != null || descendingOrder != null)
+        if (phenomenonTime != null || isDescendingOrder)
             builder.withPhenomenonTime(phenomenonTimeFilterBuilder.build());
 
         // resultTime param

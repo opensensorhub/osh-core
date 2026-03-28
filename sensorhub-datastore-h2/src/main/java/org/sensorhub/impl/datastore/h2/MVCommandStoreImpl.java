@@ -296,7 +296,7 @@ public class MVCommandStoreImpl implements ICommandStore
             }));
         
         Comparator<Entry<BigId, ICommandData>> comparator = Comparator.comparing(e -> e.getValue().getIssueTime());
-        if (filter.getIssueTime() != null && filter.getIssueTime().descendingOrder())
+        if (filter.getIssueTime() != null && filter.getIssueTime().isDescendingOrder())
             comparator = comparator.reversed();
 
         // stream and merge commands from all selected command streams and time periods

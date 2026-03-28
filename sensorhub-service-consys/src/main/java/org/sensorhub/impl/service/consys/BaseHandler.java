@@ -458,6 +458,11 @@ public abstract class BaseHandler implements IResourceHandler
         
         return links;
     }
-    
+
+
+    public boolean parseDescendingOrderArg(Map<String, String[]> queryParams) throws InvalidRequestException {
+        var param = getSingleParam("order", queryParams);
+        return param != null && !param.isBlank() && ("desc".equals(param) || "descending".equals(param));
+    }
 
 }
