@@ -234,7 +234,7 @@ public class TestJsonDataParser
     }
 
     @Test
-    public void testWriteAndReadBackNestedVarSizeArray() throws IOException
+    public void testReadNestedVarSizeArray() throws IOException
     {
         // create record structure
         SWEHelper fac = new SWEHelper();
