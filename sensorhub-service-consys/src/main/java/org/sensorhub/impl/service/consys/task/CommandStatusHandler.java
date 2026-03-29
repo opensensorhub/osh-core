@@ -28,6 +28,7 @@ import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
+import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.api.datastore.command.CommandStatusFilter;
 import org.sensorhub.api.datastore.command.CommandStreamKey;
 import org.sensorhub.api.datastore.command.ICommandStatusStore;
@@ -264,11 +265,20 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
         var cmdIDs = parseResourceIds("commands", queryParams, idEncoders.getCommandIdEncoder());
         if (parent.internalID == null && cmdIDs != null && !cmdIDs.isEmpty())
             builder.withCommands(cmdIDs);
-        
+
+        var reportTimeFilterBuilder = new TemporalFilter.Builder();
+
         // reportTime param
-        var issueTime = parseTimeStampArg("reportTime", queryParams);
-        if (issueTime != null)
-            builder.withReportTime(issueTime);
+        var reportTime = parseTimeStampArgToBuilder("reportTime", queryParams);
+        if (reportTime != null)
+            reportTimeFilterBuilder = reportTime;
+
+        // chronological order, attached to reportTime filter
+        boolean isDescendingOrder = parseDescendingOrderArg(queryParams);
+        reportTimeFilterBuilder.descendingOrder(isDescendingOrder);
+
+        if (reportTime != null || isDescendingOrder)
+            builder.withReportTime(reportTimeFilterBuilder.build());
         
         // executionTime param
         var execTime = parseTimeStampArg("executionTime", queryParams);
