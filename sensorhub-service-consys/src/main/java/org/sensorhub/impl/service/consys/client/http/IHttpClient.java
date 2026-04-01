@@ -20,17 +20,18 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import org.sensorhub.impl.service.consys.client.ConSysApiClientConfig;
+import org.sensorhub.impl.service.consys.client.ITokenHandler;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 
 public interface IHttpClient
 {
+    void setUsername(String username);
+    void setPassword(char[] password);
+    void setTokenHandler(ITokenHandler tokenHandler);
+
     <T> CompletableFuture<T> sendGetRequest(URI uri, ResourceFormat format, Function<InputStream, T> bodyMapper);
     CompletableFuture<String> sendPostRequest(URI uri, ResourceFormat format, byte[] body);
     <T> CompletableFuture<T> sendPostRequestAndReadResponse(URI uri, ResourceFormat format, byte[] body, Function<InputStream, T> responseBodyMapper);
     CompletableFuture<Integer> sendPutRequest(URI uri, ResourceFormat format, byte[] body);
     CompletableFuture<Set<String>> sendBatchPostRequest(URI uri, ResourceFormat format, byte[] body);
-
-    void setConfig(ConSysApiClientConfig config);
-
 }

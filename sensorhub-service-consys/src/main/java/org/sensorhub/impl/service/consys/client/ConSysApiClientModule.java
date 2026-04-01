@@ -37,6 +37,7 @@ import org.sensorhub.api.system.SystemDisabledEvent;
 import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.security.ClientAuth;
+import org.sensorhub.impl.service.consys.client.http.IHttpClient;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
@@ -117,7 +118,20 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void doInit() throws SensorHubException
     {
         this.dataBaseView = config.dataSourceSelector.getFilteredView(getParentHub());
-        this.client = new ConSysApiClient(config);
+
+        try {
+            // might break for osgi (need to loop through all the bundles ...)
+            IHttpClient httpClient = (IHttpClient) Class.forName(config.httpClientImplClass)
+                    .getDeclaredConstructor()
+                    .newInstance();
+            this.client = ConSysApiClient.
+                    newBuilder(apiEndpointUrl)
+                    .useHttpClient(httpClient)
+                    .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
+                    .build();
+        } catch (ReflectiveOperationException e) {
+            throw new SensorHubException("Unable to instantiate HTTP client: " + config.httpClientImplClass, e);
+        }
     }
 
     @Override

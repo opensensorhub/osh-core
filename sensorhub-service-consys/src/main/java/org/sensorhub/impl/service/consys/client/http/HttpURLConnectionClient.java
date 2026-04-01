@@ -20,6 +20,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
+import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URL;
 import java.util.LinkedHashSet;
@@ -29,7 +30,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 
 import org.sensorhub.impl.service.consys.ResourceParseException;
-import org.sensorhub.impl.service.consys.client.ConSysApiClientConfig;
+import org.sensorhub.impl.service.consys.client.ITokenHandler;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 
 import com.google.common.net.HttpHeaders;
@@ -38,14 +39,41 @@ import com.google.gson.stream.JsonReader;
 public class HttpURLConnectionClient implements IHttpClient
 {
     protected Authenticator authenticator;
+    protected ITokenHandler tokenHandler;
+    protected String username;
+    protected char[] password;
 
     public HttpURLConnectionClient()
     {
     }
 
     @Override
-    public void setConfig(ConSysApiClientConfig config) {
+    public void setUsername(String username) {
+        this.username = username;
+        rebuildAuthenticator();
+    }
 
+    @Override
+    public void setPassword(char[] password) {
+        this.password = password;
+        rebuildAuthenticator();
+    }
+
+    @Override
+    public void setTokenHandler(ITokenHandler tokenHandler) {
+        this.tokenHandler = tokenHandler;
+    }
+
+    protected void rebuildAuthenticator() {
+        if (username != null && !username.isEmpty()) {
+            var finalPwd = password != null ? password : new char[0];
+            this.authenticator = new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(username, finalPwd);
+                }
+            };
+        }
     }
 
 

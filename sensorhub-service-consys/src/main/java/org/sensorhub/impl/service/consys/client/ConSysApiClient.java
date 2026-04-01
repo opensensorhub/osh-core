@@ -116,32 +116,6 @@ public class ConSysApiClient
 
     protected ConSysApiClient() {
     }
-
-    public ConSysApiClient(ConSysApiClientConfig config) throws SensorHubException {
-        try {
-            httpAdapter = (IHttpClient) Class.forName(config.httpClientImplClass)
-                    .getDeclaredConstructor().newInstance();
-            httpAdapter.setConfig(config);
-
-            String scheme= config.conSys.enableTLS ? "https" : "http";
-
-            String endpointUrl = scheme +"://" + config.conSys.remoteHost + ":" + config.conSys.remotePort;
-            if (config.conSys.resourcePath != null && !config.conSys.resourcePath.isEmpty())
-            {
-                String path = config.conSys.resourcePath;
-                if (!path.startsWith("/"))
-                    path = "/" + path;
-                if (!path.endsWith("/"))
-                    path = path + "/";
-                endpointUrl = endpointUrl + path;
-            }
-            this.endpoint = new URI(endpointUrl);
-
-        } catch (Exception e) {
-            throw new SensorHubException("Failed to instantiate http client", e);
-        }
-
-    }
     
     
     /*------------*/
@@ -1523,11 +1497,9 @@ public class ConSysApiClient
 
     public static class ConSysApiClientBuilder extends BaseBuilder<ConSysApiClient>
     {
-        HttpClient.Builder httpClientBuilder;
         ConSysApiClientBuilder(String endpoint)
         {
             this.instance = new ConSysApiClient();
-            this.httpClientBuilder = HttpClient.newBuilder();
 
             try
             {
@@ -1561,7 +1533,11 @@ public class ConSysApiClient
         public ConSysApiClient build()
         {
             if (instance.httpAdapter == null)
-                instance.httpAdapter = new JavaHttpClient(instance.user, instance.password, instance.tokenHandler);
+                instance.httpAdapter = new JavaHttpClient();
+
+            instance.httpAdapter.setUsername(instance.user);
+            instance.httpAdapter.setPassword(instance.password);
+            instance.httpAdapter.setTokenHandler(instance.tokenHandler);
             return instance;
         }
 

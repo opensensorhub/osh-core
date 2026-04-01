@@ -33,9 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import org.sensorhub.impl.service.consys.ResourceParseException;
-import org.sensorhub.impl.service.consys.client.ConSysApiClientConfig;
 import org.sensorhub.impl.service.consys.client.ITokenHandler;
-import org.sensorhub.impl.service.consys.client.OAuthTokenHandler;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.sensorhub.utils.Lambdas;
 import com.google.common.net.HttpHeaders;
@@ -49,40 +47,40 @@ public class JavaHttpClient implements IHttpClient
 {
     protected HttpClient http;
     protected ITokenHandler tokenHandler;
+    protected String username;
+    protected char[] password;
 
     public JavaHttpClient() {}
 
-    public JavaHttpClient(String user, char[] password, ITokenHandler tokenHandler) {
+    @Override
+    public void setUsername(String username) {
+        this.username = username;
+        rebuildHttpClient();
+    }
+
+    @Override
+    public void setPassword(char[] password) {
+        this.password = password;
+        rebuildHttpClient();
+    }
+
+    @Override
+    public void setTokenHandler(ITokenHandler tokenHandler) {
         this.tokenHandler = tokenHandler;
+    }
+
+    protected void rebuildHttpClient() {
         var builder = HttpClient.newBuilder();
-        if (user != null && !user.isEmpty()) {
+        if (username != null && !username.isEmpty()) {
             var finalPwd = password != null ? password : new char[0];
             builder.authenticator(new Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(user, finalPwd);
+                    return new PasswordAuthentication(username, finalPwd);
                 }
             });
         }
         this.http = builder.build();
-    }
-
-    @Override
-    public void setConfig(ConSysApiClientConfig config) {
-        if (config.conSysOAuth.oAuthEnabled) {
-            this.tokenHandler = new OAuthTokenHandler(config.conSysOAuth);
-        }
-
-        this.http = HttpClient.newBuilder()
-                .authenticator(new Authenticator() {
-                    @Override
-                    protected PasswordAuthentication getPasswordAuthentication() {
-                        char[] finalPwd = config.conSys.password != null ? config.conSys.password.toCharArray() : new char[0];
-
-                        return new PasswordAuthentication(config.conSys.user, finalPwd);
-                    }
-                })
-                .build();
     }
 
     @Override
