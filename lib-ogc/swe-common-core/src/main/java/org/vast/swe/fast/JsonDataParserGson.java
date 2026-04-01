@@ -332,13 +332,14 @@ public class JsonDataParserGson extends AbstractDataParser
             
             // case of array with variable size items
             // e.g. item is itself a variable size array or a choice
-            if (varSizeArray != null && varSizeArray.getData() instanceof DataBlockList)
+            if (varSizeArray != null && varSizeArray.hasData() && varSizeArray.getData() instanceof DataBlockList)
             {
                 var arrayData = (DataBlockList)varSizeArray.getData();
                 var globalIdx = index;
                 for (int i = 0; i < arraySize; i++)
                 {
                     var itemData = arrayData.get(i);
+                    varSizeArray.getElementType().setData(itemData);
                     globalIdx += eltProcessor.process(itemData, 0);
                 }
                 index = globalIdx;
