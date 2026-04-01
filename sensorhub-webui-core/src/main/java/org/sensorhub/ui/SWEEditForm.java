@@ -18,6 +18,7 @@ import net.opengis.swe.v20.Category;
 import net.opengis.swe.v20.DataArray;
 import net.opengis.swe.v20.DataChoice;
 import net.opengis.swe.v20.DataComponent;
+import net.opengis.swe.v20.RangeComponent;
 import net.opengis.swe.v20.SimpleComponent;
 import org.sensorhub.ui.api.UIConstants;
 import com.vaadin.shared.ui.ContentMode;
@@ -107,10 +108,32 @@ public abstract class SWEEditForm extends SWECommonForm
                 
             return layout;
         }
+        else if (component instanceof RangeComponent)
+        {
+            HorizontalLayout layout = getCaptionLayout(component);
+            final TextField f = new TextField();
+            f.addStyleName(UIConstants.STYLE_SMALL);
+            f.setValue(component.getData().getStringValue(0) + " " + component.getData().getStringValue(1));
+            layout.addComponent(f);
+            f.addValueChangeListener(new ValueChangeListener() {
+                private static final long serialVersionUID = 1L;
+                @Override
+                public void valueChange(ValueChangeEvent event)
+                {
+                    String[] minMax = f.getValue().split(" ");
+                    if (minMax.length == 2)
+                    {
+                        component.getData().setStringValue(0, minMax[0]);
+                        component.getData().setStringValue(1, minMax[1]);
+                    }
+                }
+            });
+            return layout;
+        }
         else if (component instanceof SimpleComponent)
         {
             HorizontalLayout layout = getCaptionLayout(component);
-            
+
             if (component instanceof Category && ((Category) component).getConstraint() != null)
             {
                 final ComboBox f = new ComboBox();

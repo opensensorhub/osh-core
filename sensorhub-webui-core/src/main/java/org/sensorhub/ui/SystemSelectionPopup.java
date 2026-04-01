@@ -34,7 +34,7 @@ import com.vaadin.ui.Button.ClickEvent;
 public class SystemSelectionPopup extends Window
 {
     String sysUID;
-    
+
     public SystemSelectionPopup(int width, final ValueCallback callback, IObsSystemDatabase db)
     {
         super("Select an Observing System");
