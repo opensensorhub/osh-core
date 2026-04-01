@@ -1,3 +1,17 @@
+/***************************** BEGIN LICENSE BLOCK ***************************
+
+ The contents of this file are subject to the Mozilla Public License, v. 2.0.
+ If a copy of the MPL was not distributed with this file, You can obtain one
+ at http://mozilla.org/MPL/2.0/.
+
+ Software distributed under the License is distributed on an "AS IS" basis,
+ WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ for the specific language governing rights and limitations under the License.
+
+ Copyright (C) 2025 GeoRobotix. All Rights Reserved.
+
+ ******************************* END LICENSE BLOCK ***************************/
+
 package org.sensorhub.impl.service.consys.client;
 
 import com.google.common.base.Strings;
@@ -23,6 +37,7 @@ import org.sensorhub.api.system.SystemDisabledEvent;
 import org.sensorhub.api.system.SystemEvent;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.security.ClientAuth;
+import org.sensorhub.impl.service.consys.client.http.IHttpClient;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
 import org.vast.ogc.gml.IFeature;
 import org.vast.util.Asserts;
@@ -61,6 +76,9 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         private BigId internalID;
         private String sysUID;
         private Flow.Subscription subscription;
+        public long lastEventTime = Long.MIN_VALUE;
+        public int measPeriodMs = 1000;
+        public int errorCount = 0;
     }
 
     public ConSysApiClientModule()
@@ -86,11 +104,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         if (config.conSys.enableTLS)
             scheme += "s";
         apiEndpointUrl = scheme + "://" + config.conSys.remoteHost + ":" + config.conSys.remotePort;
-        if (config.conSys.resourcePath != null)
-        {
-            if (config.conSys.resourcePath.charAt(0) != '/')
-                apiEndpointUrl += '/';
-            apiEndpointUrl += config.conSys.resourcePath;
+        if (config.conSys.resourcePath != null && !config.conSys.resourcePath.isEmpty()) {
+            String path = config.conSys.resourcePath;
+            if (!path.startsWith("/"))
+                path = "/" + path;
+            if (!path.endsWith("/"))
+                path = path + "/";
+            apiEndpointUrl += path;
         }
     }
 
@@ -99,10 +119,19 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         this.dataBaseView = config.dataSourceSelector.getFilteredView(getParentHub());
 
-        this.client = ConSysApiClient.
-                newBuilder(apiEndpointUrl)
-                .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
-                .build();
+        try {
+            // might break for osgi (need to loop through all the bundles ...)
+            IHttpClient httpClient = (IHttpClient) Class.forName(config.httpClientImplClass)
+                    .getDeclaredConstructor()
+                    .newInstance();
+            this.client = ConSysApiClient.
+                    newBuilder(apiEndpointUrl)
+                    .useHttpClient(httpClient)
+                    .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
+                    .build();
+        } catch (ReflectiveOperationException e) {
+            throw new SensorHubException("Unable to instantiate HTTP client: " + config.httpClientImplClass, e);
+        }
     }
 
     @Override
@@ -198,7 +227,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 var responseCode = client.updateSystem(systemID, system).get();
                 boolean successful = responseCode == 204;
                 if(!successful)
-                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
+                    throw new ClientException("Failed to update resource: " + apiEndpointUrl  + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
                 return systemID;
             }
         } catch (ExecutionException | InterruptedException | ClientException e) {
@@ -316,17 +345,73 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     {
         List<StreamInfo> addedStreams = new ArrayList<>();
 
-        dataBaseView.getDataStreamStore().selectEntries(
+        var dataStreamEntries = dataBaseView.getDataStreamStore().selectEntries(
                 new DataStreamFilter.Builder()
                         .withSystems(new SystemFilter.Builder()
-                            .withUniqueIDs(system.system.getUniqueIdentifier())
-                            .build())
-                        .build())
-                .forEach((entry) -> {
-                    if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
-                        addedStreams.add(registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue()));
-                });
+                                .withUniqueIDs(system.system.getUniqueIdentifier())
+                                .build())
+                        .build()).toList();
+
+        var systemDataStreamList = new ArrayList<Map.Entry<String,IDataStreamInfo>>();
+        try {
+            var systemDataStream = client.getSystemDataStreams(system.systemID, ResourceFormat.JSON).get().toList();
+
+            systemDataStreamList.addAll(systemDataStream);
+        } catch (InterruptedException | ExecutionException e) {
+            reportError("Error getting system datastreams", new Throwable(e.getMessage()));
+        }
+
+        for (var entry : dataStreamEntries) {
+            // check each entry against the systemDataStreamList with outputName and systemUID
+            var filteredListByUniqueId = systemDataStreamList.stream().filter(dataStreamInfo ->
+                    dataStreamInfo.getValue().getSystemID().getUniqueID().equals(entry.getValue().getSystemID().getUniqueID()));
+
+            var filterListByOutputName = filteredListByUniqueId.filter(dataStreamInfo ->
+                    dataStreamInfo.getValue().getOutputName().equals(entry.getValue().getOutputName())).toList();
+
+            if (filterListByOutputName.isEmpty()) {
+                if(Objects.equals(entry.getValue().getSystemID().getUniqueID(), system.system.getUniqueIdentifier()))
+                    addedStreams.add(registerDataStream(entry.getKey().getInternalID(), system.systemID, entry.getValue()));
+            } else {
+                // get id and update the existing datastream
+                var datastream = filterListByOutputName.get(0);
+
+                var newEntry = new DataStreamInfo.Builder()
+                        .withName(entry.getValue().getName())
+                        .withDescription(entry.getValue().getDescription())
+                        .withSystem(entry.getValue().getSystemID())
+                        .withRecordDescription(entry.getValue().getRecordStructure())
+                        .withRecordEncoding(entry.getValue().getRecordEncoding())
+                        .withDeployment(entry.getValue().getDeploymentID())
+                        .withProcedure(entry.getValue().getProcedureID())
+                        .withFeatureOfInterest(datastream.getValue().getFeatureOfInterestID())
+                        .withSamplingFeature(datastream.getValue().getSamplingFeatureID())
+                        .withPhenomenonTimeInterval(entry.getValue().getPhenomenonTimeInterval())
+                        .withResultTimeInterval(entry.getValue().getResultTimeInterval())
+                        .withValidTime(entry.getValue().getValidTime())
+                        .build();
+
+                addedStreams.add(registerUpdatedDataStream(entry.getKey().getInternalID(), datastream.getKey(), newEntry));
+            }
+        }
+
         return addedStreams;
+    }
+
+    protected StreamInfo registerUpdatedDataStream(BigId dsId, String dataStreamId, IDataStreamInfo dataStream)
+    {
+        var dsTopicId = EventUtils.getDataStreamDataTopicID(dataStream);
+        client.updateDataStream(dataStreamId, dataStream);
+
+        StreamInfo streamInfo = new StreamInfo();
+        streamInfo.dataStreamID = dataStreamId;
+        streamInfo.dataStream = dataStream;
+        streamInfo.topicID = dsTopicId;
+        streamInfo.sysUID = dataStream.getSystemID().getUniqueID();
+        streamInfo.internalID = dsId;
+
+        dataStreams.put(dsTopicId, streamInfo);
+        return streamInfo;
     }
 
     protected StreamInfo registerDataStream(BigId dsId, String systemID, IDataStreamInfo dataStream)
@@ -403,7 +488,11 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                                 .withLatestResult()
                                 .build())
                             .forEach(obs ->
-                                client.pushObs(streamInfo.dataStreamID, streamInfo.dataStream, obs));
+                                client.pushObs(
+                                        streamInfo.dataStreamID,
+                                        streamInfo.dataStream,
+                                        obs
+                                ));
 
                         getLogger().info("Starting Connected Systems data push for stream {} with UID {} to Connected Systems endpoint {}",
                                 streamInfo.dataStreamID, streamInfo.sysUID, apiEndpointUrl);
@@ -432,10 +521,19 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     protected void handleEvent(final ObsEvent e, StreamInfo streamInfo)
     {
         for(var obs : e.getObservations()) {
+            String foiID = null;
+            if (obs.hasFoi()) {
+                var registeredFoiID = registeredFeatureIDs.get(obs.getFoiID());
+                if (registeredFoiID != null)
+                    foiID = registeredFoiID;
+            }
             client.pushObs(
                     streamInfo.dataStreamID,
                     streamInfo.dataStream,
-                    obs);
+                    obs,
+                    foiID
+            );
+            streamInfo.lastEventTime = e.getTimeStamp();
         }
     }
 
@@ -587,6 +685,11 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 }
             });
         }
+    }
+
+    public Map<String, StreamInfo> getDataStreams()
+    {
+        return dataStreams;
     }
 
 }
