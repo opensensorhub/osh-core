@@ -1,6 +1,6 @@
 import java.nio.file.*;
 
-ext.oshCoreVersion = '2.0-beta2'
+ext.oshCoreVersion = '2.0.0-beta.3'
 
 
 buildscript {

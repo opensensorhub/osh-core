@@ -127,29 +127,32 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
      * Default implementation is to re-init and restart the module when config was changed
      */
     @Override
-    public synchronized void updateConfig(ConfigType config) throws SensorHubException
+    public void updateConfig(ConfigType config) throws SensorHubException
     {
-        boolean wasStarted = isStarted();
-        
-        if (wasStarted)
-            stop();
-        
-        try
+        synchronized (stateLock)
         {
-            setConfiguration(config);
-            eventHandler.publish(new ModuleEvent(this, ModuleEvent.Type.CONFIG_CHANGED));
+            boolean wasStarted = isStarted();
+            
+            if (wasStarted)
+                stop();
+            
+            try
+            {
+                setConfiguration(config);
+                eventHandler.publish(new ModuleEvent(this, ModuleEvent.Type.CONFIG_CHANGED));
+            }
+            catch (Exception e)
+            {
+                reportError(CANNOT_UPDATE_MSG, e);
+            }
+            
+            // force re-init
+            init();
+            
+            // also restart if it was started
+            if (wasStarted)
+                start();
         }
-        catch (Exception e)
-        {
-            reportError(CANNOT_UPDATE_MSG, e);
-        }
-        
-        // force re-init
-        init();
-        
-        // also restart if it was started
-        if (wasStarted)
-            start();
     }
     
     

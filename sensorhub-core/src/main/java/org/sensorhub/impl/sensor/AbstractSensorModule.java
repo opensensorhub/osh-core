@@ -757,7 +757,7 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
 
 
     @Override
-    public synchronized void updateConfig(T config) throws SensorHubException
+    public void updateConfig(T config) throws SensorHubException
     {
         super.updateConfig(config);
         if (config.sensorML != null)
