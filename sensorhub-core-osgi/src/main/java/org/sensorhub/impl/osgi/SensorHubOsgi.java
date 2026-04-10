@@ -129,7 +129,9 @@ public class SensorHubOsgi
         for (var f: bundleJarFiles) {
             LOGGER.info("Installing bundle " + f);
             var bundle = systemCtx.installBundle(REF_PREFIX + f.toPath().toString());
-            bundle.start();
+            if (bundle.getHeaders().get("Fragment-Host") == null) {
+                bundle.start();
+            }
         }
         
         // start all installed bundles
@@ -144,7 +146,9 @@ public class SensorHubOsgi
                 try
                 {
                     var bundle = systemCtx.installBundle(REF_PREFIX + path.toString());
-                    bundle.start();
+                    if (bundle.getHeaders().get("Fragment-Host") == null) {
+                        bundle.start();
+                    }
                 }
                 catch (BundleException e)
                 {
