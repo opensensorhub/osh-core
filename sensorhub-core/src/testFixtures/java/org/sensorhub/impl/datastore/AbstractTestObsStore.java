@@ -312,7 +312,7 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
     }
 
 
-    private void checkMapValues(Collection<IObsData> mapValues)
+    protected void checkMapValues(Collection<IObsData> mapValues)
     {
         mapValues.forEach(obs -> {
             boolean found = false;
