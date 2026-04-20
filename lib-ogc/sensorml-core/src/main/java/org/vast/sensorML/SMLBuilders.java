@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 import org.isotc211.v2005.gmd.CIOnlineResource;
 import org.isotc211.v2005.gmd.CIResponsibleParty;
 import org.vast.ogc.geopose.Pose;
+import org.vast.ogc.xlink.IXlinkReference;
 import org.vast.sensorML.SMLMetadataBuilders.CIOnlineResourceBuilder;
 import org.vast.sensorML.SMLMetadataBuilders.CIResponsiblePartyBuilder;
 import org.vast.sensorML.SMLMetadataBuilders.CapabilityListBuilder;
@@ -58,6 +59,7 @@ import net.opengis.sensorml.v20.ProcessMethod;
 import net.opengis.sensorml.v20.SimpleProcess;
 import net.opengis.sensorml.v20.SpatialFrame;
 import net.opengis.sensorml.v20.Term;
+import net.opengis.sensorml.v20.impl.DeployedSystemImpl;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.Vector;
 
@@ -793,6 +795,14 @@ public class SMLBuilders
         public B location(AbstractGeometry geom)
         {
             instance.setGeometry(geom);
+            return (B)this;
+        }
+        
+        public B addSystem(String name, String href, String title)
+        {
+            var deployedSys = new DeployedSystemImpl();
+            deployedSys.setSystemRef(new ReferenceImpl(href));
+            instance.addDeployedSystem(name, deployedSys);
             return (B)this;
         }
     }

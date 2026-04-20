@@ -24,6 +24,7 @@ import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.feature.FeatureId;
 import org.vast.ogc.geopose.Pose;
 import org.vast.ogc.geopose.PoseImpl;
+import org.vast.ogc.gml.GMLBuilders;
 import org.vast.ogc.gml.IFeature;
 import org.vast.sensorML.SMLHelper;
 import org.vast.sensorML.SMLMetadataBuilders.CIResponsiblePartyBuilder;
@@ -121,11 +122,17 @@ public class Saildrone
                 .getJson();
             
             //Api.addOrUpdateObs(navDsId, cgSfId, Instant.parse("2023-09-25T00:00:00Z"), result, true);
-            
-            // add deployment
-            var deploy1 = createDeployment("2025", TimeExtent.parse("2017-07-17T00:00:00Z/2017-09-29T00:00:00Z"));
-            Api.addOrUpdateDeployment(deploy1, true);
         }
+        
+        addDeployments();
+    }
+    
+    
+    static void addDeployments() throws IOException
+    {
+        // add deployment
+        var deploy1 = createDeployment("2025", TimeExtent.parse("2017-07-17T00:00:00Z/2017-09-29T00:00:00Z"));
+        Api.addOrUpdateDeployment(deploy1, true);
     }
     
     
@@ -467,10 +474,27 @@ public class Saildrone
     
     static Deployment createDeployment(String num, TimeExtent validTime)
     {
-        var fac = new GMLFactory();
-        var geom = fac.newPolygon();
-        
-        //geom.getExterior().setPosList(null);
+        var geom = new GMLBuilders().createPolygon()
+            .exterior(
+                -77.50360200631752, 38.02943319838295,
+                -67.29305117943943, 37.63123853466662,
+                -35.5779127920903, 46.163710997288206,
+                -13.233471413098925, 51.09823960404833,
+                -0.40690824730884856, 49.599286176111065,
+                5.31501281468681, 55.350226060597834,
+                -10.23505423685964, 65.89504520511503,
+                46.797915594611936, 77.29325637565395,
+                19.956540677885215, 82.37102337230422,
+                -20.580256972585005, 69.32540270488252,
+                -44.882040321164595, 57.8173172002532,
+                -62.533256002424395, 75.10099709520935,
+                -75.20519962420502, 73.55845204009353,
+                -58.520395213924814, 65.86405325645057,
+                -63.826590160149635, 61.40189834709315,
+                -54.33831799872459, 52.6435899140682,
+                -77.50360200631752, 38.02943319838295
+            )
+            .build();
         
         return sml.createDeployment()
             .uniqueID("urn:x-osh:saildrone:mission:" + num)
@@ -480,7 +504,8 @@ public class Saildrone
             .validTimePeriod(
                 validTime.begin().atOffset(ZoneOffset.UTC),
                 validTime.end().atOffset(ZoneOffset.UTC))
-            .location(null)
+            .location(geom)
+            .addSystem("explorer01", "urn:x-osh:saildrone:1001", null)
             .build();
     }
     
