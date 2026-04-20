@@ -25,7 +25,6 @@ import org.eclipse.jetty.servlet.ErrorPageErrorHandler;
 import org.sensorhub.api.comm.CommProviderConfig;
 import org.sensorhub.api.comm.NetworkConfig;
 import org.sensorhub.api.common.SensorHubException;
-import org.sensorhub.api.database.DatabaseConfig;
 import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.command.CommandFilter;
 import org.sensorhub.api.datastore.command.CommandStreamFilter;
@@ -34,7 +33,6 @@ import org.sensorhub.api.datastore.obs.ObsFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.module.IModule;
-import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
 import org.sensorhub.api.processing.ProcessConfig;
 import org.sensorhub.api.sensor.SensorConfig;
@@ -101,7 +99,7 @@ public class AdminUIModule extends AbstractHttpServiceModule<AdminUIConfig> impl
             customForms.put(CommandStreamFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(ObsFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
             customForms.put(CommandFilter.class.getCanonicalName(), DatabaseFilterConfigForm.class);
-            
+
             // custom form builders defined in config
             for (CustomUIConfig customForm: config.customForms)
             {

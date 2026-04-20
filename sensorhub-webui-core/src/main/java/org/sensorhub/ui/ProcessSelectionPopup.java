@@ -18,20 +18,16 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+
+import com.vaadin.ui.*;
 import org.sensorhub.api.processing.IProcessProvider;
 import org.sensorhub.api.processing.ProcessingException;
+import org.sensorhub.impl.processing.StreamDataSource;
 import org.sensorhub.ui.api.UIConstants;
 import org.vast.process.ProcessInfo;
-import com.vaadin.ui.Alignment;
-import com.vaadin.ui.Button;
 import com.vaadin.v7.ui.TreeTable;
-import com.vaadin.ui.VerticalLayout;
-import com.vaadin.ui.Window;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
-import com.vaadin.ui.HorizontalLayout;
-import com.vaadin.ui.Label;
-import com.vaadin.ui.TextField;
 
 
 /**
@@ -65,7 +61,7 @@ public class ProcessSelectionPopup extends Window implements UIConstants
         setWidth(1000.0f, Unit.PIXELS);
         buildDialog(providers, callback);
     }
-    
+
     
     protected void buildDialog(Collection<IProcessProvider> providers, final ProcessSelectionCallback callback)
     {
@@ -81,7 +77,7 @@ public class ProcessSelectionPopup extends Window implements UIConstants
         table.addContainerProperty(PROP_DESC, String.class, null);
         table.addContainerProperty(PROP_VERSION, String.class, null);
         table.addContainerProperty(PROP_AUTHOR, String.class, null);
-        table.setColumnHeaders(new String[] {"Name", "Description", "Version", "Author"});
+        table.setColumnHeaders("Name", "Description", "Version", "Author");
         table.setColumnWidth(PROP_NAME, 250);
         table.setPageLength(10);
         table.setMultiSelect(false);
@@ -97,8 +93,8 @@ public class ProcessSelectionPopup extends Window implements UIConstants
             
             for (ProcessInfo info: provider.getProcessMap().values())
             {
-                // skip data sources as they are inserted separately
-                if (info.getUri().contains(":datasource:"))
+                // For simplicity, don't let users choose this one
+                if (info == StreamDataSource.INFO)
                     continue;
                 
                 Object id = table.addItem(new Object[] {
@@ -111,21 +107,23 @@ public class ProcessSelectionPopup extends Window implements UIConstants
             }
         }
         layout.addComponent(table);
-        
-        // link to more modules
-        Button installNew = new Button("Install More Packages...");
-        installNew.setStyleName(STYLE_LINK);
-        layout.addComponent(installNew);
-        layout.setComponentAlignment(installNew, Alignment.MIDDLE_RIGHT);
-        installNew.addClickListener(new ClickListener()
-        {
-            @Override
-            public void buttonClick(ClickEvent event)
-            {
-                //close();
-                getUI().addWindow(new DownloadModulesPopup());
-            }
-        });
+
+        var osgiCtx = ((AdminUI) UI.getCurrent()).getParentHub().getOsgiContext();
+        if (osgiCtx != null) {
+            // link to more modules
+            Button installNew = new Button("Install More Packages...");
+            installNew.setStyleName(STYLE_LINK);
+            layout.addComponent(installNew);
+            layout.setComponentAlignment(installNew, Alignment.MIDDLE_RIGHT);
+
+            installNew.addClickListener(new ClickListener() {
+                @Override
+                public void buttonClick(ClickEvent event) {
+                    //close();
+                    getUI().addWindow(new DownloadModulesPopup());
+                }
+            });
+        }
         
         // buttons bar
         HorizontalLayout buttons = new HorizontalLayout();
