@@ -50,8 +50,6 @@ public class Api
 {
     static String API_ROOT = "http://localhost:8181/sensorhub/api/";
     static String CREDENTIALS = "admin:test";
-//    static String API_ROOT = "https://api.georobotix.io/ogc/demo1/api/";
-//    static String CREDENTIALS = "admin:admin@demo";
     static Gson gson = new GsonBuilder().setPrettyPrinting().create();
     
     
