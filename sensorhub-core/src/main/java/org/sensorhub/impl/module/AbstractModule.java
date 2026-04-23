@@ -129,10 +129,11 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
     @Override
     public void updateConfig(ConfigType config) throws SensorHubException
     {
+        boolean wasStarted;
+        
         synchronized (stateLock)
         {
-            boolean wasStarted = isStarted();
-            
+            wasStarted = isStarted();
             if (wasStarted)
                 stop();
             
@@ -148,11 +149,12 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
             
             // force re-init
             init();
-            
-            // also restart if it was started
-            if (wasStarted)
-                start();
         }
+            
+        // also restart if it was started
+        // we do it outside of the synchronized block to avoid deadlock with beforeStart/register thread
+        if (wasStarted)
+            start();
     }
     
     
