@@ -125,6 +125,8 @@ public class HttpServer extends AbstractModule<HttpServerConfig> implements IHtt
             httpConfig.setSendServerVersion(false);
             httpConfig.setSecureScheme("https");
             httpConfig.setSecurePort(config.httpsPort);
+            httpConfig.setRequestHeaderSize(32768);
+            httpConfig.setResponseHeaderSize(32768);
             if (config.httpPort > 0)
             {
                 http = new ServerConnector(server,
