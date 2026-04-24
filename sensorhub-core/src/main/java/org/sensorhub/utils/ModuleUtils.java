@@ -14,6 +14,13 @@ Copyright (C) 2012-2016 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.utils;
 
+import org.sensorhub.api.module.IModule;
+import org.sensorhub.api.module.IModuleProvider;
+import org.sensorhub.api.module.ModuleConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.vast.util.Asserts;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -23,16 +30,6 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.sensorhub.api.module.IModule;
-import org.sensorhub.api.module.IModuleProvider;
-import org.sensorhub.api.module.ModuleConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.vast.util.Asserts;
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.util.ContextInitializer;
-import ch.qos.logback.classic.util.LogbackMDCAdapter;
-
 
 public class ModuleUtils
 {
@@ -227,19 +224,60 @@ public class ModuleUtils
         instanceID = instanceID.replace("-", ""); // remove minus sign if any
         
         // create logger in new context
+
+        return getLogger(module, instanceID);
+    }
+
+    public static Logger getLogger(IModule<?> module, String instanceID)
+    {
+        String moduleID = module.getLocalID();
+        Asserts.checkNotNull(moduleID, "moduleID");
+
         try
         {
-            LoggerContext logContext = new LoggerContext();
-            logContext.setName(FileUtils.safeFileName(moduleID));
-            logContext.setMDCAdapter(new LogbackMDCAdapter());
-            logContext.putProperty(LOG_MODULE_ID, FileUtils.safeFileName(moduleID));
-            logContext.putProperty(LOG_MODULE_NAME, module.getName());
-            new ContextInitializer(logContext).autoConfig();
-            return logContext.getLogger(module.getClass().getCanonicalName() + ":" + instanceID);
+            Class<?> loggerContextClass = Class.forName("ch.qos.logback.classic.LoggerContext");
+            Class<?> contextInitializerClass = Class.forName("ch.qos.logback.classic.util.ContextInitializer");
+
+            Object logContext = loggerContextClass.getDeclaredConstructor().newInstance();
+
+            loggerContextClass.getMethod("setName", String.class)
+                    .invoke(logContext, FileUtils.safeFileName(moduleID));
+
+            try {
+                Class<?> mdcAdapterClass = Class.forName("ch.qos.logback.classic.util.LogbackMDCAdapter");
+                Object mdcAdapter = mdcAdapterClass.getDeclaredConstructor().newInstance();
+                loggerContextClass.getMethod("setMDCAdapter", Class.forName("org.slf4j.spi.MDCAdapter"))
+                        .invoke(logContext, mdcAdapter);
+            } catch (ClassNotFoundException | NoSuchMethodException e) {
+            }
+
+            loggerContextClass.getMethod("putProperty", String.class, String.class)
+                    .invoke(logContext, LOG_MODULE_ID, FileUtils.safeFileName(moduleID));
+
+            loggerContextClass.getMethod("putProperty", String.class, String.class)
+                    .invoke(logContext, LOG_MODULE_NAME, module.getName());
+
+            Object contextInitializer = contextInitializerClass
+                    .getDeclaredConstructor(loggerContextClass)
+                    .newInstance(logContext);
+
+            contextInitializerClass.getMethod("autoConfig")
+                    .invoke(contextInitializer);
+
+            Object logger = loggerContextClass.getMethod("getLogger", String.class)
+                    .invoke(logContext, module.getClass().getCanonicalName() + ":" + instanceID);
+
+            return (Logger) logger;
+        }
+        catch (ClassNotFoundException e)
+        {
+            log.debug("Logback not available, using default SLF4J logger for module {}", moduleID);
+            return LoggerFactory.getLogger(module.getClass().getCanonicalName() + ":" + instanceID);
         }
         catch (Exception e)
         {
-            throw new IllegalStateException("Could not configure module logger", e);
+            log.warn("Could not configure module logger via reflection, using default", e);
+            return LoggerFactory.getLogger(module.getClass().getCanonicalName() + ":" + instanceID);
         }
     }
     
