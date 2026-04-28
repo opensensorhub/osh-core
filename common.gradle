@@ -329,7 +329,7 @@ subprojects {
       publications {
         mavenJava(MavenPublication) {
           from components.java
-          artifact(p.tasks.osgi) {
+          artifact(tasks.osgi) {
             classifier = 'bundle'
           }
           pom.withXml {
