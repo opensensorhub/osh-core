@@ -307,6 +307,12 @@ public class XmlDataParser extends AbstractDataParser {
             int i = 0;
             for (DataComponent item : choice.getItemList())
                 itemIndexes.put(item.getName(), i++);
+
+            try {
+                xmlStreamReader.next();
+            } catch (XMLStreamException ignored) {
+
+            }
         }
 
         @Override
@@ -327,7 +333,6 @@ public class XmlDataParser extends AbstractDataParser {
                 // delegate to selected item processor
                 index = super.process(data, index, selectedIndex);
 
-                xmlStreamReader.next();
             } catch (XMLStreamException e) {
                 throw new IOException(e);
             }
