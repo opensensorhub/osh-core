@@ -126,13 +126,6 @@ public class DataBlockMixed extends AbstractDataBlock
     }
     
     
-    public void setUnderlyingObject(AbstractDataBlock[] blockArray)
-    {
-        this.blockArray = blockArray;
-        updateAtomCount();
-    }
-    
-    
     @Override
     public void updateAtomCount()
     {
@@ -150,6 +143,7 @@ public class DataBlockMixed extends AbstractDataBlock
     public void setUnderlyingObject(Object obj)
     {
     	this.blockArray = (AbstractDataBlock[])obj;
+        updateAtomCount();
     }
 	
 	
