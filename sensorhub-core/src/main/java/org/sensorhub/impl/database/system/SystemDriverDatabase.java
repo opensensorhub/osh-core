@@ -94,8 +94,15 @@ public class SystemDriverDatabase extends AbstractModule<SystemDriverDatabaseCon
                 TimerTask task = new TimerTask() {
                     public void run()
                     {
-                        if (!db.isReadOnly())
-                            policy.trimStorage(db, logger, uids);
+                        try
+                        {
+                            if (!db.isReadOnly())
+                                policy.trimStorage(db, logger, uids);
+                        }
+                        catch (Exception e)
+                        {
+                            getLogger().error("Error while executing purge policy", e);
+                        }
                     }
                 };
 
