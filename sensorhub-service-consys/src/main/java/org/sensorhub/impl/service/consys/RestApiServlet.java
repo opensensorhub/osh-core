@@ -30,6 +30,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.eclipse.jetty.io.EofException;
 import org.eclipse.jetty.websocket.api.WebSocketBehavior;
 import org.eclipse.jetty.websocket.api.WebSocketPolicy;
 import org.eclipse.jetty.websocket.server.WebSocketServerFactory;
@@ -448,8 +449,11 @@ public abstract class RestApiServlet extends HttpServlet
         if (req.getQueryString() != null)
             query = "?" + req.getQueryString();
         
-        if (error != null)
-            log.error(INTERNAL_ERROR_LOG_MSG, method, url, query, ip, user, error);
+        if (error != null) {
+            // log EofException (closed by client) only if trace level is enabled
+            if (!(error instanceof EofException) || log.isTraceEnabled())
+                log.error(INTERNAL_ERROR_LOG_MSG, method, url, query, ip, user, error);
+        }
         else
             log.info(LOG_REQUEST_MSG, method, url, query, ip, user);
     }
@@ -485,7 +489,8 @@ public abstract class RestApiServlet extends HttpServlet
         }
         catch (IOException e)
         {
-            log.error("Could not send error response", e);
+            if (getLogger().isTraceEnabled())
+                log.error("Could not send error response", e);
         }
     }
     
@@ -528,7 +533,7 @@ public abstract class RestApiServlet extends HttpServlet
     {
         try
         {
-            log.debug("Not authorized: {}", e.getMessage());
+            log.warn("Not authorized: {}", e.getMessage());
             
             if (req != null && resp != null)
             {
@@ -540,7 +545,8 @@ public abstract class RestApiServlet extends HttpServlet
         }
         catch (Exception e1)
         {
-            getLogger().error("Could not send authentication request", e1);
+            if (getLogger().isTraceEnabled())
+                getLogger().error("Could not send authentication request", e1);
         }
     }
     
