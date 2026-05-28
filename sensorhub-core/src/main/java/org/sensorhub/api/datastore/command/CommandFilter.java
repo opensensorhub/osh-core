@@ -262,6 +262,7 @@ public class CommandFilter implements IQueryFilter, Predicate<ICommandData>
             instance.statusFilter = base.statusFilter;
             instance.valuePredicate = base.valuePredicate;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         

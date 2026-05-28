@@ -290,6 +290,7 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
             instance.foiFilter = base.foiFilter;
             instance.valuePredicate = base.valuePredicate;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         

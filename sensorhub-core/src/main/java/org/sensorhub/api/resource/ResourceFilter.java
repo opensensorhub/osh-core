@@ -177,6 +177,7 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
             instance.fullText = base.getFullTextFilter();
             instance.valuePredicate = base.getValuePredicate();
             instance.limit = base.getLimit();
+            instance.offset = base.getOffset();
             return (B)this;
         }
         

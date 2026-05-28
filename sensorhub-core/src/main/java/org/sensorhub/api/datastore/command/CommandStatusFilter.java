@@ -263,6 +263,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
             instance.statusCodes = base.statusCodes;
             instance.valuePredicate = base.valuePredicate;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
 

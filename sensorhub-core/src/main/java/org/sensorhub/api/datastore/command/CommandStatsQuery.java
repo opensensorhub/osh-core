@@ -107,6 +107,7 @@ public class CommandStatsQuery implements IQueryFilter
             instance.commandFilter = base.commandFilter;
             instance.histogramBinSize = base.histogramBinSize;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         

@@ -115,6 +115,7 @@ public class ObsStatsQuery implements IQueryFilter
             instance.aggregateFois = base.aggregateFois;
             instance.histogramBinSize = base.histogramBinSize;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         
