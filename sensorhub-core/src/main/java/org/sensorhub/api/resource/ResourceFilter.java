@@ -48,6 +48,7 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
     protected FullTextFilter fullText;
     protected Predicate<T> valuePredicate;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     protected ResourceFilter() {}
@@ -75,6 +76,13 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
     
     
@@ -132,6 +140,9 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
                              this.valuePredicate;
         if (valuePredicate != null)
             builder.withValuePredicate(valuePredicate);
+        
+        var offset = Math.max(this.offset, otherFilter.offset);
+        builder.withOffset(offset);
         
         var limit = Math.min(this.limit, otherFilter.limit);
         builder.withLimit(limit);
@@ -265,6 +276,18 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
         public B withLimit(long limit)
         {
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        /**
+         * Sets the offset of the first resource to retrieve, among the ones matching the filter
+         * @param offset Offset of first resource
+         * @return This builder for chaining
+         */
+        public B withOffset(long offset)
+        {
+            instance.offset = offset;
             return (B)this;
         }
     }

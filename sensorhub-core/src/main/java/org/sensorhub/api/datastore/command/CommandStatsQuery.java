@@ -33,6 +33,7 @@ public class CommandStatsQuery implements IQueryFilter
     protected CommandFilter commandFilter = new CommandFilter.Builder().build();
     protected Duration histogramBinSize;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -57,6 +58,13 @@ public class CommandStatsQuery implements IQueryFilter
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -132,6 +140,13 @@ public class CommandStatsQuery implements IQueryFilter
         public B withLimit(int limit)
         {
             instance.limit = limit;
+            return (B)this;
+        }
+        
+
+        public B withOffset(long offset)
+        {
+            instance.offset = offset;
             return (B)this;
         }
     }

@@ -34,6 +34,7 @@ public class ObsStatsQuery implements IQueryFilter
     protected boolean aggregateFois = false;
     protected Duration histogramBinSize;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -64,6 +65,13 @@ public class ObsStatsQuery implements IQueryFilter
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -147,6 +155,13 @@ public class ObsStatsQuery implements IQueryFilter
         public B withLimit(long limit)
         {
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        public B withOffset(long offset)
+        {
+            instance.offset = offset;
             return (B)this;
         }
     }

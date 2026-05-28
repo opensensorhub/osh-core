@@ -48,6 +48,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
     protected SortedSet<CommandStatusCode> statusCodes;
     protected Predicate<ICommandStatus> valuePredicate;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -90,6 +91,13 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -163,6 +171,9 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
         var valuePredicate = this.valuePredicate != null ? this.valuePredicate.and(filter.valuePredicate) : filter.valuePredicate;
         if (valuePredicate != null)
             builder.withValuePredicate(valuePredicate);
+        
+        var offset = Math.max(this.offset, filter.offset);
+        builder.withOffset(offset);
         
         var limit = Math.min(this.limit, filter.limit);
         builder.withLimit(limit);
@@ -319,7 +330,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
         
         
         /**
-         * Keep only commands with specific status.
+         * Keep only status reports with specific status codes.
          * @param statusCodes One or more status codes
          * @return This builder for chaining
          */
@@ -330,7 +341,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
         
         
         /**
-         * Keep only commands with specific status.
+         * Keep only status reports with specific status codes.
          * @param statusCodes One or more status codes
          * @return This builder for chaining
          */
@@ -384,7 +395,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
 
         /**
          * Keep only status from commands with the given IDs.
-         * @param ids Collection of commands internal IDs 
+         * @param ids Collection of status report internal IDs 
          * @return This builder for chaining
          */
         public B withCommands(Collection<BigId> ids)
@@ -397,7 +408,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
 
         /**
          * Keep only the status messages that matches the predicate
-         * @param valuePredicate The predicate to test the command data
+         * @param valuePredicate The predicate to test the status data
          * @return This builder for chaining
          */
         public B withValuePredicate(Predicate<ICommandStatus> valuePredicate)
@@ -408,13 +419,25 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
 
 
         /**
-         * Sets the maximum number of commands to retrieve
-         * @param limit Max command count
+         * Sets the maximum number of status reports to retrieve
+         * @param limit Max status report count
          * @return This builder for chaining
          */
         public B withLimit(long limit)
         {
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        /**
+         * Sets the offset of the first status report to retrieve, among the ones matching the filter
+         * @param offset Offset of first status report
+         * @return This builder for chaining
+         */
+        public B withOffset(long offset)
+        {
+            instance.offset = offset;
             return (B)this;
         }
     }

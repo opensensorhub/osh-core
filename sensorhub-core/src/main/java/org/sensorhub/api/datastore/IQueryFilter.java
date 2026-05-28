@@ -22,5 +22,11 @@ public interface IQueryFilter
      * @return Maximum number of selected records
      */
     public long getLimit();
+    
+    
+    /**
+     * @return Offset of first record to return (within the matching record set)
+     */
+    public long getOffset();
 
 }

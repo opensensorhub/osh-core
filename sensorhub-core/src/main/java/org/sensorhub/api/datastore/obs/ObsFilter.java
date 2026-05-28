@@ -52,6 +52,7 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
     protected FoiFilter foiFilter;
     protected Predicate<IObsData> valuePredicate;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -106,6 +107,13 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -188,6 +196,9 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
         var valuePredicate = this.valuePredicate != null ? this.valuePredicate.and(filter.valuePredicate) : filter.valuePredicate;
         if (valuePredicate != null)
             builder.withValuePredicate(valuePredicate);
+        
+        var offset = Math.max(this.offset, filter.offset);
+        builder.withOffset(offset);
         
         var limit = Math.min(this.limit, filter.limit);
         builder.withLimit(limit);
@@ -604,6 +615,18 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
         public B withLimit(long limit)
         {
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        /**
+         * Sets the offset of the first observation to retrieve, among the ones matching the filter
+         * @param offset Offset of first observation
+         * @return This builder for chaining
+         */
+        public B withOffset(long offset)
+        {
+            instance.offset = offset;
             return (B)this;
         }
     }
