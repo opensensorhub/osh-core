@@ -275,6 +275,7 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
          */
         public B withLimit(long limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
             return (B)this;
         }
@@ -287,6 +288,7 @@ public abstract class ResourceFilter<T extends IResource> implements IQueryFilte
          */
         public B withOffset(long offset)
         {
+            Asserts.checkArgument(offset >= 0, offset);
             instance.offset = offset;
             return (B)this;
         }

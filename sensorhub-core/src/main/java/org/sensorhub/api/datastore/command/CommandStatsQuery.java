@@ -17,6 +17,7 @@ package org.sensorhub.api.datastore.command;
 import java.time.Duration;
 import org.sensorhub.api.datastore.IQueryFilter;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 
 
@@ -139,6 +140,7 @@ public class CommandStatsQuery implements IQueryFilter
 
         public B withLimit(int limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
             return (B)this;
         }

@@ -27,6 +27,7 @@ import org.sensorhub.api.datastore.IQueryFilter;
 import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.utils.FilterUtils;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.collect.ImmutableSortedSet;
 
@@ -425,6 +426,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
          */
         public B withLimit(long limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
             return (B)this;
         }
@@ -437,6 +439,7 @@ public class CommandStatusFilter implements IQueryFilter, Predicate<ICommandStat
          */
         public B withOffset(long offset)
         {
+            Asserts.checkArgument(offset >= 0, offset);
             instance.offset = offset;
             return (B)this;
         }

@@ -516,6 +516,7 @@ public class DataStoreFiltersTypeAdapterFactory implements TypeAdapterFactory
     
     public static class QueryFilterTypeAdapter<T extends IQueryFilter> extends TypeAdapter<T>
     {
+        static String OFFSET_FIELD = "offset";
         static String LIMIT_FIELD = "limit";
         
         final TypeAdapter<JsonElement> jsonEltAdapter;
@@ -530,6 +531,10 @@ public class DataStoreFiltersTypeAdapterFactory implements TypeAdapterFactory
         public void write(JsonWriter writer, T filter) throws IOException
         {
             JsonObject jsObj = (JsonObject)filterType.toJsonTree(filter);
+            
+            if (filter.getOffset() <= 0)
+                jsObj.remove(OFFSET_FIELD);
+                        
             if (filter.getLimit() == Long.MAX_VALUE)
                 jsObj.remove(LIMIT_FIELD);
             
