@@ -48,11 +48,19 @@ public abstract class AbstractFeatureHandler<
     S extends IFeatureStoreBase<V,?,F>> extends ResourceHandler<FeatureKey, V, F, B, S>
 {
     static final int MIN_UID_CHARS = 12;
+    transient long limit = 0;
     
     
     protected AbstractFeatureHandler(S dataStore, IdEncoder idEncoder, HandlerContext ctx, ResourcePermissions permissions)
     {
         super(dataStore, idEncoder, ctx, permissions);
+    }
+    
+    
+    public F getFilter(final ResourceRef parent, final Map<String, String[]> queryParams, long offset, long limit) throws InvalidRequestException
+    {
+        this.limit = limit;
+        return super.getFilter(parent, queryParams, offset, limit);
     }
     
 
@@ -68,10 +76,17 @@ public abstract class AbstractFeatureHandler<
                 
         // validTime param
         var validTime = parseTimeStampArg("validTime", queryParams);
-        if (validTime != null)
+        if (validTime != null) {
             builder.withValidTime(validTime);
-        //else
-        //    builder.withCurrentVersion();
+        }
+        else {
+            //builder.withCurrentVersion();
+            // actual work to keep only feature versions that are closest to now is done 
+            // as a post filter in selectEntries
+            
+            // but we need to increase the limit since features might be post filtered in selectEntries
+            builder.withLimit(this.limit*10);
+        }
         
         // use opensearch bbox param to filter spatially
         var bbox = parseBboxArg("bbox", queryParams);
@@ -205,12 +220,13 @@ public abstract class AbstractFeatureHandler<
     
     
     @Override
-    protected Stream<Entry<FeatureKey, V>> postProcessResultList(Stream<Entry<FeatureKey, V>> results, F filter)
+    protected Stream<Entry<FeatureKey, V>> selectEntries(F filter)
     {
-        if (filter.getValidTime() == null)
-            return FeatureUtils.keepOnlyClosestToNow(results);
+        if (filter.getValidTime() == null) {
+            return FeatureUtils.keepOnlyClosestToNow(super.selectEntries(filter));
+        }
         else
-            return results;
+            return super.selectEntries(filter);
     }
 
 

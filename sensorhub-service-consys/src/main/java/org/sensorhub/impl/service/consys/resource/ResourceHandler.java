@@ -90,12 +90,12 @@ public abstract class ResourceHandler<
         B builder = (B)dataStore.filterBuilder();
         if (queryParams != null)
         {
-            buildFilter(parent, queryParams, builder);
+            // offset and limit
+            builder.withOffset(offset);
+            if (limit != Long.MAX_VALUE)
+                builder.withLimit(limit+1);
             
-            // limit
-            // need to limit to offset+limit+1 since we rescan from the beginning for now
-            // remove the limit here since it can interfere with post filtering in postProcessResultList
-            //builder.withLimit(offset+limit+1);
+            buildFilter(parent, queryParams, builder);
         }
         return builder.build();
     }
