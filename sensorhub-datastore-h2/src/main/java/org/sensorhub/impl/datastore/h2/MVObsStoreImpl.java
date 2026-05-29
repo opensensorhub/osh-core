@@ -434,6 +434,7 @@ public class MVObsStoreImpl implements IObsStore
                             return getPostFilteredResultStream(obsStream, filter).skip(i).limit(1);
                         }); 
                 })
+                .skip(filter.getOffset())
                 .limit(filter.getLimit());
         }
         
@@ -466,8 +467,9 @@ public class MVObsStoreImpl implements IObsStore
             // stream and merge obs from all selected datastreams and time periods
             var mergeSortIt = new MergeSortSpliterator<Entry<BigId, IObsData>>(obsStreams, comparator);
             
-            // stream output of merge sort iterator + apply limit
+            // stream output of merge sort iterator + apply offset/limit
             return StreamSupport.stream(mergeSortIt, false)
+                .skip(filter.getOffset())
                 .limit(filter.getLimit())
                 .onClose(() -> mergeSortIt.close());
         }

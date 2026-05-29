@@ -381,10 +381,6 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
         if (filter.getValuePredicate() != null)
             resultStream = resultStream.filter(e -> filter.testValuePredicate(e.getValue()));
 
-        // apply limit
-        if (filter.getLimit() < Long.MAX_VALUE)
-            resultStream = resultStream.limit(filter.getLimit());
-
         // always wrap with dynamic datastream object
         resultStream = resultStream.map(e -> {
             return new SimpleEntry<DataStreamKey, IDataStreamInfo>(
@@ -396,6 +392,11 @@ public class MVDataStreamStoreImpl implements IDataStreamStore
         // apply time filter once validTime is computed correctly
         if (filter.getValidTimeFilter() != null)
             resultStream = resultStream.filter(e -> filter.testValidTime(e.getValue()));
+        
+        // apply offset and limit
+        resultStream = resultStream.skip(filter.getOffset());
+        if (filter.getLimit() < Long.MAX_VALUE)
+            resultStream = resultStream.limit(filter.getLimit());
         
         return resultStream;
     }

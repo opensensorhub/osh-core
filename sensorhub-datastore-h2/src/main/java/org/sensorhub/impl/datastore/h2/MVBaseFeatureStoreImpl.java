@@ -599,7 +599,8 @@ public abstract class MVBaseFeatureStoreImpl<V extends IFeature, VF extends Feat
         if (filter.getValidTime() != null)
             resultStream = resultStream.filter(e -> filter.testValidTime(e.getValue()));
         
-        // apply limit
+        // apply offset and limit
+        resultStream = resultStream.skip(filter.getOffset());
         if (filter.getLimit() < Long.MAX_VALUE)
             resultStream = resultStream.limit(filter.getLimit());
         

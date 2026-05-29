@@ -383,11 +383,7 @@ public class MVCommandStreamStoreImpl implements ICommandStreamStore
 
         if (filter.getValuePredicate() != null)
             resultStream = resultStream.filter(e -> filter.testValuePredicate(e.getValue()));
-
-        // apply limit
-        if (filter.getLimit() < Long.MAX_VALUE)
-            resultStream = resultStream.limit(filter.getLimit());
-
+        
         // always wrap with dynamic command stream object
         resultStream = resultStream.map(e -> {
             return new SimpleEntry<CommandStreamKey, ICommandStreamInfo>(
@@ -399,6 +395,11 @@ public class MVCommandStreamStoreImpl implements ICommandStreamStore
         // apply time filter once validTime is computed correctly
         if (filter.getValidTimeFilter() != null)
             resultStream = resultStream.filter(e -> filter.testValidTime(e.getValue()));
+
+        // apply limit
+        resultStream = resultStream.skip(filter.getOffset());
+        if (filter.getLimit() < Long.MAX_VALUE)
+            resultStream = resultStream.limit(filter.getLimit());
         
         return resultStream;
     }
