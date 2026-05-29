@@ -75,7 +75,9 @@ public class LazyLoadingObsContainer extends IndexedContainer
             
             var filter = new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
-                .withPhenomenonTime().fromTimeExtent(timeRange).done();
+                .withPhenomenonTime().fromTimeExtent(timeRange).done()
+                .withOffset(startIndex)
+                .withLimit(10);
             if (!foiIDs.isEmpty())
                 filter.withFois(foiIDs);
             
@@ -83,8 +85,6 @@ public class LazyLoadingObsContainer extends IndexedContainer
             removeAllItems();
             AtomicInteger count = new AtomicInteger(startIndex);
             db.getObservationStore().select(filter.build())
-                .skip(startIndex)
-                .limit(10)
                 .forEach(obs -> {
                     //System.out.println(obs.getResultTime());
                     var dataBlk = obs.getResult();
@@ -110,6 +110,7 @@ public class LazyLoadingObsContainer extends IndexedContainer
         
         return (List<Object>)super.getItemIds();
     }
+    
 
     @Override
     public int size()
