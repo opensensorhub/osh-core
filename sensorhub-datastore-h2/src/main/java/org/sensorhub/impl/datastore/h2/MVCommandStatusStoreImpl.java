@@ -65,6 +65,8 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
     {
         Range<Instant> reportTimeRange;
         Range<Instant> execTimeRange;
+        boolean descendingReportTime;
+        boolean descendingExecTime;
         boolean currentTimeOnly;
         boolean latestResultOnly;
         
@@ -72,24 +74,29 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
         TimeParams(CommandStatusFilter filter)
         {
             // get report time range
-            reportTimeRange = filter.getReportTime() != null ?
-                filter.getReportTime().getRange() : H2Utils.ALL_TIMES_RANGE;
-            
-            // get execution time range
-            execTimeRange = filter.getExecutionTime() != null ?
-                filter.getExecutionTime().getRange() : H2Utils.ALL_TIMES_RANGE;
-            
-            // try to derive execution time range from report time range
-            // so we can use the time index 
-            if (filter.getReportTime() == null && execTimeRange != null && execTimeRange != H2Utils.ALL_TIMES_RANGE)
-            {
-                var begin = execTimeRange.lowerEndpoint().minus(1, ChronoUnit.DAYS);
-                var end = execTimeRange.upperEndpoint();
-                reportTimeRange = Range.closed(begin, end);
+            reportTimeRange = H2Utils.ALL_TIMES_RANGE;
+            if (filter.getReportTime() != null) {
+                reportTimeRange = filter.getReportTime().getRange();
+                latestResultOnly = filter.getReportTime().isLatestTime();
+                descendingReportTime = filter.getReportTime().isDescendingOrder();
             }
             
-            latestResultOnly = filter.getReportTime() != null && filter.getReportTime().isLatestTime();
-            currentTimeOnly = filter.getExecutionTime() != null && filter.getExecutionTime().isCurrentTime();
+            // get execution time range
+            execTimeRange = H2Utils.ALL_TIMES_RANGE;
+            if (filter.getExecutionTime() != null) {
+                execTimeRange = filter.getExecutionTime().getRange();
+                currentTimeOnly = filter.getExecutionTime().isCurrentTime();
+                descendingExecTime = filter.getExecutionTime().isDescendingOrder();
+                
+                // try to derive report time range from execution time range
+                // so we can use the time index 
+                if (filter.getReportTime() == null)
+                {
+                    var begin = execTimeRange.lowerEndpoint().minus(1, ChronoUnit.DAYS);
+                    var end = execTimeRange.upperEndpoint();
+                    reportTimeRange = Range.closed(begin, end);
+                }
+            }
         }
     }
     
@@ -144,11 +151,13 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
     }
     
     
-    RangeCursor<MVCommandStatusKey, ICommandStatus> getStatusCursor(BigId cmdID, Range<Instant> reportTimeRange)
+    RangeCursor<MVCommandStatusKey, ICommandStatus> getStatusCursor(BigId cmdID, Range<Instant> reportTimeRange, boolean descending)
     {
         MVCommandStatusKey first = new MVCommandStatusKey(cmdID, reportTimeRange.lowerEndpoint());
         MVCommandStatusKey last = new MVCommandStatusKey(cmdID, reportTimeRange.upperEndpoint());
-        return new RangeCursor<>(statusIndex, first, last);
+        return descending ?
+            new RangeCursor<>(statusIndex, last, first, descending) :
+            new RangeCursor<>(statusIndex, first, last, descending);
     }
     
     
@@ -166,8 +175,13 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
         }
         
         // scan using a cursor on main command index
-        var timeRange = reportTimeFilter != null ? reportTimeFilter.getRange() : H2Utils.ALL_TIMES_RANGE;
-        RangeCursor<MVCommandStatusKey, ICommandStatus> cursor = getStatusCursor(cmdID, timeRange);
+        var descendingTime = false;
+        var timeRange = H2Utils.ALL_TIMES_RANGE;
+        if (reportTimeFilter != null) {
+            timeRange = reportTimeFilter.getRange();
+            descendingTime = reportTimeFilter.isDescendingOrder();
+        }
+        RangeCursor<MVCommandStatusKey, ICommandStatus> cursor = getStatusCursor(cmdID, timeRange, descendingTime);
         return cursor.entryStream();
     }
 

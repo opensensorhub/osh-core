@@ -21,12 +21,11 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.sensorhub.impl.datastore.IteratorWrapper;
 
 
 /**
  * <p>
- * Custom MVMap cursor adding support for an end key to stop iteration.
+ * Wrapper for native H2 Cursor and DescendingCursor
  * </p>
  *
  * @author Alex Robin
@@ -34,10 +33,11 @@ import org.sensorhub.impl.datastore.IteratorWrapper;
  * @param <V> Value Type
  * @since Oct 25, 2016
  */
-public class RangeCursor<K, V> extends IteratorWrapper<K, K>
+public class RangeCursor<K, V> implements Iterator<K>
 {
-    MVMap<K, V> map;
-    K to;
+    final Iterator<K> cursor; 
+    final MVMap<K, V> map;
+    final boolean descending;
     
     
     public RangeCursor(MVMap<K, V> map, K from)
@@ -48,38 +48,49 @@ public class RangeCursor<K, V> extends IteratorWrapper<K, K>
     
     public RangeCursor(MVMap<K, V> map, K from, K to)
     {
-        // TODO: Update to use reverse-order cursor in newer H2 version
-        super(map.cursor(from));
+        this(map, from, to, false);
+    }
+    
+    
+    public RangeCursor(MVMap<K, V> map, K from, K to, boolean descending)
+    {
+        this.cursor = descending ?
+            new DescendingCursor<K, V>(map.getRootPage(), from, to) :
+            new Cursor<K, V>(map.getRootPage(), from, to);
         this.map = map;
-        this.to = to;
+        this.descending = descending;
     }
     
     
     @Override
-    protected void preloadNext()
+    public boolean hasNext()
     {
-        next = null;
-        
-        if (it.hasNext())
-        {
-            next = it.next();
-            if (to != null && map.getKeyType().compare(next, to) > 0)
-                next = null;
-        }
+        return cursor.hasNext();
+    }
+    
+    
+    @Override
+    public K next()
+    {
+        return cursor.next();
     }
     
     
     @SuppressWarnings("unchecked")
     public K getKey()
     {
-        return ((Cursor<K, V>)it).getKey();
+        return descending ?
+            ((DescendingCursor<K, V>)cursor).getKey() :
+            ((Cursor<K, V>)cursor).getKey();
     }
     
     
     @SuppressWarnings("unchecked")
     public V getValue()
     {
-        return ((Cursor<K, V>)it).getValue();
+        return descending ?
+            ((DescendingCursor<K, V>)cursor).getValue() :
+            ((Cursor<K, V>)cursor).getValue();
     }
     
     
@@ -143,12 +154,4 @@ public class RangeCursor<K, V> extends IteratorWrapper<K, K>
     {
         return StreamSupport.stream(entryIterator(), false);
     }
-
-
-    @Override
-    protected K process(K elt)
-    {
-        return elt;
-    }
-
 }

@@ -75,6 +75,7 @@ public class MVCommandStoreImpl implements ICommandStore
     static class TimeParams
     {
         Range<Instant> issueTimeRange;
+        boolean descendingIssueTime;
         boolean currentTimeOnly;
         boolean latestResultOnly;
         
@@ -82,11 +83,13 @@ public class MVCommandStoreImpl implements ICommandStore
         TimeParams(CommandFilter filter)
         {
             // get issue time range
-            issueTimeRange = filter.getIssueTime() != null ?
-                filter.getIssueTime().getRange() : H2Utils.ALL_TIMES_RANGE;
-                
-            latestResultOnly = filter.getIssueTime() != null && filter.getIssueTime().isLatestTime();
-            currentTimeOnly = filter.getIssueTime() != null && filter.getIssueTime().isCurrentTime();
+            issueTimeRange = H2Utils.ALL_TIMES_RANGE;
+            if (filter.getIssueTime() != null) {
+                issueTimeRange = filter.getIssueTime().getRange();
+                descendingIssueTime = filter.getIssueTime().isDescendingOrder();
+                latestResultOnly = filter.getIssueTime() != null && filter.getIssueTime().isLatestTime();
+                currentTimeOnly = filter.getIssueTime() != null && filter.getIssueTime().isCurrentTime();
+            }            
         }
     }
     
@@ -188,17 +191,20 @@ public class MVCommandStoreImpl implements ICommandStore
     }
     
     
-    RangeCursor<MVTimeSeriesRecordKey, ICommandData> getCommandCursor(long seriesID, Range<Instant> issueTimeRange)
+    RangeCursor<MVTimeSeriesRecordKey, ICommandData> getCommandCursor(long seriesID, Range<Instant> issueTimeRange, boolean descending)
     {
         MVTimeSeriesRecordKey first = new MVTimeSeriesRecordKey(seriesID, issueTimeRange.lowerEndpoint());
         MVTimeSeriesRecordKey last = new MVTimeSeriesRecordKey(seriesID, issueTimeRange.upperEndpoint());
-        return new RangeCursor<>(cmdRecordsIndex, first, last);
+        return descending ?
+            new RangeCursor<>(cmdRecordsIndex, last, first, descending) :
+            new RangeCursor<>(cmdRecordsIndex, first, last, descending);
     }
     
     
-    Stream<Entry<MVTimeSeriesRecordKey, ICommandData>> getCommandStream(MVTimeSeriesInfo series, Range<Instant> issueTimeRange, boolean latestOnly)
+    Stream<Entry<MVTimeSeriesRecordKey, ICommandData>> getCommandStream(MVTimeSeriesInfo series, TimeParams timeParams)
     {        
         // if request if for latest only, get only the latest command in series
+        var latestOnly = timeParams.currentTimeOnly || timeParams.latestResultOnly;
         if (latestOnly)
         {
             MVTimeSeriesRecordKey maxKey = new MVTimeSeriesRecordKey(series.id, Instant.MAX);
@@ -211,7 +217,7 @@ public class MVCommandStoreImpl implements ICommandStore
         
         // scan using a cursor on main command index
         // recreating full entries in the process
-        RangeCursor<MVTimeSeriesRecordKey, ICommandData> cursor = getCommandCursor(series.id, issueTimeRange);
+        RangeCursor<MVTimeSeriesRecordKey, ICommandData> cursor = getCommandCursor(series.id, timeParams.issueTimeRange, timeParams.descendingIssueTime);
         return cursor.entryStream();
     }
     
@@ -290,8 +296,7 @@ public class MVCommandStoreImpl implements ICommandStore
                     throw new IllegalStateException("Too many command streams or command receivers selected. Please refine your filter");
             })
             .flatMap(series -> {
-                var cmdStream = getCommandStream(series, timeParams.issueTimeRange,
-                    timeParams.currentTimeOnly || timeParams.latestResultOnly);
+                var cmdStream = getCommandStream(series, timeParams);
                 return getPostFilteredResultStream(cmdStream, filter);
             }));
         
@@ -551,7 +556,7 @@ public class MVCommandStoreImpl implements ICommandStore
             public Iterator<Entry<BigId, ICommandData>> iterator() {
                 return getAllCommandSeries()
                     .flatMap(series -> {
-                        RangeCursor<MVTimeSeriesRecordKey, ICommandData> cursor = getCommandCursor(series.id, H2Utils.ALL_TIMES_RANGE);
+                        RangeCursor<MVTimeSeriesRecordKey, ICommandData> cursor = getCommandCursor(series.id, H2Utils.ALL_TIMES_RANGE, false);
                         
                         // casting is ok since set is read-only and keys are subtypes of BigId
                         @SuppressWarnings({ "unchecked" })
@@ -581,7 +586,7 @@ public class MVCommandStoreImpl implements ICommandStore
             public Iterator<BigId> iterator() {
                 return getAllCommandSeries()
                     .flatMap(series -> {
-                        RangeCursor<MVTimeSeriesRecordKey, ICommandData> cursor = getCommandCursor(series.id, H2Utils.ALL_TIMES_RANGE);
+                        RangeCursor<MVTimeSeriesRecordKey, ICommandData> cursor = getCommandCursor(series.id, H2Utils.ALL_TIMES_RANGE, false);
                         
                         // casting is ok since set is read-only and keys are subtypes of BigId
                         @SuppressWarnings({ "unchecked" })
@@ -675,9 +680,7 @@ public class MVCommandStoreImpl implements ICommandStore
         var timeParams = new TimeParams(filter);
         return selectCommandSeries(filter)
             .mapToLong(series -> {
-                var cmdStream = getCommandStream(series, 
-                    timeParams.issueTimeRange,
-                    timeParams.latestResultOnly);
+                var cmdStream = getCommandStream(series, timeParams);
                 
                 // delete all matching record in series
                 var numRemoved = getPostFilteredResultStream(cmdStream, filter)

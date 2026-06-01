@@ -21,6 +21,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -755,6 +756,69 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
             .build();
         resultStream = obsStore.selectEntries(filter);
         checkSelectedEntries(resultStream, obsBatch1, filter);
+    }
+    
+    
+    @Test
+    public void testSelectObsDescendingOrder() throws Exception
+    {
+        Stream<Entry<BigId, IObsData>> resultStream;
+        Map<BigId, IObsData> expectedResults;
+        ObsFilter filter;
+
+        var ds1 = addSimpleDataStream(bigId(1), "out1");
+        Instant startProc1Batch1 = Instant.parse("2015-06-23T18:24:15.233Z");
+        Map<BigId, IObsData> proc1Batch1 = addSimpleObsWithoutResultTime(ds1, bigId(23), startProc1Batch1, 10, 30*24*3600*1000L);
+        Instant startProc1Batch2 = Instant.parse("2018-02-11T08:12:06.897Z");
+        Map<BigId, IObsData> proc1Batch2 = addSimpleObsWithoutResultTime(ds1, bigId(46), startProc1Batch2, 3, 100*24*3600*1000L);
+        Instant startProc1Batch3 = Instant.parse("2025-06-23T18:24:15.233Z");
+        Map<BigId, IObsData> proc1Batch3 = addSimpleObsWithoutResultTime(ds1, BigId.NONE, startProc1Batch3, 10, 30*24*3600*1000L);
+
+        forceReadBackFromStorage();
+
+        // ds1 and all times
+        filter = new ObsFilter.Builder()
+            .withDataStreams(ds1)
+            .withPhenomenonTime()
+                .descendingOrder(true)
+                .done()
+            .build();
+        resultStream = obsStore.selectEntries(filter);
+        expectedResults = new LinkedHashMap<>();
+        expectedResults.putAll(proc1Batch1);
+        expectedResults.putAll(proc1Batch2);
+        expectedResults.putAll(proc1Batch3);
+        checkSelectedEntries(resultStream, expectedResults, filter);
+        
+        // check order is descending
+        var obsList = obsStore.selectEntries(filter)
+            .map(e -> e.getValue())
+            .collect(Collectors.toList());
+        var sortedObsList = new ArrayList<>(obsList);
+        sortedObsList.sort(Comparator.comparing(obs -> obs.getPhenomenonTime()));
+        Collections.reverse(sortedObsList);
+        assertEquals(sortedObsList, obsList);
+        
+        // ds1 and single FOI
+        filter = new ObsFilter.Builder()
+            .withDataStreams(ds1)
+            .withFois(bigId(23))
+            .withPhenomenonTime()
+                .descendingOrder(true)
+                .done()
+            .build();
+        resultStream = obsStore.selectEntries(filter);
+        expectedResults = new LinkedHashMap<>();
+        expectedResults.putAll(proc1Batch1);
+        checkSelectedEntries(resultStream, expectedResults, filter);
+        
+        obsList = obsStore.selectEntries(filter)
+            .map(e -> e.getValue())
+            .collect(Collectors.toList());
+        sortedObsList = new ArrayList<>(obsList);
+        sortedObsList.sort(Comparator.comparing(obs -> obs.getPhenomenonTime()));
+        Collections.reverse(sortedObsList);
+        assertEquals(sortedObsList, obsList);
     }
     
     
