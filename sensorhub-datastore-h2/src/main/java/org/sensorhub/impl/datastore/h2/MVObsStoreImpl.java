@@ -85,6 +85,8 @@ public class MVObsStoreImpl implements IObsStore
     {
         Range<Instant> phenomenonTimeRange;
         Range<Instant> resultTimeRange;
+        boolean descendingPhenomenonTime;
+        boolean descendingResultTime;
         boolean currentTimeOnly;
         boolean latestResultOnly;
         
@@ -92,15 +94,20 @@ public class MVObsStoreImpl implements IObsStore
         TimeParams(ObsFilter filter)
         {
             // get phenomenon time range
-            phenomenonTimeRange = filter.getPhenomenonTime() != null ?
-                filter.getPhenomenonTime().getRange() : H2Utils.ALL_TIMES_RANGE;
+            phenomenonTimeRange = H2Utils.ALL_TIMES_RANGE;
+            if (filter.getPhenomenonTime() != null) {
+                phenomenonTimeRange = filter.getPhenomenonTime().getRange();
+                descendingPhenomenonTime = filter.getPhenomenonTime().isDescendingOrder();
+                currentTimeOnly = filter.getPhenomenonTime().isCurrentTime();
+            }
             
             // get result time range
-            resultTimeRange = filter.getResultTime() != null ?
-                filter.getResultTime().getRange() : H2Utils.ALL_TIMES_RANGE;
-                
-            latestResultOnly = filter.getResultTime() != null && filter.getResultTime().isLatestTime();
-            currentTimeOnly = filter.getPhenomenonTime() != null && filter.getPhenomenonTime().isCurrentTime();
+            resultTimeRange = H2Utils.ALL_TIMES_RANGE;
+            if (filter.getResultTime() != null) {
+                resultTimeRange = filter.getResultTime().getRange();
+                descendingResultTime = filter.getResultTime().isDescendingOrder();
+                latestResultOnly = filter.getResultTime().isLatestTime();
+            }
         }
     }
     
@@ -266,22 +273,26 @@ public class MVObsStoreImpl implements IObsStore
     }
     
     
-    RangeCursor<MVTimeSeriesRecordKey, IObsData> getObsCursor(long seriesID, Range<Instant> phenomenonTimeRange)
+    RangeCursor<MVTimeSeriesRecordKey, IObsData> getObsCursor(long seriesID, Range<Instant> phenomenonTimeRange, boolean descending)
     {
         MVTimeSeriesRecordKey first = new MVTimeSeriesRecordKey(seriesID, phenomenonTimeRange.lowerEndpoint());
         MVTimeSeriesRecordKey last = new MVTimeSeriesRecordKey(seriesID, phenomenonTimeRange.upperEndpoint());
-        return new RangeCursor<>(obsRecordsIndex, first, last);
+        return descending ?
+            new RangeCursor<>(obsRecordsIndex, last, first, descending) :
+            new RangeCursor<>(obsRecordsIndex, first, last, descending);
     }
     
     
-    Stream<Entry<MVTimeSeriesRecordKey, IObsData>> getObsStream(MVTimeSeriesInfo series, Range<Instant> resultTimeRange, Range<Instant> phenomenonTimeRange, boolean currentTimeOnly, boolean latestResultOnly)
+    Stream<Entry<MVTimeSeriesRecordKey, IObsData>> getObsStream(MVTimeSeriesInfo series, TimeParams timeParams)
     {
+        var phenomenonTimeRange = timeParams.phenomenonTimeRange;
+        
         // if series is a special case where all obs have resultTime = phenomenonTime
         if (series.key.resultTime == Instant.MIN)
         {
             // if request is for current time only, get only the obs with
             // phenomenon time right before current time
-            if (currentTimeOnly)
+            if (timeParams.currentTimeOnly)
             {
                 MVTimeSeriesRecordKey maxKey = new MVTimeSeriesRecordKey(series.id, Instant.now());
                 Entry<MVTimeSeriesRecordKey, IObsData> e = obsRecordsIndex.floorEntry(maxKey);
@@ -292,7 +303,7 @@ public class MVObsStoreImpl implements IObsStore
             }
             
             // if request if for latest result only, get only the latest obs in series
-            if (latestResultOnly)
+            if (timeParams.latestResultOnly)
             {
                 MVTimeSeriesRecordKey maxKey = new MVTimeSeriesRecordKey(series.id, Instant.MAX);
                 Entry<MVTimeSeriesRecordKey, IObsData> e = obsRecordsIndex.floorEntry(maxKey);
@@ -303,12 +314,12 @@ public class MVObsStoreImpl implements IObsStore
             }
             
             // else further restrict the requested time range using result time filter
-            phenomenonTimeRange = resultTimeRange.intersection(phenomenonTimeRange);
+            phenomenonTimeRange = timeParams.resultTimeRange.intersection(phenomenonTimeRange);
         }
         
         // scan using a cursor on main obs index
         // recreating full entries in the process
-        RangeCursor<MVTimeSeriesRecordKey, IObsData> cursor = getObsCursor(series.id, phenomenonTimeRange);
+        RangeCursor<MVTimeSeriesRecordKey, IObsData> cursor = getObsCursor(series.id, phenomenonTimeRange, timeParams.descendingPhenomenonTime);
         return cursor.entryStream();
     }
     
@@ -426,11 +437,7 @@ public class MVObsStoreImpl implements IObsStore
                 .flatMap(i -> {
                     return selectObsSeries(filter, timeParams)
                         .flatMap(series -> {
-                            var obsStream = getObsStream(series, 
-                                timeParams.resultTimeRange,
-                                timeParams.phenomenonTimeRange,
-                                timeParams.currentTimeOnly,
-                                timeParams.latestResultOnly);
+                            var obsStream = getObsStream(series, timeParams);
                             return getPostFilteredResultStream(obsStream, filter).skip(i).limit(1);
                         }); 
                 })
@@ -446,22 +453,30 @@ public class MVObsStoreImpl implements IObsStore
             // create obs streams for each selected series
             // and keep all spliterators in array list
             obsSeries.forEach(series -> {
-                    var obsStream = getObsStream(series, 
-                        timeParams.resultTimeRange,
-                        timeParams.phenomenonTimeRange,
-                        timeParams.currentTimeOnly,
-                        timeParams.latestResultOnly);
-                    obsStreams.add(getPostFilteredResultStream(obsStream, filter));
-                });
+                var obsStream = getObsStream(series, timeParams);
+                obsStreams.add(getPostFilteredResultStream(obsStream, filter));
+            });
             
             if (obsStreams.isEmpty())
                 return Stream.empty();
             
-            // TODO group by result time when series with different result times are selected
-
-            Comparator<Entry<BigId, IObsData>> comparator = Comparator.comparing(e -> e.getValue().getPhenomenonTime());
-            if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().isDescendingOrder())
+            // build comparator
+            // current order is by result time, then phenomenon time, then FOI, then datastream ID
+            Comparator<Entry<BigId, IObsData>> comparator = (e1, e2) -> {
+                var obs1 = e1.getValue();
+                var obs2 = e2.getValue();
+                var comp = obs1.getResultTime().compareTo(obs2.getResultTime());
+                if (comp == 0)
+                    comp = obs1.getPhenomenonTime().compareTo(obs2.getPhenomenonTime());
+                if (comp == 0)
+                    comp = obs1.getFoiID().compareTo(obs2.getFoiID());
+                if (comp == 0)
+                    comp = obs1.getDataStreamID().compareTo(obs2.getDataStreamID());
+                return comp;
+            };
+            if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().isDescendingOrder()) {
                 comparator = comparator.reversed();
+            }
             
             // stream and merge obs from all selected datastreams and time periods
             var mergeSortIt = new MergeSortSpliterator<Entry<BigId, IObsData>>(obsStreams, comparator);
@@ -820,7 +835,7 @@ public class MVObsStoreImpl implements IObsStore
             public Iterator<Entry<BigId, IObsData>> iterator() {
                 return getAllObsSeries(H2Utils.ALL_TIMES_RANGE)
                     .flatMap(series -> {
-                        var cursor = getObsCursor(series.id, H2Utils.ALL_TIMES_RANGE);
+                        var cursor = getObsCursor(series.id, H2Utils.ALL_TIMES_RANGE, false);
                         
                         // casting is ok since set is read-only and keys are subtypes of BigId
                         @SuppressWarnings({ "unchecked" })
@@ -850,7 +865,7 @@ public class MVObsStoreImpl implements IObsStore
             public Iterator<BigId> iterator() {
                 return getAllObsSeries(H2Utils.ALL_TIMES_RANGE)
                     .flatMap(series -> {
-                        RangeCursor<MVTimeSeriesRecordKey, IObsData> cursor = getObsCursor(series.id, H2Utils.ALL_TIMES_RANGE);
+                        RangeCursor<MVTimeSeriesRecordKey, IObsData> cursor = getObsCursor(series.id, H2Utils.ALL_TIMES_RANGE, false);
                         
                         // casting is ok since set is read-only and keys are subtypes of BigId
                         @SuppressWarnings({ "unchecked" })
@@ -949,11 +964,7 @@ public class MVObsStoreImpl implements IObsStore
         var timeParams = new TimeParams(filter);
         return selectObsSeries(filter, timeParams)
             .mapToLong(series -> {
-                var obsStream = getObsStream(series, 
-                    timeParams.resultTimeRange,
-                    timeParams.phenomenonTimeRange,
-                    timeParams.currentTimeOnly,
-                    timeParams.latestResultOnly);
+                var obsStream = getObsStream(series, timeParams);
                 
                 // delete all matching record in series
                 var numRemoved = getPostFilteredResultStream(obsStream, filter)
