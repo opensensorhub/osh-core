@@ -8,10 +8,7 @@ import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.Label;
 import com.vaadin.v7.data.Property;
 import com.vaadin.v7.data.Property.ValueChangeEvent;
-import com.vaadin.v7.data.Property.ValueChangeListener;
-import com.vaadin.v7.data.validator.IntegerRangeValidator;
 import com.vaadin.v7.ui.ComboBox;
-import com.vaadin.v7.ui.TextField;
 
 
 public class PagedTableControls extends HorizontalLayout {
@@ -23,7 +20,9 @@ public class PagedTableControls extends HorizontalLayout {
     private Button btnPrevious = new Button("<");
     private Button btnNext = new Button(">");
     private Button btnLast = new Button(">>");
-    private TextField currentPageTextField = new TextField();
+    //private TextField currentPageTextField = new TextField();
+    private Label currentPageLabel;
+    private Label totalPagesLabel;
 
     @SuppressWarnings("deprecation")
     public PagedTableControls(final PagedTable table) {
@@ -40,19 +39,25 @@ public class PagedTableControls extends HorizontalLayout {
         itemsPerPageSelect.setEnabled(false); // disable for now since it's not working correctly
         itemsPerPageLabel.addStyleName(UIConstants.STYLE_SMALL);
         
-        currentPageTextField.setValue(String.valueOf(table.getCurrentPage()));
+        /*currentPageTextField.setValue(String.valueOf(table.getCurrentPage()));
         currentPageTextField.setConverter(Integer.class);
         final IntegerRangeValidator validator = new IntegerRangeValidator("Wrong page number", 1, table.getTotalAmountOfPages());
         currentPageTextField.addValidator(validator);
         currentPageTextField.setWidth(50, Unit.PIXELS);
         currentPageTextField.addStyleName(UIConstants.STYLE_SMALL);
-        currentPageTextField.setImmediate(true);
+        currentPageTextField.setImmediate(true);*/
+        
+        currentPageLabel = new Label(
+            String.valueOf(table.getCurrentPage()), ContentMode.HTML);
+        currentPageLabel.setWidth(null);
+        currentPageLabel.addStyleName(UIConstants.STYLE_SMALL);
         
         Label separatorLabel = new Label("&nbsp;/&nbsp;", ContentMode.HTML);
-        final Label totalPagesLabel = new Label(
-                String.valueOf(table.getTotalAmountOfPages()), ContentMode.HTML);
         separatorLabel.setWidth(null);
         separatorLabel.addStyleName(UIConstants.STYLE_SMALL);
+        
+        totalPagesLabel = new Label(
+                String.valueOf(table.getTotalAmountOfPages()), ContentMode.HTML);
         totalPagesLabel.setWidth(null);
         totalPagesLabel.addStyleName(UIConstants.STYLE_SMALL);
         
@@ -75,18 +80,18 @@ public class PagedTableControls extends HorizontalLayout {
             }
         });
         
-        currentPageTextField.addValueChangeListener(new ValueChangeListener() {
-            private static final long serialVersionUID = -1301464754009535498L;
-
-            public void valueChange(ValueChangeEvent event) {
-                if (currentPageTextField.isValid()
-                        && currentPageTextField.getValue() != null) {
-                    int page = Integer.valueOf(String
-                            .valueOf(currentPageTextField.getValue()));
-                    table.setCurrentPage(page);
-                }
-            }
-        });
+//        currentPageTextField.addValueChangeListener(new ValueChangeListener() {
+//            private static final long serialVersionUID = -1301464754009535498L;
+//
+//            public void valueChange(ValueChangeEvent event) {
+//                if (currentPageTextField.isValid()
+//                        && currentPageTextField.getValue() != null) {
+//                    int page = Integer.valueOf(String
+//                            .valueOf(currentPageTextField.getValue()));
+//                    table.setCurrentPage(page);
+//                }
+//            }
+//        });
         
         btnFirst.addClickListener(new Button.ClickListener() {
             private static final long serialVersionUID = -355520120491283992L;
@@ -128,7 +133,7 @@ public class PagedTableControls extends HorizontalLayout {
         pageManagement.addComponent(btnFirst);
         pageManagement.addComponent(btnPrevious);
         //pageManagement.addComponent(pageLabel);
-        pageManagement.addComponent(currentPageTextField);
+        pageManagement.addComponent(currentPageLabel);
         pageManagement.addComponent(separatorLabel);
         pageManagement.addComponent(totalPagesLabel);
         pageManagement.addComponent(btnNext);
@@ -136,7 +141,7 @@ public class PagedTableControls extends HorizontalLayout {
         pageManagement.setComponentAlignment(btnFirst, Alignment.MIDDLE_LEFT);
         pageManagement.setComponentAlignment(btnPrevious, Alignment.MIDDLE_LEFT);
         //pageManagement.setComponentAlignment(pageLabel, Alignment.MIDDLE_LEFT);
-        pageManagement.setComponentAlignment(currentPageTextField, Alignment.MIDDLE_LEFT);
+        pageManagement.setComponentAlignment(currentPageLabel, Alignment.MIDDLE_LEFT);
         pageManagement.setComponentAlignment(separatorLabel, Alignment.MIDDLE_LEFT);
         pageManagement.setComponentAlignment(totalPagesLabel, Alignment.MIDDLE_LEFT);
         pageManagement.setComponentAlignment(btnNext, Alignment.MIDDLE_LEFT);
@@ -159,12 +164,9 @@ public class PagedTableControls extends HorizontalLayout {
                 int pageLength = table.getPageLength();
                 btnNext.setEnabled(startIndex < containerDataSource.getRealSize() - pageLength);
                 btnLast.setEnabled(startIndex < containerDataSource.getRealSize() - pageLength);
-                int currentPage = table.getCurrentPage();
-                currentPageTextField.setValue(String.valueOf(currentPage));
-                int totalAmountOfPages = table.getTotalAmountOfPages();
-                totalPagesLabel.setValue(String.valueOf(totalAmountOfPages));
+                currentPageLabel.setValue(String.valueOf(table.getCurrentPage()));
+                totalPagesLabel.setValue(String.valueOf(table.getTotalAmountOfPages()));
                 itemsPerPageSelect.setValue(String.valueOf(pageLength));
-                validator.setMaxValue(totalAmountOfPages);
             }
         });
     }
@@ -195,9 +197,5 @@ public class PagedTableControls extends HorizontalLayout {
 
     public Button getBtnLast() {
         return btnLast;
-    }
-
-    public TextField getCurrentPageTextField() {
-        return currentPageTextField;
     }
 }

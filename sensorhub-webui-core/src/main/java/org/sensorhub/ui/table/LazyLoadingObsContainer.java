@@ -14,9 +14,12 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.ui.table;
 
+import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.common.IdEncoder;
 import org.sensorhub.api.database.IObsSystemDatabase;
@@ -36,8 +39,11 @@ public class LazyLoadingObsContainer extends IndexedContainer
     final List<ScalarIndexer> indexers;
     final int pageSize;
     int startIndexCache = -1;
+    int prevStartIndex = 0;
     int size = -1;
     TimeExtent timeRange;
+    Instant firstObsTime, lastObsTime;
+    BigId firstObsId, lastObsId;
         
     
     public LazyLoadingObsContainer(IObsSystemDatabase db, IdEncoder foiIdEncoder, BigId dataStreamID, Set<BigId> foiIDs, List<ScalarIndexer> indexers, int pageSize)
@@ -70,42 +76,110 @@ public class LazyLoadingObsContainer extends IndexedContainer
     {
         if (timeRange != null && startIndexCache != startIndex)
         {
-            startIndexCache = startIndex;
+            TimeExtent pageTimeRange;
+            long limit = 0;
+            long skipCount = 0;
+            BigId nextKey;
+            boolean descending = false;
+            
+            // next page
+            if (startIndex == prevStartIndex+pageSize && lastObsTime != null && lastObsId != null) {
+                pageTimeRange = TimeExtent.period(lastObsTime, timeRange.end());
+                skipCount = 1;
+                limit = pageSize*100;
+                nextKey = lastObsId;
+            }
+            
+            // previous page
+            else if (startIndex == prevStartIndex-pageSize && firstObsTime != null && firstObsId != null) {
+                pageTimeRange = TimeExtent.period(timeRange.begin(), firstObsTime);
+                skipCount = 1;
+                limit = pageSize*100;
+                nextKey = firstObsId;
+                descending = true;
+            }
+            
+            // last page
+            else if (startIndex >= size()-10) {
+                pageTimeRange = TimeExtent.period(timeRange.begin(), timeRange.end());
+                skipCount = 0;
+                limit = size() % pageSize;
+                nextKey = null;
+                descending = true;
+            }
+            
+            // any other page, use skip (inefficient for large page number)
+            else {
+                pageTimeRange = timeRange;
+                skipCount = startIndex;
+                limit = pageSize + startIndex;
+                nextKey = null;
+            }
+            
+            startIndexCache = prevStartIndex = startIndex;
             //System.out.println("Loading from " + startIndex + ", count=" + numberOfIds);
             
             var filter = new ObsFilter.Builder()
                 .withDataStreams(dataStreamID)
-                .withPhenomenonTime().fromTimeExtent(timeRange).done();
+                .withPhenomenonTime()
+                    .fromTimeExtent(pageTimeRange)
+                    .descendingOrder(descending)
+                    .done()
+                .withLimit(limit);
             if (!foiIDs.isEmpty())
                 filter.withFois(foiIDs);
             
             // prefetch range from DB
+            // wee seek by time using the filter but we also need to go to the exact key
+            // since there can be multiple FOIs with the same timestamp
+            AtomicInteger count = new AtomicInteger(0);
+            var obsPage = db.getObservationStore().selectEntries(filter.build())
+                .dropWhile(e -> nextKey != null && !e.getKey().equals(nextKey))
+                .skip(skipCount)
+                .limit(pageSize)
+                .collect(Collectors.toList());
+            
+            // reverse order if data was collected in descending order
+            if (descending)
+                Collections.reverse(obsPage);
+            
+            // add all obs items to container
             removeAllItems();
-            AtomicInteger count = new AtomicInteger(startIndex);
-            db.getObservationStore().select(filter.build())
-                .skip(startIndex)
-                .limit(10)
-                .forEach(obs -> {
-                    //System.out.println(obs.getResultTime());
-                    var dataBlk = obs.getResult();
-                    Item item = addItem(count.getAndIncrement());
-                    if (item != null)
+            obsPage.forEach(e -> {
+                var obs = e.getValue();
+                
+                if (count.get() == 0) {
+                    firstObsTime = obs.getPhenomenonTime();
+                    firstObsId = e.getKey();
+                    //System.out.println("First: " + firstObsId + " -> " + firstObsTime);
+                }
+                else if (count.get() == pageSize-1) {
+                    lastObsTime = obs.getPhenomenonTime();
+                    lastObsId = e.getKey();
+                    //System.out.println("Last: " + lastObsId + " -> " + lastObsTime);
+                }
+                
+                //System.out.println("Adding " + e.getKey() + " -> " + obs.getResultTime());
+                var dataBlk = obs.getResult();
+                var itemId = count.getAndIncrement();
+                Item item = addItem(itemId);
+                if (item != null)
+                {
+                    int i = -1;
+                    for (Object colId: getContainerPropertyIds())
                     {
-                        int i = -1;
-                        for (Object colId: getContainerPropertyIds())
-                        {
-                            String value;
-                            
-                            if (i < 0)
-                                value = foiIdEncoder.encodeID(obs.getFoiID());
-                            else
-                                value = indexers.get(i).getStringValue(dataBlk);
-                            
-                            item.getItemProperty(colId).setValue(value);
-                            i++;
-                        }
+                        String value;
+                        
+                        if (i < 0)
+                            value = foiIdEncoder.encodeID(obs.getFoiID());
+                        else
+                            value = indexers.get(i).getStringValue(dataBlk);
+                        
+                        item.getItemProperty(colId).setValue(value);
+                        i++;
                     }
-                });
+                }
+            });
         }
         
         return (List<Object>)super.getItemIds();
