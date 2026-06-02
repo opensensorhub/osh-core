@@ -166,8 +166,10 @@ public class PagedTable extends Table {
         if (newIndex < 0) {
             newIndex = 0;
         }
-        if (newIndex >= 0 && newIndex != container.getStartIndex()) {
+        if (newIndex != container.getStartIndex()) {
             setPageFirstIndex(newIndex);
+        } else {
+            firePagedChangedEvent();
         }
     }
 
