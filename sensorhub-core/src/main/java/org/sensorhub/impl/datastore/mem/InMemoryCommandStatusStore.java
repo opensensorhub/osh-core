@@ -190,9 +190,15 @@ public class InMemoryCommandStatusStore extends InMemoryDataStore implements ICo
                 .flatMap(entry -> getStatusByCommand(entry.getKey()));
         }
             
+        // create comparator for time sort
+        Comparator<Entry<StatusKey, ICommandStatus>> comparator = Comparator.comparing(e -> e.getKey().reportTime);
+        if (filter.getReportTime() != null && filter.getReportTime().isDescendingOrder())
+            comparator = comparator.reversed();
+            
         // filter with predicate and apply limit
         resultStream = resultStream
             .filter(e -> filter.test(e.getValue()))
+            .sorted(comparator)
             .limit(filter.getLimit());
         
         // casting is ok since keys are subtypes of BigId

@@ -226,7 +226,7 @@ public class InMemoryObsStore extends InMemoryDataStore implements IObsStore
     public Stream<Entry<BigId, IObsData>> selectEntries(ObsFilter filter, Set<ObsField> fields)
     {
         Stream<Entry<ObsKey, IObsData>> resultStream = null;
-        
+                
         // fetch obs directly in case of filtering by internal IDs
         if (filter.getInternalIDs() != null)
         {
@@ -272,19 +272,31 @@ public class InMemoryObsStore extends InMemoryDataStore implements IObsStore
             if (dataStreamIDs.isEmpty())
                 return Stream.empty();
             
+            // create set of selected FOIs
+            Set<BigId> foiIDs = DataStoreUtils.selectFeatureIDs(foiStore, filter.getFoiFilter())
+                .collect(Collectors.toSet());
+            if (foiIDs.isEmpty())
+                return Stream.empty();
+            
             // cross product between list of datastream IDs and foiIDs
             resultStream = dataStreamIDs.stream()
                 .flatMap(dsID -> {
-                    return DataStoreUtils.selectFeatureIDs(foiStore, filter.getFoiFilter())
+                    return foiIDs.stream()
                         .flatMap(foiID -> {
                             return getObsByDataStreamAndFoi(dsID, foiID);
                         });
                 });
         }
+        
+        // create comparator for time sort
+        Comparator<Entry<ObsKey, IObsData>> comparator = Comparator.comparing(e -> e.getKey().phenomenonTime);
+        if (filter.getPhenomenonTime() != null && filter.getPhenomenonTime().isDescendingOrder())
+            comparator = comparator.reversed();
             
-        // filter with predicate and apply limit
+        // filter with predicate, sort by time and apply limit
         resultStream = resultStream
             .filter(e -> filter.test(e.getValue()))
+            .sorted(comparator)
             .limit(filter.getLimit());
         
         // casting is ok since keys are subtypes of BigId

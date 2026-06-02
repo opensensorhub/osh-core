@@ -243,10 +243,16 @@ public class InMemoryCommandStore extends InMemoryDataStore implements ICommandS
                     .anyMatch(status -> filter.getStatusFilter().test(status.getValue()));
             });
         }
+        
+        // create comparator for time sort
+        Comparator<Entry<CmdKey, ICommandData>> comparator = Comparator.comparing(e -> e.getKey().issueTime);
+        if (filter.getIssueTime() != null && filter.getIssueTime().isDescendingOrder())
+            comparator = comparator.reversed();
             
-        // filter with predicate and apply limit
+        // filter with predicate, sort by time and apply limit
         resultStream = resultStream
             .filter(e -> filter.test(e.getValue()))
+            .sorted(comparator)
             .limit(filter.getLimit());
         
         // casting is ok since keys are subtypes of BigId
