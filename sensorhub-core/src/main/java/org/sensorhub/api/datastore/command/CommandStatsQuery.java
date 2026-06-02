@@ -17,6 +17,7 @@ package org.sensorhub.api.datastore.command;
 import java.time.Duration;
 import org.sensorhub.api.datastore.IQueryFilter;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 
 
@@ -33,6 +34,7 @@ public class CommandStatsQuery implements IQueryFilter
     protected CommandFilter commandFilter = new CommandFilter.Builder().build();
     protected Duration histogramBinSize;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -57,6 +59,13 @@ public class CommandStatsQuery implements IQueryFilter
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -98,6 +107,7 @@ public class CommandStatsQuery implements IQueryFilter
             instance.commandFilter = base.commandFilter;
             instance.histogramBinSize = base.histogramBinSize;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         
@@ -131,7 +141,15 @@ public class CommandStatsQuery implements IQueryFilter
 
         public B withLimit(int limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
+            return (B)this;
+        }
+        
+
+        public B withOffset(long offset)
+        {
+            instance.offset = offset;
             return (B)this;
         }
     }

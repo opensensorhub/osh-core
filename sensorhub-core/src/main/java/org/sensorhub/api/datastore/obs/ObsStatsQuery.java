@@ -17,6 +17,7 @@ package org.sensorhub.api.datastore.obs;
 import java.time.Duration;
 import org.sensorhub.api.datastore.IQueryFilter;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 
 
@@ -34,6 +35,7 @@ public class ObsStatsQuery implements IQueryFilter
     protected boolean aggregateFois = false;
     protected Duration histogramBinSize;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -64,6 +66,13 @@ public class ObsStatsQuery implements IQueryFilter
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -106,6 +115,7 @@ public class ObsStatsQuery implements IQueryFilter
             instance.aggregateFois = base.aggregateFois;
             instance.histogramBinSize = base.histogramBinSize;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         
@@ -146,7 +156,16 @@ public class ObsStatsQuery implements IQueryFilter
 
         public B withLimit(long limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        public B withOffset(long offset)
+        {
+            Asserts.checkArgument(offset >= 0, offset);
+            instance.offset = offset;
             return (B)this;
         }
     }

@@ -29,6 +29,7 @@ import org.sensorhub.api.datastore.feature.FoiFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.utils.FilterUtils;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.collect.ImmutableSortedSet;
 
@@ -52,6 +53,7 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
     protected FoiFilter foiFilter;
     protected Predicate<IObsData> valuePredicate;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -106,6 +108,13 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -188,6 +197,9 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
         var valuePredicate = this.valuePredicate != null ? this.valuePredicate.and(filter.valuePredicate) : filter.valuePredicate;
         if (valuePredicate != null)
             builder.withValuePredicate(valuePredicate);
+        
+        var offset = Math.max(this.offset, filter.offset);
+        builder.withOffset(offset);
         
         var limit = Math.min(this.limit, filter.limit);
         builder.withLimit(limit);
@@ -278,6 +290,7 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
             instance.foiFilter = base.foiFilter;
             instance.valuePredicate = base.valuePredicate;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         
@@ -603,7 +616,21 @@ public class ObsFilter implements IQueryFilter, Predicate<IObsData>
          */
         public B withLimit(long limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        /**
+         * Sets the offset of the first observation to retrieve, among the ones matching the filter
+         * @param offset Offset of first observation
+         * @return This builder for chaining
+         */
+        public B withOffset(long offset)
+        {
+            Asserts.checkArgument(offset >= 0, offset);
+            instance.offset = offset;
             return (B)this;
         }
     }

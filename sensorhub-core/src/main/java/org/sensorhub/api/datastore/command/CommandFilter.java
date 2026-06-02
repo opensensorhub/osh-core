@@ -28,6 +28,7 @@ import org.sensorhub.api.datastore.TemporalFilter;
 import org.sensorhub.api.datastore.system.SystemFilter;
 import org.sensorhub.utils.FilterUtils;
 import org.sensorhub.utils.ObjectUtils;
+import org.vast.util.Asserts;
 import org.vast.util.BaseBuilder;
 import com.google.common.collect.ImmutableSortedSet;
 
@@ -50,6 +51,7 @@ public class CommandFilter implements IQueryFilter, Predicate<ICommandData>
     protected CommandStatusFilter statusFilter;
     protected Predicate<ICommandData> valuePredicate;
     protected long limit = Long.MAX_VALUE;
+    protected long offset = 0;
     
     
     /*
@@ -98,6 +100,13 @@ public class CommandFilter implements IQueryFilter, Predicate<ICommandData>
     public long getLimit()
     {
         return limit;
+    }
+
+
+    @Override
+    public long getOffset()
+    {
+        return offset;
     }
 
 
@@ -162,6 +171,9 @@ public class CommandFilter implements IQueryFilter, Predicate<ICommandData>
         var valuePredicate = this.valuePredicate != null ? this.valuePredicate.and(filter.valuePredicate) : filter.valuePredicate;
         if (valuePredicate != null)
             builder.withValuePredicate(valuePredicate);
+        
+        var offset = Math.max(this.offset, filter.offset);
+        builder.withOffset(offset);
         
         var limit = Math.min(this.limit, filter.limit);
         builder.withLimit(limit);
@@ -250,6 +262,7 @@ public class CommandFilter implements IQueryFilter, Predicate<ICommandData>
             instance.statusFilter = base.statusFilter;
             instance.valuePredicate = base.valuePredicate;
             instance.limit = base.limit;
+            instance.offset = base.offset;
             return (B)this;
         }
         
@@ -505,7 +518,21 @@ public class CommandFilter implements IQueryFilter, Predicate<ICommandData>
          */
         public B withLimit(long limit)
         {
+            Asserts.checkArgument(limit >= 0, limit);
             instance.limit = limit;
+            return (B)this;
+        }
+
+
+        /**
+         * Sets the offset of the first command to retrieve, among the ones matching the filter
+         * @param offset Offset of first command
+         * @return This builder for chaining
+         */
+        public B withOffset(long offset)
+        {
+            Asserts.checkArgument(offset >= 0, offset);
+            instance.offset = offset;
             return (B)this;
         }
     }

@@ -104,7 +104,7 @@ public class ObsStatsHandler extends BaseHandler
         // fetch from DB and temporarily handle paging here
         try (var results = db.getObservationStore().getStatistics(query))
         {
-            var it = results.skip(offset)
+            var it = results
                 .limit(limit+1) // get one more so we know when to enable paging
                 .iterator();
             
@@ -216,9 +216,10 @@ public class ObsStatsHandler extends BaseHandler
         else
             queryBuilder.aggregateFois(false);
         
-        // limit
-        // need to limit to offset+limit+1 since we rescan from the beginning for now
-        queryBuilder.withLimit(offset+limit+1);
+        // offset and limit
+        builder.withOffset(offset);
+        if (limit != Long.MAX_VALUE)
+            builder.withLimit(limit+1);
         
         return queryBuilder.build(); 
     }

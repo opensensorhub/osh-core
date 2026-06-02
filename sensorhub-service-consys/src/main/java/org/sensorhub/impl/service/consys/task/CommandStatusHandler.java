@@ -300,10 +300,10 @@ public class CommandStatusHandler extends BaseResourceHandler<BigId, ICommandSta
             }
         }
         
-        // limit
-        // need to limit to offset+limit+1 since we rescan from the beginning for now
+        // offset and limit
+        builder.withOffset(offset);
         if (limit != Long.MAX_VALUE)
-            builder.withLimit(offset+limit+1);
+            builder.withLimit(limit+1);
         
         return builder.build();
     }

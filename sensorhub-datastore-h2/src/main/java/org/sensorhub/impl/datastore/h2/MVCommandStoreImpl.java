@@ -304,6 +304,7 @@ public class MVCommandStoreImpl implements ICommandStore
                
         // stream output of merge sort iterator + apply limit
         return StreamSupport.stream(mergeSortIt, false)
+            .skip(filter.getOffset())
             .limit(filter.getLimit())
             .onClose(() -> mergeSortIt.close());
     }

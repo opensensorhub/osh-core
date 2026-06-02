@@ -51,6 +51,8 @@
         },
         "withDatastreams": {
             "observedProperties": ["http://blabla/air_pressure"]
-        }
+        },
+        "offset": 100,
+        "limit": 200
     }
 ]

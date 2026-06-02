@@ -187,6 +187,7 @@ public class MVCommandStatusStoreImpl implements ICommandStatusStore
         
         // post filter status record
         resultStream = resultStream.filter(e -> filter.test(e.getValue()))
+            .skip(filter.getOffset())
             .limit(filter.getLimit());
         
         // casting is ok since keys are subtypes of BigId
