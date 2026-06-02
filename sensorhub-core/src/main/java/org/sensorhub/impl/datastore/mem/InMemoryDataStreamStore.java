@@ -224,8 +224,13 @@ public class InMemoryDataStreamStore
                 var newValidTime = dsInfo.getValidTime().begin();
                 
                 // error if datastream with same system/name/validTime already exists
+                // unless updating the same key
                 if (prevValidTime.equals(newValidTime))
+                {
+                    if (replace && key.equals(dsKey))
+                        return map.put(dsKey, dsInfo);
                     throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_DATASTREAM);
+                }
                 
                 // don't add if previous entry had a more recent valid time
                 // or if new entry is dated in the future
