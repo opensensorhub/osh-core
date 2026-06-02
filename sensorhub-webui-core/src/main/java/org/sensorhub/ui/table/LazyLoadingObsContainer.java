@@ -130,14 +130,16 @@ public class LazyLoadingObsContainer extends IndexedContainer
                 filter.withFois(foiIDs);
             
             // prefetch range from DB
-            // wee seek by time using the filter but we also need to go to the exact key
-            // since there can be multiple FOIs with the same timestamp
+            // we seek by time using the filter but we also need to go to the exact key
+            // in case there are multiple FOIs with the same timestamp
             AtomicInteger count = new AtomicInteger(0);
-            var obsPage = db.getObservationStore().selectEntries(filter.build())
+            var obsStream = db.getObservationStore().selectEntries(filter.build());
+            var obsPage = obsStream
                 .dropWhile(e -> nextKey != null && !e.getKey().equals(nextKey))
                 .skip(skipCount)
                 .limit(pageSize)
                 .collect(Collectors.toList());
+            obsStream.close();
             
             // reverse order if data was collected in descending order
             if (descending)
