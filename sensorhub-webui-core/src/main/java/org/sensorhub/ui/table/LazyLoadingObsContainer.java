@@ -104,6 +104,7 @@ public class LazyLoadingObsContainer extends IndexedContainer
                 pageTimeRange = TimeExtent.period(timeRange.begin(), timeRange.end());
                 skipCount = 0;
                 limit = size() % pageSize;
+                if (limit == 0) limit = 10;
                 nextKey = null;
                 descending = true;
             }

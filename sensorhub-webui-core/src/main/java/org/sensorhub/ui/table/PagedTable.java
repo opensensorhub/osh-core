@@ -4,6 +4,7 @@ import com.vaadin.data.validator.IntegerRangeValidator;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
 import com.vaadin.v7.data.Container;
+import com.vaadin.v7.data.Property;
 import com.vaadin.v7.ui.Table;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -97,6 +98,15 @@ public class PagedTable extends Table {
                     pages = (int) Math.floor((double)size / getPageLength());
                 }
                 firstIndex = pages * getPageLength();
+            }
+            
+            // cleanup old listeners
+            for (var id: container.getItemIds()) {
+                var item = container.getItem(id);
+                for (var propId: item.getItemPropertyIds()) {
+                    var prop = item.getItemProperty(propId);
+                    ((Property.ValueChangeNotifier)prop).removeValueChangeListener(this);
+                }
             }
             
             container.setStartIndex(firstIndex);
