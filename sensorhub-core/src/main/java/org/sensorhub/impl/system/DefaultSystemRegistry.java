@@ -389,6 +389,8 @@ public class DefaultSystemRegistry implements ISystemDriverRegistry
                 {
                     if (sysUid.equals(e.getSystemUID()) && outputName.equals(e.getOutputName()))
                         fetchFromDataStore();
+                    else
+                        subscription.request(1);
                 }
                 
                 void fetchFromDataStore()
