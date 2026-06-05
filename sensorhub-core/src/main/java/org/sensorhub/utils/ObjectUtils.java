@@ -12,7 +12,9 @@ package org.sensorhub.utils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
+import java.util.Set;
 
 
 /**
@@ -35,10 +37,25 @@ public class ObjectUtils
     }
     
     
+    public static String toString(Object object, boolean recursive, Set<String> collapsedFields)
+    {
+        return toString(object, recursive, false, collapsedFields);
+    }
+    
+    
     public static String toString(Object object, boolean recursive, boolean hideNulls)
+    {        
+        return toString(object, recursive, hideNulls, null);
+    }
+    
+    
+    public static String toString(Object object, boolean recursive, boolean hideNulls, Set<String> collapsedFields)
     {
         if (object == null)
             return "null";
+        
+        if (collapsedFields == null)
+            collapsedFields = Collections.emptySet();
 
         // build class hierarchy so we can list fields of super class first
         Class<?> clazz = object.getClass();
@@ -68,6 +85,7 @@ public class ObjectUtils
                         {
                             String objString =
                                 (val == null) ? "null" : 
+                                (val != null && collapsedFields.contains(f.getName())) ? "..." :
                                 val.getClass().getSimpleName().contains("$$Lambda$") ? "lambda" :
                                 f.getType() == double[].class ? Arrays.toString((double[])val) :
                                 f.getType() == float[].class ? Arrays.toString((float[])val) :

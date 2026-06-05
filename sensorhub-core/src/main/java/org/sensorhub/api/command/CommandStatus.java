@@ -15,6 +15,7 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.api.command;
 
 import java.time.Instant;
+import java.util.Set;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.utils.OshAsserts;
 import org.sensorhub.utils.ObjectUtils;
@@ -249,7 +250,7 @@ public class CommandStatus implements ICommandStatus
     @Override
     public String toString()
     {
-        return ObjectUtils.toString(this, true);
+        return ObjectUtils.toString(this, true, Set.of("result"));
     }
     
     
