@@ -124,11 +124,21 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
             IHttpClient httpClient = (IHttpClient) Class.forName(config.httpClientImplClass)
                     .getDeclaredConstructor()
                     .newInstance();
-            this.client = ConSysApiClient.
-                    newBuilder(apiEndpointUrl)
-                    .useHttpClient(httpClient)
-                    .simpleAuth(config.conSys.user, !config.conSys.password.isEmpty() ? config.conSys.password.toCharArray() : null)
-                    .build();
+
+            if (config.conSysOAuth != null && config.conSysOAuth.oAuthEnabled) {
+                this.client = ConSysApiClient.
+                        newBuilder(apiEndpointUrl)
+                        .useHttpClient(httpClient)
+                        .tokenHandler(new OAuthTokenHandler(config.conSysOAuth))
+                        .build();
+            } else {
+                String pwd = config.conSys.password;
+                this.client = ConSysApiClient.
+                        newBuilder(apiEndpointUrl)
+                        .useHttpClient(httpClient)
+                        .simpleAuth(config.conSys.user, pwd != null && !pwd.isEmpty() ? pwd.toCharArray() : null)
+                        .build();
+            }
         } catch (ReflectiveOperationException e) {
             throw new SensorHubException("Unable to instantiate HTTP client: " + config.httpClientImplClass, e);
         }
