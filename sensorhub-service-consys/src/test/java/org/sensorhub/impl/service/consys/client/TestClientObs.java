@@ -67,7 +67,7 @@ public class TestClientObs extends TestClientBase
             .newBuilder(apiRootUrl)
             .build();
         
-        var dsInfo = client.getDatastreamSchema(dsId, ResourceFormat.SWE_JSON, ResourceFormat.JSON).get();
+        var dsInfo = client.getDataStreamSchema(dsId, ResourceFormat.SWE_JSON, ResourceFormat.JSON).get();
         var recordStruct = dsInfo.getRecordStructure();
         
         var now = Instant.now().truncatedTo(ChronoUnit.SECONDS).minusSeconds(3600);

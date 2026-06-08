@@ -101,14 +101,46 @@ public class TestClientDataStreams extends TestClientBase
             .newBuilder(apiRootUrl)
             .build();
         
-        var dsInfo = client.getDatastreamById(dsId, ResourceFormat.JSON, false).get();
         
+        var dsInfo = client.getDataStreamById(dsId, ResourceFormat.JSON, false).get();
         assertEquals(recordStruct.getName(), dsInfo.getOutputName());
         assertEquals(systemTests.getSystemUid(1), dsInfo.getSystemID().getUniqueID());
         assertTrue(((FeatureLink)dsInfo.getSystemID()).getLink().getHref().contains(sysId));
     }
     
     
+
+
+    @Test
+    public void testGetDataStreams() throws Exception
+    {
+        var sysId = systemTests.addSystem(1, true);
+
+        var swe = new GeoPosHelper();
+        var recordStruct = swe.createLocationVectorLLA()
+            .name("pos")
+            .build();
+
+        int totalDataStreams = 5;
+        var addedIds = new ArrayList<String>();
+        for (int i = 0; i < totalDataStreams; i++)
+        {
+            var struct = recordStruct.copy();
+            struct.setName("output" + i);
+            var dsId = addDataStream(sysId, i, struct, false);
+            addedIds.add(dsId);
+        }
+
+        var client = ConSysApiClient
+            .newBuilder(apiRootUrl)
+            .build();
+
+        var allDataStreams = client.getDataStreams(ResourceFormat.JSON, 10, 0).get();
+        var allDataStreamList = allDataStreams.toList();
+        assertEquals(totalDataStreams, allDataStreamList.size());
+    }
+
+
 
     protected String addDataStream(String sysId, int num, DataComponent recordStruct, boolean checkHead) throws Exception
     {
