@@ -237,7 +237,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 var responseCode = client.updateSystem(systemID, system).get();
                 boolean successful = responseCode == 204;
                 if(!successful)
-                    throw new ClientException("Failed to update resource: " + apiEndpointUrl  + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
+                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + ConSysApiClient.SYSTEMS_COLLECTION + "/" + systemID);
                 return systemID;
             }
         } catch (ExecutionException | InterruptedException | ClientException e) {
@@ -256,7 +256,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 var responseCode = client.updateSamplingFeature(samplingFeatureId, feature).get();
                 boolean successful = responseCode == 204;
                 if (!successful)
-                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + "/" + ConSysApiClient.SF_COLLECTION + "/" + samplingFeatureId);
+                    throw new ClientException("Failed to update resource: " + apiEndpointUrl + ConSysApiClient.SF_COLLECTION + "/" + samplingFeatureId);
                 return samplingFeatureId;
             }
         } catch (ExecutionException | InterruptedException | ClientException e) {
