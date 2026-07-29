@@ -15,7 +15,6 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.ui;
 
 import org.sensorhub.ui.api.UIConstants;
-import org.vast.data.DataValue;
 import org.vast.swe.SWEDataTypeUtils;
 import net.opengis.swe.v20.DataArray;
 import net.opengis.swe.v20.DataChoice;
@@ -168,7 +167,11 @@ public class SWECommonForm extends VerticalLayout
             
             if (showValues && dataComponent.hasData())
             {
-                var str = sweUtils.getStringValue((DataValue)dataComponent);
+                // cast to SimpleComponent (not DataValue): range components
+                // (QuantityRange, etc.) are SimpleComponents but not DataValues.
+                // getStringValue(SimpleComponent) already renders both scalars
+                // and ranges, so this is the same call for scalars.
+                var str = sweUtils.getStringValue((SimpleComponent)dataComponent);
                 if ("NaN".equals(str) || "null".equals(str))
                     str = "n/a";
                 
