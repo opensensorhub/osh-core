@@ -693,7 +693,7 @@ public class ConSysApiClient
     /* Datastreams */
     /*-------------*/
 
-    public CompletableFuture<IDataStreamInfo> getDataStreamById(String id, ResourceFormat format, boolean fetchSchema)
+    public CompletableFuture<IDataStreamInfo> getDatastreamById(String id, ResourceFormat format, boolean fetchSchema)
     {
         var cf1 = sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
             try
@@ -711,7 +711,7 @@ public class ConSysApiClient
         
         if (fetchSchema)
         {
-            return cf1.thenCombine(getDataStreamSchema(id, ResourceFormat.SWE_JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
+            return cf1.thenCombine(getDatastreamSchema(id, ResourceFormat.SWE_JSON, ResourceFormat.JSON), (dsInfo, schemaInfo) -> {
                 
                 schemaInfo.getRecordStructure().setName(dsInfo.getOutputName());
                 
@@ -800,7 +800,7 @@ public class ConSysApiClient
 
     }
 
-    public CompletableFuture<IDataStreamInfo> getDataStreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
+    public CompletableFuture<IDataStreamInfo> getDatastreamSchema(String id, ResourceFormat obsFormat, ResourceFormat format)
     {
         var obsFormatStr = urlQueryEncode(obsFormat.getMimeType());
         return sendGetRequest(endpoint.resolve(DATASTREAMS_COLLECTION + "/" + urlPathEncode(id) + "/schema?obsFormat="+obsFormatStr), format, body -> {
