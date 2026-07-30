@@ -169,7 +169,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
                 var mimeType = entry.getKey();
                 var formatImpl = entry.getValue();
                 
-                if (formatImpl.isCompatible(dsInfo))
+                if (formatImpl.isAutoSelectable(dsInfo))
                 {
                     obsFormat = formatImpl;
                     ctx.getLogger().info("Auto-selecting format {}", mimeType);
@@ -230,9 +230,13 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         
         var queryParams = ctx.getParameterMap();
         var filter = getFilter(ctx.getParentRef(), queryParams, 0, Long.MAX_VALUE);
-        var responseFormat = parseFormat(queryParams);
+        // default to the format already set by the transport layer, if any
+        // (e.g. MQTT ":data/<format-token>" subtopics); an explicit f= query
+        // param still takes precedence
+        var defaultFormat = ctx.getFormat() != null ? ctx.getFormat() : ResourceFormat.AUTO;
+        var responseFormat = parseFormat(queryParams, defaultFormat);
         ctx.setFormatOptions(responseFormat, parseSelectArg(queryParams));
-        
+
         // detect if real-time request
         boolean isRealTime = (filter.getPhenomenonTime() == null && filter.getResultTime() == null) ||
                              (filter.getResultTime() != null && filter.getResultTime().beginsNow()) ||

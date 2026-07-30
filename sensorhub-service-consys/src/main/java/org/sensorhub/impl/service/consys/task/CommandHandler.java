@@ -46,6 +46,7 @@ import org.sensorhub.impl.service.consys.InvalidRequestException.ErrorCode;
 import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
+import org.sensorhub.impl.service.consys.obs.CustomObsFormat;
 import org.sensorhub.impl.service.consys.resource.BaseResourceHandler;
 import org.sensorhub.impl.service.consys.resource.IResourceHandler;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
@@ -68,9 +69,10 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
     final SystemDatabaseTransactionHandler readOnlyTxHandler;
     final SystemDatabaseTransactionHandler fullTxHandler;
     final ScheduledExecutorService threadPool;
+    final Map<String, CustomObsFormat> customFormats;
     final Random random = new SecureRandom();
-    
-    
+
+
     public static class CommandHandlerContextData
     {
         public BigId streamID;
@@ -78,16 +80,23 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         public BigId foiId;
         public CommandStreamTransactionHandler dsHandler;
     }
-    
-    
+
+
     public CommandHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions)
     {
+        this(ctx, threadPool, permissions, java.util.Collections.emptyMap());
+    }
+
+
+    public CommandHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
+    {
         super(ctx.getReadDb().getCommandStore(), ctx.getCommandIdEncoder(), ctx, permissions);
-        
+
         this.eventBus = ctx.getEventBus();
         this.db = ctx.getReadDb();
         this.threadPool = threadPool;
-        
+        this.customFormats = customFormats != null ? customFormats : java.util.Collections.emptyMap();
+
         // I know the doc says otherwise but we need to use the federated DB for command transactions here
         // because we don't write to DB directly but rather send commands to systems that can be in other databases
         this.readOnlyTxHandler = new SystemDatabaseTransactionHandler(eventBus, ctx.getReadDb());
@@ -151,6 +160,15 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         }
         
         // select binding depending on format
+        // custom formats (e.g. application/swe+proto) take precedence when the
+        // requested mime type matches and the format supports commands
+        if (contextData.csInfo != null && customFormats.containsKey(format.getMimeType()))
+        {
+            var binding = customFormats.get(format.getMimeType()).getCommandBinding(ctx, idEncoders, contextData.csInfo, forReading);
+            if (binding != null)
+                return binding;
+        }
+
         if (format.isOneOf(ResourceFormat.AUTO, ResourceFormat.JSON))
             return new CommandBindingJson(ctx, idEncoders, forReading, dataStore);
         else
@@ -181,7 +199,11 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         
         var queryParams = ctx.getParameterMap();
         var filter = getFilter(ctx.getParentRef(), queryParams, 0, Long.MAX_VALUE);
-        var responseFormat = parseFormat(queryParams);
+        // default to the format already set by the transport layer, if any
+        // (e.g. MQTT ":data/<format-token>" subtopics); an explicit f= query
+        // param still takes precedence
+        var defaultFormat = ctx.getFormat() != null ? ctx.getFormat() : ResourceFormat.AUTO;
+        var responseFormat = parseFormat(queryParams, defaultFormat);
         ctx.setFormatOptions(responseFormat, parseSelectArg(queryParams));
         
         // continue when streaming actually starts

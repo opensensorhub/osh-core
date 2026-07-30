@@ -172,6 +172,25 @@ public class RequestContext
     
     
     /*
+     * Constructor for other protocols providing their own path/params and output stream,
+     * for one-shot (non-streaming) GET responses (e.g. NATS request-reply read)
+     */
+    public RequestContext(RestApiServlet servlet, URI resourceURI, OutputStream os)
+    {
+        this.clientSide = false;
+        this.servlet = Asserts.checkNotNull(servlet, Servlet.class);
+        this.req = null;
+        this.resp = null;
+        this.requestPathInfo = null;
+        this.streamHandler = null;
+        this.inputStream = null;
+        this.outputStream = Asserts.checkNotNull(os, OutputStream.class);
+        this.path = splitPath(resourceURI.getPath());
+        this.queryParams = parseQueryParams(resourceURI.getQuery());
+    }
+
+
+    /*
      * Constructor for other protocols providing their own path/params and stream handler (e.g. MQTT subscribe)
      */
     public RequestContext(RestApiServlet servlet, URI resourceURI, StreamHandler streamHandler)

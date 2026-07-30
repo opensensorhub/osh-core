@@ -15,8 +15,11 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service.consys.task;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
 import net.opengis.swe.v20.BinaryEncoding;
 import org.sensorhub.api.command.CommandStreamInfo;
 import org.sensorhub.api.command.ICommandStreamInfo;
@@ -27,6 +30,8 @@ import org.sensorhub.api.feature.FeatureId;
 import org.sensorhub.impl.service.consys.InvalidRequestException;
 import org.sensorhub.impl.service.consys.ResourceParseException;
 import org.sensorhub.impl.service.consys.SWECommonUtils;
+import org.sensorhub.impl.service.consys.ServiceErrors;
+import org.sensorhub.impl.service.consys.obs.CustomObsFormat;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceBindingJson;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
@@ -37,6 +42,7 @@ import org.vast.swe.SWEHelper;
 import org.vast.swe.SWEStaxBindings;
 import org.vast.swe.json.SWEJsonStreamReader;
 import org.vast.swe.json.SWEJsonStreamWriter;
+import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
@@ -47,18 +53,26 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
     final CommandStreamAssocs assocs;
     final String rootURL;
     final SWEStaxBindings sweBindings;
+    final Map<String, CustomObsFormat> customFormats;
     SWEJsonStreamReader sweReader;
     SWEJsonStreamWriter sweWriter;
-    
-    
+
+
     public CommandStreamBindingJson(RequestContext ctx, IdEncoders idEncoders, IObsSystemDatabase db, boolean forReading) throws IOException
     {
+        this(ctx, idEncoders, db, forReading, Collections.emptyMap());
+    }
+
+
+    public CommandStreamBindingJson(RequestContext ctx, IdEncoders idEncoders, IObsSystemDatabase db, boolean forReading, Map<String, CustomObsFormat> customFormats) throws IOException
+    {
         super(ctx, idEncoders, forReading);
-        
+
         this.assocs = new CommandStreamAssocs(db, idEncoders);
         this.rootURL = ctx.getApiRootURL();
         this.sweBindings = new SWEStaxBindings();
-        
+        this.customFormats = customFormats != null ? customFormats : Collections.emptyMap();
+
         if (forReading)
             this.sweReader = new SWEJsonStreamReader(reader);
         else
@@ -103,21 +117,35 @@ public class CommandStreamBindingJson extends ResourceBindingJson<CommandStreamK
                     sysRef = readFeatureRef(reader);
                 else if ("schema".equals(prop))
                 {
-                    reader.beginObject();
-                    
-                    /*// obsFormat must come first!
-                    if (!reader.nextName().equals("commandFormat"))
-                        throw new ResourceParseException(MISSING_PROP_ERROR_MSG + "schema/obsFormat");
-                    var obsFormat = reader.nextString();
-                    
-                    ResourceBindingJson<DataStreamKey, IDataStreamInfo> schemaBinding = null;
-                    if (ResourceFormat.JSON.getMimeType().equals(obsFormat))
-                        schemaBinding = new CommandStreamSchemaBindingJson(ctx, idEncoders, reader);
-                    
-                    if (schemaBinding == null)
-                        throw ServiceErrors.unsupportedFormat(obsFormat);*/
-                    var schemaBinding = new CommandStreamSchemaBindingJson(ctx, idEncoders, reader);
-                    csInfo = schemaBinding.deserialize(reader);
+                    // Buffer the schema object so commandFormat can be inspected
+                    // without destructively consuming the stream. This preserves
+                    // backward compatibility with bodies that omit commandFormat or
+                    // don't list it first (e.g. legacy "parametersSchema"-first), while
+                    // still letting a custom format (application/swe+proto) opt in.
+                    boolean wasLenient = reader.isLenient();
+                    reader.setLenient(true);
+                    var schemaObj = JsonParser.parseReader(reader).getAsJsonObject();
+                    reader.setLenient(wasLenient);
+
+                    var commandFormat = schemaObj.has("commandFormat")
+                        ? schemaObj.get("commandFormat").getAsString() : null;
+                    var bufReader = new JsonReader(new StringReader(schemaObj.toString()));
+
+                    ResourceBindingJson<CommandStreamKey, ICommandStreamInfo> schemaBinding;
+                    if (commandFormat != null && customFormats.containsKey(commandFormat))
+                    {
+                        var custom = customFormats.get(commandFormat).getCommandSchemaBinding(ctx, idEncoders, null);
+                        if (!(custom instanceof ResourceBindingJson))
+                            throw ServiceErrors.unsupportedFormat(commandFormat);
+                        schemaBinding = (ResourceBindingJson<CommandStreamKey, ICommandStreamInfo>) custom;
+                    }
+                    else
+                    {
+                        // unchanged default: SWE-Common JSON via the JSON binding
+                        schemaBinding = new CommandStreamSchemaBindingJson(ctx, idEncoders, bufReader);
+                    }
+
+                    csInfo = schemaBinding.deserialize(bufReader);
                 }
                 else
                     reader.skipValue();

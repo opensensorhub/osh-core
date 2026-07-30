@@ -30,6 +30,7 @@ import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ConSysApiSecurity;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
+import org.sensorhub.impl.service.consys.obs.CustomObsFormat;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceBinding;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
@@ -46,14 +47,22 @@ public class CommandStreamHandler extends ResourceHandler<CommandStreamKey, ICom
     final IObsSystemDatabase db;
     final SystemDatabaseTransactionHandler transactionHandler;
     final CommandStreamEventsHandler eventsHandler;
-    
-    
+    final Map<String, CustomObsFormat> customFormats;
+
+
     public CommandStreamHandler(HandlerContext ctx, ResourcePermissions permissions)
+    {
+        this(ctx, permissions, java.util.Collections.emptyMap());
+    }
+
+
+    public CommandStreamHandler(HandlerContext ctx, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
     {
         super(ctx.getReadDb().getCommandStreamStore(), ctx.getCommandStreamIdEncoder(), ctx, permissions);
         this.db = ctx.getReadDb();
         this.transactionHandler = new SystemDatabaseTransactionHandler(ctx.getEventBus(), ctx.getWriteDb());
-        
+        this.customFormats = customFormats != null ? customFormats : java.util.Collections.emptyMap();
+
         this.eventsHandler = new CommandStreamEventsHandler(ctx, permissions);
         addSubResource(eventsHandler);
     }
@@ -70,7 +79,7 @@ public class CommandStreamHandler extends ResourceHandler<CommandStreamKey, ICom
             return new CommandStreamBindingHtml(ctx, idEncoders, db, true, title);
         }
         else if (format.isOneOf(ResourceFormat.AUTO, ResourceFormat.JSON))
-            return new CommandStreamBindingJson(ctx, idEncoders, db, forReading);
+            return new CommandStreamBindingJson(ctx, idEncoders, db, forReading, customFormats);
         else
             throw ServiceErrors.unsupportedFormat(format);
     }

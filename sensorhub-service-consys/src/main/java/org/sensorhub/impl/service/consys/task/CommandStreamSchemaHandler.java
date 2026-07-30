@@ -25,6 +25,7 @@ import org.sensorhub.impl.service.consys.InvalidRequestException;
 import org.sensorhub.impl.service.consys.HandlerContext;
 import org.sensorhub.impl.service.consys.ServiceErrors;
 import org.sensorhub.impl.service.consys.RestApiServlet.ResourcePermissions;
+import org.sensorhub.impl.service.consys.obs.CustomObsFormat;
 import org.sensorhub.impl.service.consys.resource.RequestContext;
 import org.sensorhub.impl.service.consys.resource.ResourceBinding;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
@@ -36,30 +37,52 @@ import org.vast.util.Asserts;
 public class CommandStreamSchemaHandler extends ResourceHandler<CommandStreamKey, ICommandStreamInfo, CommandStreamFilter, CommandStreamFilter.Builder, ICommandStreamStore>
 {
     public static final String[] NAMES = { "schema" };
-    
-    
+
+    final Map<String, CustomObsFormat> customFormats;
+
+
     public CommandStreamSchemaHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
-        super(ctx.getReadDb().getCommandStreamStore(), ctx.getCommandStreamIdEncoder(), ctx, permissions);
+        this(ctx, permissions, java.util.Collections.emptyMap());
     }
-    
-    
+
+
+    public CommandStreamSchemaHandler(HandlerContext ctx, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
+    {
+        super(ctx.getReadDb().getCommandStreamStore(), ctx.getCommandStreamIdEncoder(), ctx, permissions);
+        this.customFormats = customFormats != null ? customFormats : java.util.Collections.emptyMap();
+    }
+
+
     @Override
     protected ResourceBinding<CommandStreamKey, ICommandStreamInfo> getBinding(RequestContext ctx, boolean forReading) throws IOException
     {
         var format = ctx.getFormat();
         if (!format.isOneOf(ResourceFormat.AUTO, ResourceFormat.JSON))
             throw ServiceErrors.unsupportedFormat(format);
-        
+
         // generate proper schema depending on command format
         var cmdFormat = parseFormat("commandFormat", ctx.getParameterMap());
         if (cmdFormat == null)
             cmdFormat = ResourceFormat.JSON;
-        
+
         if (format.equals(ResourceFormat.AUTO) && ctx.isBrowserHtmlRequest())
             return new CommandStreamBindingHtml(ctx, idEncoders);
         else if (cmdFormat.equals(ResourceFormat.JSON))
             return new CommandStreamSchemaBindingJson(ctx, idEncoders, forReading);
+        // custom command formats (e.g. application/swe+proto) provide their own
+        // schema binding — checked before the SWE_FORMAT_PREFIX branch since
+        // swe+proto also starts with "application/swe+"
+        else if (customFormats.containsKey(cmdFormat.getMimeType()))
+        {
+            var csInfo = dataStore.get(new CommandStreamKey(ctx.getParentRef().internalID));
+            if (csInfo == null)
+                throw ServiceErrors.notFound();
+            var binding = customFormats.get(cmdFormat.getMimeType()).getCommandSchemaBinding(ctx, idEncoders, csInfo);
+            if (binding == null)
+                throw ServiceErrors.unsupportedFormat(cmdFormat);
+            return binding;
+        }
         else if (cmdFormat.getMimeType().startsWith(ResourceFormat.SWE_FORMAT_PREFIX))
             return new CommandStreamSchemaBindingSweCommon(cmdFormat, ctx, idEncoders, forReading);
         else
