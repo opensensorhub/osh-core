@@ -273,8 +273,13 @@ public class InMemoryCommandStreamStore implements ICommandStreamStore
                 var newValidTime = csInfo.getValidTime().begin();
                 
                 // error if command stream with same system/name/validTime already exists
+                // unless updating the same key
                 if (prevValidTime.equals(newValidTime))
+                {
+                    if (replace && key.equals(csKey))
+                        return map.put(csKey, csInfo);
                     throw new DataStoreException(DataStoreUtils.ERROR_EXISTING_COMMANDSTREAM);
+                }
                 
                 // don't add if previous entry had a more recent valid time
                 // or if new entry is dated in the future
