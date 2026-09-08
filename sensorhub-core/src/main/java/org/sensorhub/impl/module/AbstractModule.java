@@ -20,6 +20,7 @@ import org.sensorhub.api.event.IEventHandler;
 import org.sensorhub.api.event.IEventListener;
 import org.sensorhub.api.module.IModule;
 import org.sensorhub.api.module.IModuleStateManager;
+import org.sensorhub.api.module.ISubModule;
 import org.sensorhub.api.module.ModuleConfig;
 import org.sensorhub.api.module.ModuleEvent;
 import org.sensorhub.api.module.ModuleEvent.ModuleState;
@@ -281,10 +282,10 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
      * Sets the module error state and sends corresponding event
      * @param msg
      * @param error 
-     * @param logAsDebug set to true to log the exception only at debug level,
+     * @param logAtDebugLevel set to true to log the exception only at debug level,
      * false to log at error level
      */
-    public void reportError(String msg, Throwable error, boolean logAsDebug)
+    public void reportError(String msg, Throwable error, boolean logAtDebugLevel)
     {
         synchronized (stateLock)
         {
@@ -293,7 +294,7 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
             else
                 this.lastError = error;
             
-            if (!logAsDebug || getLogger().isDebugEnabled())
+            if (!logAtDebugLevel || getLogger().isDebugEnabled())
             {
                 if (msg != null)
                     getLogger().error(msg, error);
@@ -311,6 +312,12 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
                 eventHandler.publish(event);
             }
         }
+    }
+    
+    
+    public void reportSubModuleError(ISubModule<?> sm, String msg, Throwable error, boolean logAtDebugLevel)
+    {
+        this.reportError(sm.getName() + ": " + msg, error, logAtDebugLevel);
     }
     
     
@@ -347,6 +354,12 @@ public abstract class AbstractModule<ConfigType extends ModuleConfig> implements
             ModuleEvent event = new ModuleEvent(this, this.statusMsg);               
             eventHandler.publish(event);
         }
+    }
+    
+    
+    public void reportSubModuleStatus(ISubModule<?> sm, String msg)
+    {
+        this.reportStatus(sm.getName() + ": " + msg);
     }
     
     

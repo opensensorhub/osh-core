@@ -19,6 +19,7 @@ import org.sensorhub.api.module.IModule;
 import org.sensorhub.api.module.ISubModule;
 import org.sensorhub.api.module.SubModuleConfig;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vast.util.Asserts;
 
 
@@ -77,6 +78,28 @@ public abstract class AbstractSubModule<T extends SubModuleConfig> implements IS
     
     protected Logger getLogger()
     {
-        return getParentModule().getLogger();
+        return parentModule != null ?
+            parentModule.getLogger() :
+            LoggerFactory.getLogger(getClass());
+    }
+    
+    
+    protected void reportError(String msg, Throwable error, boolean logAtDebugLevel)
+    {
+        if (parentModule != null && parentModule instanceof AbstractModule) {
+            ((AbstractModule<?>)parentModule).reportSubModuleError(this, msg, error, logAtDebugLevel);
+        } else {
+            getLogger().error(msg, error);
+        }
+    }
+    
+    
+    protected void reportStatus(String msg)
+    {
+        if (parentModule != null && parentModule instanceof AbstractModule) {
+            ((AbstractModule<?>)parentModule).reportSubModuleStatus(this, msg);
+        } else {
+            getLogger().info(msg);
+        }
     }
 }
