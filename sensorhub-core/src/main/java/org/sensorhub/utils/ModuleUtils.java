@@ -231,7 +231,20 @@ public class ModuleUtils
         {
             LoggerContext logContext = new LoggerContext();
             logContext.setName(FileUtils.safeFileName(moduleID));
-            logContext.setMDCAdapter(new LogbackMDCAdapter());
+            try
+            {
+                logContext.setMDCAdapter(new LogbackMDCAdapter());
+            }
+            catch (NoSuchMethodError e)
+            {
+                /*
+                * The logback-android 3.0.0 ships 1.4.x classes, which is why a call compiled against 1.5.13 finds nothing. 
+                * The new 1.5 method, setMDCAdapter, will never resolve during runtime.
+                * The saved 1.4.x info used at runtime is still accessible thus we can skip the setMDCAdapter method.
+                * Once the latest logback-android project incorporates a 1.5.x release, this exception handling bracket can be removed.
+                */
+                log.debug("The logback-android 3.0.0 ships 1.4.x classes. Bypassing a 1.5.x setMDCAdapter method will allow the old tech to exist.");
+            }
             logContext.putProperty(LOG_MODULE_ID, FileUtils.safeFileName(moduleID));
             logContext.putProperty(LOG_MODULE_NAME, module.getName());
             new ContextInitializer(logContext).autoConfig();
