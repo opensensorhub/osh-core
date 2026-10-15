@@ -16,6 +16,8 @@ package org.sensorhub.utils;
 
 import static org.junit.Assert.*;
 import org.junit.Test;
+import org.vast.data.JSONEncodingImpl;
+import org.vast.data.TextEncodingImpl;
 import org.vast.swe.helper.GeoPosHelper;
 import org.vast.swe.helper.RasterHelper;
 import net.opengis.swe.v20.DataComponent;
@@ -109,6 +111,39 @@ public class TestDataComponentChecks
                 .build();
                                 
         assertTrue(DataComponentChecks.checkStructCompatible(rec1, rec2));
+    }
+
+
+    @Test
+    public void testCheckEqualJsonEncodings()
+    {
+        var enc1 = new JSONEncodingImpl();
+        var enc2 = new JSONEncodingImpl();
+
+        assertTrue(DataComponentChecks.checkEncodingEquals(enc1, enc2));
+        assertEquals(
+            DataComponentChecks.getEncodingEqualsHashCode(enc1),
+            DataComponentChecks.getEncodingEqualsHashCode(enc2));
+    }
+
+
+    @Test
+    public void testCheckJsonAndTextEncodingsDiffer()
+    {
+        var json = new JSONEncodingImpl();
+        var text = new TextEncodingImpl(",", "\n");
+
+        assertFalse(DataComponentChecks.checkEncodingEquals(json, text));
+    }
+
+
+    @Test
+    public void testCombinedHashSupportsJsonEncoding()
+    {
+        DataComponent record = geoHelper.newLocationVectorLatLon("test");
+
+        assertNotNull(
+            DataComponentChecks.getStructEqualsHashCode(record, new JSONEncodingImpl()));
     }
 
 }
