@@ -37,13 +37,13 @@ public class TestMVFeatureStore extends AbstractTestFeatureStore<MVFeatureStoreI
     }
     
     
-    protected void forceReadBackFromStorage()
+    protected void forceReadBackFromStorage() throws Exception
     {
         this.featureStore = openMVStore();
     }
     
     
-    private MVFeatureStoreImpl openMVStore()
+    private MVFeatureStoreImpl openMVStore() throws Exception
     {
         if (mvStore != null)
         {
@@ -52,11 +52,9 @@ public class TestMVFeatureStore extends AbstractTestFeatureStore<MVFeatureStoreI
             System.out.println("MVStore flushed to disk");
         }
         
-        mvStore = new MVStore.Builder()
-                .fileName(dbFile.getAbsolutePath())
+        mvStore = H2Utils.openMVStore(dbFile.getAbsolutePath(), new MVStore.Builder()
                 .autoCommitBufferSize(100)
-                .cacheSize(1)
-                .open();
+                .cacheSize(1), 1000);
         
         return MVFeatureStoreImpl.open(mvStore, DATABASE_NUM, IdProviderType.SEQUENTIAL, MVDataStoreInfo.builder()
             .withName(DATASTORE_NAME)

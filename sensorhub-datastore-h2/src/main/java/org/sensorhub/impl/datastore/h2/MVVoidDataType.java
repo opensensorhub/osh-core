@@ -15,8 +15,9 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 
 
 /**
@@ -29,7 +30,7 @@ import org.h2.mvstore.type.DataType;
  * @author Alex Robin
  * @date Oct 26, 2018
  */
-public class MVVoidDataType implements DataType
+public class MVVoidDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     private final static Object VALUE = new Object();
     
@@ -53,26 +54,15 @@ public class MVVoidDataType implements DataType
     {        
     }
     
-
-    @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-    }
     
 
     @Override
     public Object read(ByteBuffer buf)
     {
         // always return a value even though nothing is actually written to file
-        // this is needed because MVMap.contains() method checks that value is not null
+        // this is needed because MVMap.containsKey() checks that value is not null
         return VALUE;
     }
-    
 
-    @Override
-    public void read(ByteBuffer buf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buf);
-    }
+
 }

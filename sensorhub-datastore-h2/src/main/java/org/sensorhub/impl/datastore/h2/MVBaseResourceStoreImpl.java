@@ -106,9 +106,9 @@ public abstract class MVBaseResourceStoreImpl<K extends Comparable<? super K>, V
     }
     
     
-    protected abstract DataType getResourceKeyDataType(int idScope);
+    protected abstract DataType<? super K> getResourceKeyDataType(int idScope);
     
-    protected abstract DataType getResourceDataType(MVMap<String, Integer> kryoClassMap, int idScope);
+    protected abstract DataType<? super V> getResourceDataType(MVMap<String, Integer> kryoClassMap, int idScope);
 
     protected abstract K generateKey(V f);
     

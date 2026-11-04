@@ -15,7 +15,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.h2.mvstore;
 
 import java.nio.ByteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 
 
 /**
@@ -26,7 +26,7 @@ import org.h2.mvstore.type.DataType;
  * @author Alex Robin
  * @date Oct 26, 2018
  */
-public class MVVarLongDataType implements DataType
+public class MVVarLongDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
    
             
@@ -52,24 +52,10 @@ public class MVVarLongDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (Object o: obj)
-            write(wbuf, o);
-    }
-    
-
-    @Override
     public final Object read(ByteBuffer buf)
     {
         return DataUtils.readVarLong(buf);
     }
     
 
-    @Override
-    public void read(ByteBuffer buf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buf);
-    }
 }

@@ -20,7 +20,6 @@ import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.h2.mvstore.type.DataType;
-import org.h2.mvstore.type.ObjectDataType;
 
 
 /**
@@ -36,9 +35,23 @@ import org.h2.mvstore.type.ObjectDataType;
 public class MVBTreeMap<K, V> extends MVMap<K, V>
 {
 
-    protected MVBTreeMap(Map<String, Object> config)
+    protected MVBTreeMap(Map<String, Object> config, DataType<K> keyType, DataType<V> valueType)
     {
-        super(config);
+        super(config, keyType, valueType);
+    }
+
+
+    protected MVBTreeMap(MVBTreeMap<K, V> source)
+    {
+        super(source);
+    }
+
+
+    @Override
+    protected MVBTreeMap<K, V> cloneIt()
+    {
+        // H2 uses this hook to create read-only version snapshots.
+        return new MVBTreeMap<>(this);
     }
 
 
@@ -53,9 +66,9 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
      * This can be used when a partial key is used for retrieval
      */
     @SuppressWarnings({ "unchecked" })
-    private K getFullKey(Page p, Object key)
+    private K getFullKey(Page<K, V> p, Object key)
     {
-        int x = p.binarySearch(key);
+        int x = p.binarySearch((K)key);
         if (!p.isLeaf()) {
             if (x < 0) {
                 x = -x - 1;
@@ -66,7 +79,7 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
             return getFullKey(p, key);
         }
         if (x >= 0) {
-            return (K)p.getKey(x);
+            return p.getKey(x);
         }
         return null;
     }
@@ -82,9 +95,9 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
      * Same code as binarySearch method but returning full entry
      */
     @SuppressWarnings({ "unchecked" })
-    private Entry<K, V> getEntry(Page p, Object key)
+    private Entry<K, V> getEntry(Page<K, V> p, Object key)
     {
-        int x = p.binarySearch(key);
+        int x = p.binarySearch((K)key);
         if (!p.isLeaf()) {
             if (x < 0) {
                 x = -x - 1;
@@ -95,7 +108,7 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
             return getEntry(p, key);
         }
         if (x >= 0) {
-            return new SimpleEntry<>((K)p.getKey(x), (V)p.getValue(x));
+            return new SimpleEntry<>(p.getKey(x), p.getValue(x));
         }
         return null;
     }
@@ -128,8 +141,7 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
     /*
      * Same code as getMinMax method but returning full entry
      */
-    @SuppressWarnings("unchecked")
-    private Entry<K, V> getMinMaxEntry(Page p, K key, boolean min, boolean excluding) {
+    private Entry<K, V> getMinMaxEntry(Page<K, V> p, K key, boolean min, boolean excluding) {
         int x = p.binarySearch(key);
         if (p.isLeaf()) {
             if (x < 0) {
@@ -140,7 +152,7 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
             if (x < 0 || x >= p.getKeyCount()) {
                 return null;
             }
-            return new SimpleEntry<>((K)p.getKey(x), (V)p.getValue(x));
+            return new SimpleEntry<>(p.getKey(x), p.getValue(x));
         }
         if (x++ < 0) {
             x = -x;
@@ -171,62 +183,36 @@ public class MVBTreeMap<K, V> extends MVMap<K, V>
      * @param <K> the key type
      * @param <V> the value type
      */
-    public static class Builder<K, V> implements MapBuilder<MVBTreeMap<K, V>, K, V>
+    public static class Builder<K, V> extends MVMap.BasicBuilder<MVBTreeMap<K, V>, K, V>
     {
-        protected DataType keyType;
-        protected DataType valueType;
-
-
-        public Builder<K, V> keyType(DataType keyType)
+        public Builder()
         {
-            this.keyType = keyType;
+        }
+
+
+        @Override
+        public Builder<K, V> keyType(DataType<? super K> keyType)
+        {
+            setKeyType(keyType);
             return this;
         }
 
-        public Builder<K, V> valueType(DataType valueType)
+
+        @Override
+        public Builder<K, V> valueType(DataType<? super V> valueType)
         {
-            this.valueType = valueType;
+            setValueType(valueType);
             return this;
         }
 
-        @Override
-        public DataType getKeyType()
-        {
-            return keyType;
-        }
 
         @Override
-        public DataType getValueType()
+        protected MVBTreeMap<K, V> create(Map<String, Object> config)
         {
-            return valueType;
-        }
-
-        @Override
-        public void setKeyType(DataType dataType)
-        {
-            this.keyType = dataType;
-        }
-
-        @Override
-        public void setValueType(DataType dataType)
-        {
-            this.valueType = dataType;
-        }
-
-        @Override
-        public MVBTreeMap<K, V> create(MVStore store, Map<String, Object> config)
-        {
-            if (keyType == null)
-                keyType = new ObjectDataType();
-
-            if (valueType == null)
-                valueType = new ObjectDataType();
-            
-            config.put("store", store);
-            config.put("key", keyType);
-            config.put("val", valueType);
-
-            return new MVBTreeMap<>(config);
+            Object type = config.get("type");
+            if (type == null)
+                return new MVBTreeMap<>(config, getKeyType(), getValueType());
+            throw new IllegalArgumentException("Incompatible map type");
         }
     }
 }

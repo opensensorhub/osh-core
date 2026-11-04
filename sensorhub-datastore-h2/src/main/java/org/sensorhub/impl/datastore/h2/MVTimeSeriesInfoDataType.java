@@ -15,9 +15,10 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 
 
 /**
@@ -28,7 +29,7 @@ import org.h2.mvstore.type.DataType;
  * @author Alex Robin
  * @date Sep 13, 2019
  */
-public class MVTimeSeriesInfoDataType implements DataType
+public class MVTimeSeriesInfoDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     private static final int MEM_SIZE = 8; // long ID
     
@@ -57,26 +58,11 @@ public class MVTimeSeriesInfoDataType implements DataType
 
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         long id = DataUtils.readVarLong(buff);
         return new MVTimeSeriesInfo(id);
     }
 
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);
-    }
 
 }

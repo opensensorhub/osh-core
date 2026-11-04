@@ -15,9 +15,10 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 
 
@@ -30,7 +31,7 @@ import org.sensorhub.api.datastore.feature.FeatureKey;
  * @author Alex Robin
  * @date Oct 28, 2018
  */
-class MVFeatureParentKeyDataType implements DataType
+class MVFeatureParentKeyDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     final int idScope;
     final boolean storeValidTime;
@@ -88,14 +89,6 @@ class MVFeatureParentKeyDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buf)
     {
         long parentID = DataUtils.readVarLong(buf);
@@ -111,10 +104,4 @@ class MVFeatureParentKeyDataType implements DataType
     }
     
 
-    @Override
-    public void read(ByteBuffer buf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buf);
-    }
 }

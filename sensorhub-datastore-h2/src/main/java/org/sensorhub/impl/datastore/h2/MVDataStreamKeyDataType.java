@@ -15,9 +15,10 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 
 
@@ -29,7 +30,7 @@ import org.sensorhub.api.datastore.obs.DataStreamKey;
  * @author Alex Robin
  * @date Nov 3, 2020
  */
-class MVDataStreamKeyDataType implements DataType
+class MVDataStreamKeyDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     final int idScope;
     
@@ -69,26 +70,11 @@ class MVDataStreamKeyDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         long internalID = DataUtils.readVarLong(buff);
         return new DataStreamKey(idScope, internalID);
     }
     
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);
-    }
 
 }

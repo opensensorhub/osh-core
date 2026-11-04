@@ -33,7 +33,7 @@ import org.h2.mvstore.MVMap;
 import org.h2.mvstore.MVMap.Decision;
 import org.h2.mvstore.MVStore;
 import org.h2.mvstore.RangeCursor;
-import org.h2.mvstore.rtree.SpatialKey;
+import org.h2.mvstore.rtree.Spatial;
 import org.h2.mvstore.type.DataType;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.datastore.DataStoreException;
@@ -178,7 +178,7 @@ public abstract class MVBaseFeatureStoreImpl<V extends IFeature, VF extends Feat
         mapName = dataStoreInfo.getName() + ":" + FEATURE_SPATIAL_INDEX_MAP_NAME;
         this.spatialIndex = new SpatialIndex<>(mvStore, mapName, new MVFeatureParentKeyDataType(idScope, true)) {
             @Override
-            protected SpatialKey getSpatialKey(MVFeatureParentKey key, IFeature f)
+            protected Spatial getSpatialKey(MVFeatureParentKey key, IFeature f)
             {
                 if (f.getGeometry() == null)
                     return null;
@@ -196,7 +196,7 @@ public abstract class MVBaseFeatureStoreImpl<V extends IFeature, VF extends Feat
     }
     
     
-    protected DataType getFeatureDataType(MVMap<String, Integer> kryoClassMap)
+    protected DataType<? super V> getFeatureDataType(MVMap<String, Integer> kryoClassMap)
     {
         return new FeatureDataType(kryoClassMap);
     }

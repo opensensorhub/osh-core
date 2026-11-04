@@ -17,7 +17,7 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
-import org.h2.mvstore.rtree.SpatialKey;
+import org.h2.mvstore.rtree.Spatial;
 
 
 /**
@@ -31,16 +31,16 @@ import org.h2.mvstore.rtree.SpatialKey;
  * @author Alex Robin
  * @since Jan 23, 2022
  */
-public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
+public class RTreeEntryCursor<V> implements Iterator<Entry<Spatial, V>> {
 
-    private final SpatialKey filter;
-    private CursorPos pos;
-    private SpatialKey currentKey, lastKey;
+    private final Spatial filter;
+    private CursorPos<Spatial, V> pos;
+    private Spatial currentKey, lastKey;
     private V currentVal, lastVal;
-    private final Page root;
+    private final Page<Spatial, V> root;
     private boolean initialized;
 
-    protected RTreeEntryCursor(Page root, SpatialKey filter) {
+    protected RTreeEntryCursor(Page<Spatial, V> root, Spatial filter) {
         this.root = root;
         this.filter = filter;
     }
@@ -49,7 +49,7 @@ public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
     public boolean hasNext() {
         if (!initialized) {
             // init
-            pos = new CursorPos(root, 0, null);
+            pos = new CursorPos<>(root, 0, null);
             fetchNext();
             initialized = true;
         }
@@ -69,7 +69,7 @@ public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
     }
 
     @Override
-    public Entry<SpatialKey, V> next() {
+    public Entry<Spatial, V> next() {
         if (!hasNext()) {
             throw new NoSuchElementException();
         }
@@ -91,14 +91,14 @@ public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
     @SuppressWarnings("unchecked")
     protected void fetchNext() {
         while (pos != null) {
-            Page p = pos.page;
+            Page<Spatial, V> p = pos.page;
             if (p.isLeaf()) {
                 while (pos.index < p.getKeyCount()) {
                     int index = pos.index++;
-                    SpatialKey c = (SpatialKey) p.getKey(index);
+                    Spatial c = p.getKey(index);
                     if (filter == null || check(true, c, filter)) {
                         currentKey = c;
-                        currentVal = (V)p.getValue(index);
+                        currentVal = p.getValue(index);
                         return;
                     }
                 }
@@ -106,10 +106,10 @@ public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
                 boolean found = false;
                 while (pos.index < p.getKeyCount()) {
                     int index = pos.index++;
-                    SpatialKey c = (SpatialKey) p.getKey(index);
+                    Spatial c = p.getKey(index);
                     if (filter == null || check(false, c, filter)) {
-                        Page child = pos.page.getChildPage(index);
-                        pos = new CursorPos(child, 0, pos);
+                        Page<Spatial, V> child = pos.page.getChildPage(index);
+                        pos = new CursorPos<>(child, 0, pos);
                         found = true;
                         break;
                     }
@@ -133,7 +133,7 @@ public class RTreeEntryCursor<V> implements Iterator<Entry<SpatialKey, V>> {
      * @return true if there is a match
      */
     @SuppressWarnings("unused")
-    protected boolean check(boolean leaf, SpatialKey key, SpatialKey test) {
+    protected boolean check(boolean leaf, Spatial key, Spatial test) {
         return true;
     }
 

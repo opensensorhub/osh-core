@@ -14,7 +14,6 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore.h2;
 
-import org.h2.mvstore.type.DataType;
 import org.sensorhub.api.common.BigId;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 
@@ -27,7 +26,7 @@ import org.sensorhub.api.datastore.feature.FeatureKey;
  * @author Alex Robin
  * @date Oct 28, 2020
  */
-class MVFeatureParentKeyByIdDataType extends MVFeatureParentKeyDataType implements DataType
+class MVFeatureParentKeyByIdDataType extends MVFeatureParentKeyDataType
 {
     
     MVFeatureParentKeyByIdDataType(int idScope)

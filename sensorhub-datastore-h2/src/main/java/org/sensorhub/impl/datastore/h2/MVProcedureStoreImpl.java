@@ -83,7 +83,7 @@ public class MVProcedureStoreImpl extends MVBaseFeatureStoreImpl<IProcedureWithD
     
     
     @Override
-    protected DataType getFeatureDataType(MVMap<String, Integer> kryoClassMap)
+    protected DataType<Object> getFeatureDataType(MVMap<String, Integer> kryoClassMap)
     {
         return new SensorMLDataType(kryoClassMap);
     }

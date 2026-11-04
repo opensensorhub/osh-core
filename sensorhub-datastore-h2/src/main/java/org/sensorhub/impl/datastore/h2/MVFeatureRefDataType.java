@@ -16,9 +16,10 @@ package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 import com.google.common.collect.Range;
 
 
@@ -30,7 +31,7 @@ import com.google.common.collect.Range;
  * @author Alex Robin
  * @date Apr 7, 2018
  */
-public class MVFeatureRefDataType implements DataType
+public class MVFeatureRefDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     private static final int MIN_MEM_SIZE = 8+12+12;
     
@@ -61,14 +62,6 @@ public class MVFeatureRefDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         long parentID = DataUtils.readVarLong(buff);
@@ -77,12 +70,5 @@ public class MVFeatureRefDataType implements DataType
         return new MVFeatureRef(parentID, internalID, timeRange);
     }
     
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);        
-    }
 
 }

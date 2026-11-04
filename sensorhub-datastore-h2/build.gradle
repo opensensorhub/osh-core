@@ -1,18 +1,96 @@
 description = 'OSH Datastore (H2)'
 ext.details = 'Storage module backed by a H2 MVStore object database'
 
+// Legacy H2 1.4 adapters used by the migration tool (org.sensorhub.impl.datastore.h2.migrate).
+// Compiled against H2 1.4.200 only and loaded at runtime in an isolated classloader; the 1.4
+// jar is never on a classpath. By default both jars are embedded as resources under
+// META-INF/h2migrate so migrations work from a plain node install. Build with
+// -PembedH2MigrationLibs=false to leave them out; the tool then needs a legacy-libs/ directory
+// next to the node's lib/ (see the h2migrateLegacyLibs task) or --legacy-libs.
+ext.embedH2MigrationLibs = !project.hasProperty('embedH2MigrationLibs') ||
+    Boolean.parseBoolean(project.property('embedH2MigrationLibs').toString())
+
+sourceSets {
+  legacy {
+    java.srcDir 'src/legacy/java'
+    compileClasspath += files(sourceSets.main.java.classesDirectory)
+  }
+}
+
+configurations {
+  legacyH2
+}
+
 dependencies {
   implementation project(':sensorhub-core')
   implementation project(':sensorhub-utils-kryo')
-  embeddedApi 'com.h2database:h2-mvstore:1.4.200'
+  embeddedApi 'com.h2database:h2-mvstore:2.5.250'
   embeddedApi 'org.apache.lucene:lucene-analyzers-common:8.11.2'
   testImplementation(testFixtures(project(':sensorhub-core')))
+
+  legacyCompileOnly 'com.h2database:h2-mvstore:1.4.200'
+  legacyH2 'com.h2database:h2-mvstore:1.4.200'
+}
+
+compileLegacyJava.dependsOn compileJava
+
+tasks.register('legacyJar', Jar) {
+  description = 'Packages the H2 1.4 migration adapters (published with classifier h2migrate-legacy)'
+  from sourceSets.legacy.output
+  archiveClassifier = 'h2migrate-legacy'
+}
+
+def legacyLibsDir = layout.buildDirectory.dir('h2migrate/legacy-libs')
+
+tasks.register('h2migrateLegacyLibs', Sync) {
+  description = 'Assembles the H2 1.4 jar and the migration adapters into build/h2migrate/legacy-libs ' +
+                '(copy that directory next to a node\'s lib/ as legacy-libs/, or pass it with --legacy-libs)'
+  from(tasks.named('legacyJar'))
+  from(configurations.legacyH2)
+  into legacyLibsDir
+}
+
+if (embedH2MigrationLibs) {
+  def embeddedLegacyDir = layout.buildDirectory.dir('generated-resources/h2migrate')
+  tasks.register('embedLegacyLibs', Sync) {
+    description = 'Embeds the H2 1.4 jar and the migration adapters as resources of this module'
+    from(tasks.named('legacyJar'))
+    from(configurations.legacyH2)
+    into embeddedLegacyDir.map { it.dir('META-INF/h2migrate') }
+    doLast {
+      def dir = embeddedLegacyDir.get().dir('META-INF/h2migrate').asFile
+      new File(dir, 'index.txt').text = dir.listFiles().findAll { it.name.endsWith('.jar') }.collect { it.name }.sort().join('\n') + '\n'
+    }
+  }
+  sourceSets.main.output.dir(embeddedLegacyDir, builtBy: 'embedLegacyLibs')
+}
+
+tasks.register('migrate', JavaExec) {
+  description = 'Runs the H2 database migration tool; pass arguments with -PmigrateArgs="<db-file> [options]"'
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'org.sensorhub.impl.datastore.h2.migrate.H2Migrate'
+  if (!embedH2MigrationLibs) {
+    dependsOn 'h2migrateLegacyLibs'
+    systemProperty 'h2migrate.legacyLibs', legacyLibsDir.get().asFile.absolutePath
+  }
+  if (project.hasProperty('migrateArgs'))
+    args project.migrateArgs.split('\\s+')
 }
 
 test {
+  // default builds exercise the embedded libraries; an opt-out build uses the directory
+  if (!embedH2MigrationLibs) {
+    dependsOn 'h2migrateLegacyLibs'
+    systemProperty 'h2migrate.legacyLibs', legacyLibsDir.get().asFile.absolutePath
+  }
   filter {
     excludeTestsMatching 'org.sensorhub.impl.datastore.h2.TestMVFeatureStore.test*Throughput'
   }
+}
+
+// publish the adapters next to the module so operators can fetch them without a source build
+afterEvaluate {
+  publishing.publications.mavenJava.artifact(tasks.legacyJar)
 }
 
 // add info to OSGI manifest

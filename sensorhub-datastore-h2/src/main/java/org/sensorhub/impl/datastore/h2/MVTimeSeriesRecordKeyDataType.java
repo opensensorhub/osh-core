@@ -16,9 +16,10 @@ package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 
 
 /**
@@ -30,7 +31,7 @@ import org.h2.mvstore.type.DataType;
  * @author Alex Robin
  * @date Sep 12, 2019
  */
-class MVTimeSeriesRecordKeyDataType implements DataType
+class MVTimeSeriesRecordKeyDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     final int idScope;
     
@@ -89,14 +90,6 @@ class MVTimeSeriesRecordKeyDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         return decode(idScope, buff);
@@ -110,12 +103,5 @@ class MVTimeSeriesRecordKeyDataType implements DataType
         return new MVTimeSeriesRecordKey(idScope, seriesID, phenomenonTime);
     }
     
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);
-    }
 
 }

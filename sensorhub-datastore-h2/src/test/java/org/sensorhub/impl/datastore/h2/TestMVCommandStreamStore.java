@@ -37,13 +37,13 @@ public class TestMVCommandStreamStore extends AbstractTestCommandStreamStore<MVC
     }
     
     
-    protected void forceReadBackFromStorage()
+    protected void forceReadBackFromStorage() throws Exception
     {
         this.cmdStreamStore = openMVStore();
     }
     
     
-    private MVCommandStreamStoreImpl openMVStore()
+    private MVCommandStreamStoreImpl openMVStore() throws Exception
     {
         if (mvStore != null)
         {
@@ -52,11 +52,9 @@ public class TestMVCommandStreamStore extends AbstractTestCommandStreamStore<MVC
             System.out.println("MVStore flushed to disk");
         }
         
-        mvStore = new MVStore.Builder()
-                .fileName(dbFile.getAbsolutePath())
+        mvStore = H2Utils.openMVStore(dbFile.getAbsolutePath(), new MVStore.Builder()
                 .autoCommitBufferSize(10)
-                .cacheSize(10)
-                .open();
+                .cacheSize(10), 1000);
         
         var cmdStore = MVCommandStoreImpl.open(mvStore, DATABASE_NUM, IdProviderType.SEQUENTIAL,
             MVDataStoreInfo.builder()

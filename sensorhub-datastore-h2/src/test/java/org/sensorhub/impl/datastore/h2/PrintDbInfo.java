@@ -37,7 +37,6 @@ public class PrintDbInfo
         scanPages(db.foiStore.featuresIndex);
         scanPages(db.foiStore.idsIndex);
         scanPages(db.foiStore.uidsIndex);
-        //scanPages(db.foiStore.fullTextIndex.radixTreeMap);
         //scanPages(db.foiStore.spatialIndex.rTreeMap);
         
         //Thread.sleep(100000);

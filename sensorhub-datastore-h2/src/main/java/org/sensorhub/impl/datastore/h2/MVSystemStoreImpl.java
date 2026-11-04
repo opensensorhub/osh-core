@@ -91,7 +91,7 @@ public class MVSystemStoreImpl extends MVBaseFeatureStoreImpl<ISystemWithDesc, S
     
     
     @Override
-    protected DataType getFeatureDataType(MVMap<String, Integer> kryoClassMap)
+    protected DataType<Object> getFeatureDataType(MVMap<String, Integer> kryoClassMap)
     {
         return new SensorMLDataType(kryoClassMap);
     }
