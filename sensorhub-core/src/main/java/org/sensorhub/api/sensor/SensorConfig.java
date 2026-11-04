@@ -39,6 +39,10 @@ public class SensorConfig extends ModuleConfig
     
     @DisplayInfo(desc="Time at which the SensorML description was last updated")
     public Date lastUpdated = new Date();
+
+
+    @DisplayInfo(label = "Identification Info", desc="Information used to uniquely identify this system and its responsible parties")
+    public IdentificationInfo identificationInfo;
     
     
     /**

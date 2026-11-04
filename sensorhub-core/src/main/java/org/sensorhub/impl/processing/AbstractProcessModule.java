@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+
 import net.opengis.sensorml.v20.AbstractProcess;
 import net.opengis.swe.v20.DataComponent;
 import org.sensorhub.api.command.IStreamingControlInterface;
@@ -30,6 +31,7 @@ import org.sensorhub.api.system.ISystemDriver;
 import org.sensorhub.api.system.ISystemGroupDriver;
 import org.sensorhub.api.utils.OshAsserts;
 import org.sensorhub.impl.module.AbstractModule;
+import org.sensorhub.utils.IdentificationInfoUtils;
 import org.vast.ogc.gml.IFeature;
 
 
@@ -104,6 +106,9 @@ public abstract class AbstractProcessModule<T extends ProcessConfig> extends Abs
     {
         if (processDescription == null)
             throw new IllegalStateException("No process description created during init");
+
+        IdentificationInfoUtils.apply(config.identificationInfo, processDescription);
+
         OshAsserts.checkValidUID(processDescription.getUniqueIdentifier());
         
         if (inputs.isEmpty() && outputs.isEmpty())
