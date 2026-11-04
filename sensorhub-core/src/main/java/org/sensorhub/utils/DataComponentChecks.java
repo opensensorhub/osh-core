@@ -14,6 +14,7 @@ Copyright (C) 2012-2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.utils;
 
+import java.nio.charset.StandardCharsets;
 import org.vast.data.DataIterator;
 import org.vast.swe.SWEUtils;
 import org.vast.util.Asserts;
@@ -25,6 +26,7 @@ import com.google.common.io.ByteStreams;
 import net.opengis.swe.v20.BlockComponent;
 import net.opengis.swe.v20.DataComponent;
 import net.opengis.swe.v20.DataEncoding;
+import net.opengis.swe.v20.JSONEncoding;
 
 
 /**
@@ -38,6 +40,8 @@ import net.opengis.swe.v20.DataEncoding;
 public class DataComponentChecks
 {
     static HashFunction hf = Hashing.goodFastHash(32);
+    private static final byte[] JSON_ENCODING_HASH_MARKER =
+        "SWE/2.0/JSONEncoding".getBytes(StandardCharsets.UTF_8);
     
     
     /**
@@ -161,7 +165,7 @@ public class DataComponentChecks
         try
         {
             var hashOs = new HashingOutputStream(hf, ByteStreams.nullOutputStream());
-            new SWEUtils(SWEUtils.V2_0).writeEncoding(hashOs, enc, false);
+            writeEncodingForHash(hashOs, enc);
             return hashOs.hash();
         }
         catch (Exception e)
@@ -177,13 +181,30 @@ public class DataComponentChecks
         {
             var hashOs = new HashingOutputStream(hf, ByteStreams.nullOutputStream());
             new SWEUtils(SWEUtils.V2_0).writeComponent(hashOs, root, false, false);
-            new SWEUtils(SWEUtils.V2_0).writeEncoding(hashOs, enc, false);
+            writeEncodingForHash(hashOs, enc);
             return hashOs.hash();
         }
         catch (Exception e)
         {
             throw new IllegalArgumentException("Error computing hashcode. Invalid data component");
         }
+    }
+
+
+    private static void writeEncodingForHash(HashingOutputStream hashOs, DataEncoding enc)
+        throws Exception
+    {
+        if (enc instanceof JSONEncoding)
+        {
+            // JSONEncoding has no SWE JSON binding properties and no SWE XML
+            // representation. Use a delimited family marker so equality
+            // remains deterministic without changing other encodings.
+            hashOs.write(0);
+            hashOs.write(JSON_ENCODING_HASH_MARKER);
+            hashOs.write(0);
+        }
+        else
+            new SWEUtils(SWEUtils.V2_0).writeEncoding(hashOs, enc, false);
     }
     
     
