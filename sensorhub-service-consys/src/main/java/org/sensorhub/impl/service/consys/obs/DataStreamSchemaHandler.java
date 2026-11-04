@@ -36,11 +36,20 @@ import org.vast.util.Asserts;
 public class DataStreamSchemaHandler extends ResourceHandler<DataStreamKey, IDataStreamInfo, DataStreamFilter, DataStreamFilter.Builder, IDataStreamStore>
 {
     public static final String[] NAMES = { "schema" };
-    
-    
+
+    final Map<String, CustomObsFormat> customFormats;
+
+
     public DataStreamSchemaHandler(HandlerContext ctx, ResourcePermissions permissions)
     {
+        this(ctx, permissions, java.util.Collections.emptyMap());
+    }
+
+
+    public DataStreamSchemaHandler(HandlerContext ctx, ResourcePermissions permissions, Map<String, CustomObsFormat> customFormats)
+    {
         super(ctx.getReadDb().getDataStreamStore(), ctx.getDataStreamIdEncoder(), ctx, permissions);
+        this.customFormats = customFormats != null ? customFormats : java.util.Collections.emptyMap();
     }
     
     
@@ -62,6 +71,16 @@ public class DataStreamSchemaHandler extends ResourceHandler<DataStreamKey, IDat
             return new DataStreamBindingHtml(ctx, idEncoders, obsFormat);
         else if (obsFormat.isOneOf(ResourceFormat.JSON, ResourceFormat.OM_JSON))
             return new DataStreamSchemaBindingOmJson(ctx, idEncoders, forReading);
+        // custom obs formats (e.g. application/swe+proto) provide their own schema
+        // binding — checked before the SWE_FORMAT_PREFIX branch since swe+proto
+        // also starts with "application/swe+"
+        else if (customFormats.containsKey(obsFormat.getMimeType()))
+        {
+            var dsInfo = dataStore.get(new DataStreamKey(ctx.getParentRef().internalID));
+            if (dsInfo == null)
+                throw ServiceErrors.notFound();
+            return customFormats.get(obsFormat.getMimeType()).getSchemaBinding(ctx, idEncoders, dsInfo);
+        }
         else if (obsFormat.getMimeType().startsWith(ResourceFormat.SWE_FORMAT_PREFIX))
             return new DataStreamSchemaBindingSweCommon(obsFormat, ctx, idEncoders, forReading);
         else

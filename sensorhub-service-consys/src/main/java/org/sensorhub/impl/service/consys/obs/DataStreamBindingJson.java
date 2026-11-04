@@ -151,6 +151,15 @@ public class DataStreamBindingJson extends ResourceBindingJson<DataStreamKey, ID
                     ResourceBindingJson<DataStreamKey, IDataStreamInfo> schemaBinding = null;
                     if (ResourceFormat.OM_JSON.getMimeType().equals(obsFormat))
                         schemaBinding = new DataStreamSchemaBindingOmJson(ctx, idEncoders, reader);
+                    // custom obs formats (e.g. application/swe+proto) bring their own
+                    // schema binding — checked BEFORE the SWE_FORMAT_PREFIX branch since
+                    // swe+proto also matches that prefix (mirrors DataStreamSchemaHandler.getBinding)
+                    else if (customFormats.containsKey(obsFormat))
+                    {
+                        var custom = customFormats.get(obsFormat).getSchemaBinding(ctx, idEncoders, null);
+                        if (custom instanceof ResourceBindingJson)
+                            schemaBinding = (ResourceBindingJson<DataStreamKey, IDataStreamInfo>) custom;
+                    }
                     else if (obsFormat.startsWith(ResourceFormat.SWE_FORMAT_PREFIX))
                         schemaBinding = new DataStreamSchemaBindingSweCommon(ResourceFormat.fromMimeType(obsFormat), ctx, idEncoders, reader);
                     if (schemaBinding == null)

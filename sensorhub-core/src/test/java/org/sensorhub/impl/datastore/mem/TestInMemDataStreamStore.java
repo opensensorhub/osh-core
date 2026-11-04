@@ -14,7 +14,24 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore.mem;
 
+import static org.junit.Assert.assertEquals;
+import java.time.Instant;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Stream;
+import org.junit.Test;
+import org.sensorhub.api.common.BigId;
+import org.sensorhub.api.data.DataStreamInfo;
+import org.sensorhub.api.data.IDataStreamInfo;
+import org.sensorhub.api.datastore.obs.DataStreamFilter;
+import org.sensorhub.api.datastore.obs.DataStreamKey;
+import org.sensorhub.api.datastore.obs.IDataStreamStore.DataStreamInfoField;
+import org.sensorhub.api.feature.FeatureId;
 import org.sensorhub.impl.datastore.AbstractTestDataStreamStore;
+import org.vast.data.TextEncodingImpl;
+import org.vast.swe.SWEHelper;
+import org.vast.util.TimeExtent;
 
 
 public class TestInMemDataStreamStore extends AbstractTestDataStreamStore<InMemoryDataStreamStore>
@@ -72,5 +89,35 @@ public class TestInMemDataStreamStore extends AbstractTestDataStreamStore<InMemo
             case 3: addToExpectedResults(2, 4, 5); break;
             case 4: addToExpectedResults(4); break;
         }        
+    }
+    
+    
+    @Test
+    public void testLatestVersionEntryWithUnsortedResults() throws Exception
+    {
+        var sysId = new FeatureId(BigId.fromLong(DATABASE_NUM, 1), "urn:osh:test:sys1");
+        var rec = new SWEHelper().createRecord().name("out1").addField("f1", new SWEHelper().createQuantity()).build();
+        var oldInfo = new DataStreamInfo.Builder()
+            .withName("v1").withSystem(sysId).withRecordDescription(rec).withRecordEncoding(new TextEncodingImpl())
+            .withValidTime(TimeExtent.beginAt(Instant.parse("2020-01-01T00:00:00Z")))
+            .build();
+        var newInfo = new DataStreamInfo.Builder()
+            .withName("v2").withSystem(sysId).withRecordDescription(rec).withRecordEncoding(new TextEncodingImpl())
+            .withValidTime(TimeExtent.beginAt(Instant.parse("2024-01-01T00:00:00Z")))
+            .build();
+        
+        // store that returns versions oldest first
+        var store = new InMemoryDataStreamStore(new InMemoryObsStore(DATABASE_NUM)) {
+            @Override
+            public Stream<Entry<DataStreamKey, IDataStreamInfo>> selectEntries(DataStreamFilter filter, Set<DataStreamInfoField> fields)
+            {
+                return Stream.of(
+                    new SimpleEntry<>(new DataStreamKey(DATABASE_NUM, 1), oldInfo),
+                    new SimpleEntry<>(new DataStreamKey(DATABASE_NUM, 2), newInfo));
+            }
+        };
+        
+        var e = store.getLatestVersionEntry(sysId.getUniqueID(), "out1");
+        assertEquals("v2", e.getValue().getName());
     }
 }

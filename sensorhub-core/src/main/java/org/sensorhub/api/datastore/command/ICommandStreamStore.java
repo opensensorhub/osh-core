@@ -14,6 +14,8 @@ Copyright (C) 2021 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.datastore.command;
 
+import java.time.Instant;
+import java.util.Comparator;
 import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.command.ICommandStreamStore.CommandStreamInfoField;
@@ -111,9 +113,17 @@ public interface ICommandStreamStore extends IResourceStore<CommandStreamKey, IC
                 .done()
             .withControlInputNames(controlInput)
             .build())
-        .findFirst();
+        // results are not guaranteed to be sorted, so select the version with the latest valid time
+        .max(Comparator.comparing(e -> getValidTimeBegin(e.getValue())));
         
         return entryOpt.isPresent() ? entryOpt.get() : null;
+    }
+    
+    
+    private static Instant getValidTimeBegin(ICommandStreamInfo info)
+    {
+        var validTime = info.getValidTime();
+        return validTime != null ? validTime.begin() : Instant.MIN;
     }
     
     
