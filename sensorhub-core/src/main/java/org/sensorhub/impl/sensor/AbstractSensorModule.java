@@ -152,10 +152,17 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
     @Override
     protected void afterInit() throws SensorHubException
     {
+        // override unique ID using identification info if not
+        if (config.identificationInfo != null)
+        {
+            OshAsserts.checkValidUID(config.identificationInfo.systemUID);
+            this.uniqueID = config.identificationInfo.systemUID;
+            this.randomUniqueID = false;
+        }
         // generate random unique ID in case sensor driver hasn't generate one
         // if a random UUID has already been generated, it will be restored by
         // loadState() method that is called after init()
-        if (this.uniqueID == null)
+        else if (this.uniqueID == null)
         {
             String uuid = UUID.randomUUID().toString();
             this.uniqueID = UUID_URI_PREFIX + uuid;
@@ -164,13 +171,6 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
                 generateXmlIDFromUUID(uuid);
 
             this.randomUniqueID = true;
-        }
-        
-        if (config.identificationInfo != null)
-        {
-            OshAsserts.checkValidUID(config.identificationInfo.systemUID);
-            this.uniqueID = config.identificationInfo.systemUID;
-            this.randomUniqueID = false;
         }
 
         // set last description update time if provided in config
@@ -209,14 +209,6 @@ public abstract class AbstractSensorModule<T extends SensorConfig> extends Abstr
         {
             if (orientationOutput == null)
                 addOrientationOutput(Double.NaN);
-        }
-        
-        if (config.identificationInfo != null)
-        {
-            synchronized (sensorDescLock)
-            {
-                IdentificationInfoUtils.apply(config.identificationInfo, getCurrentDescription());
-            }
         }
 
         super.afterInit();
