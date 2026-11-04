@@ -61,9 +61,12 @@ import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.data.IObsData;
 import org.sensorhub.api.procedure.IProcedureWithDesc;
 import org.sensorhub.api.semantic.IDerivedProperty;
+import org.sensorhub.api.system.IDeploymentWithDesc;
 import org.sensorhub.api.system.ISystemWithDesc;
 import org.sensorhub.impl.common.IdEncodersBase32;
 import org.sensorhub.impl.service.consys.ResourceParseException;
+import org.sensorhub.impl.service.consys.deployment.DeploymentBindingGeoJson;
+import org.sensorhub.impl.service.consys.deployment.DeploymentBindingSmlJson;
 import org.sensorhub.impl.service.consys.feature.FoiBindingGeoJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamBindingJson;
 import org.sensorhub.impl.service.consys.obs.DataStreamSchemaBindingOmJson;
@@ -523,6 +526,97 @@ public class ConSysApiClient
         catch (IOException e)
         {
             throw new IllegalStateException("Error initializing binding", e);
+        }
+    }
+
+    /*-------------*/
+    /* Deployments */
+    /*-------------*/
+
+    public CompletableFuture<IDeploymentWithDesc> getDeploymentById(String id, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(DEPLOYMENTS_COLLECTION + "/" + urlPathEncode(id)), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+                var binding = new DeploymentBindingGeoJson(ctx, null, null, true);
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+
+    public CompletableFuture<IDeploymentWithDesc> getDeploymentByUid(String uid, ResourceFormat format)
+    {
+        return sendGetRequest(endpoint.resolve(DEPLOYMENTS_COLLECTION + "?id=" + urlQueryEncode(uid)), format, body -> {
+            try
+            {
+                var ctx = new RequestContext(body);
+
+                // use modified binding since the response contains a feature collection
+                var binding = new DeploymentBindingGeoJson(ctx, null, null, true) {
+                    protected JsonReader getJsonReader(InputStream is) throws IOException
+                    {
+                        var reader = super.getJsonReader(is);
+                        skipToCollectionItems(reader);
+                        return reader;
+                    }
+                };
+
+                return binding.deserialize();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                throw new CompletionException(e);
+            }
+        });
+    }
+
+    public CompletableFuture<String> addDeployment(IDeploymentWithDesc deployment)
+    {
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new DeploymentBindingSmlJson(ctx, null, false);
+            binding.serialize(null, deployment, false);
+
+            return sendPostRequest(
+                    endpoint.resolve(DEPLOYMENTS_COLLECTION),
+                    ResourceFormat.SML_JSON,
+                    buffer.toByteArray());
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing deployment binding", e);
+        }
+    }
+
+
+    public CompletableFuture<Integer> updateDeployment(String deploymentID, IDeploymentWithDesc deployment)
+    {
+        try
+        {
+            var buffer = new ByteArrayOutputStream();
+            var ctx = new RequestContext(buffer);
+
+            var binding = new DeploymentBindingSmlJson(ctx, null, false);
+            binding.serialize(null, deployment, false);
+
+            return sendPutRequest(
+                    endpoint.resolve(DEPLOYMENTS_COLLECTION + "/" + deploymentID),
+                    ResourceFormat.SML_JSON,
+                    buffer.toByteArray());
+        }
+        catch (IOException e)
+        {
+            throw new IllegalStateException("Error initializing deployment binding", e);
         }
     }
 
