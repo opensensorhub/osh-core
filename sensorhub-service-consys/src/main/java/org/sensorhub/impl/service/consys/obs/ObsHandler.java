@@ -16,7 +16,9 @@ package org.sensorhub.impl.service.consys.obs;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,6 +37,7 @@ import org.sensorhub.api.database.IObsSystemDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.SpatialFilter;
 import org.sensorhub.api.datastore.TemporalFilter;
+import org.sensorhub.api.datastore.obs.DataStreamFilter;
 import org.sensorhub.api.datastore.obs.DataStreamKey;
 import org.sensorhub.api.datastore.obs.IObsStore;
 import org.sensorhub.api.datastore.obs.ObsFilter;
@@ -99,7 +102,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         ctx.setData(contextData);
         
         // try to fetch datastream since it's needed to configure binding
-        var dsID = ctx.getParentID();
+        var dsID = getParentDataStreamID(ctx);
         if (dsID != null)
             contextData.dsInfo = db.getDataStreamStore().get(new DataStreamKey(dsID));
                 
@@ -169,7 +172,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
                 var mimeType = entry.getKey();
                 var formatImpl = entry.getValue();
                 
-                if (formatImpl.isCompatible(dsInfo))
+                if (formatImpl.isAutoSelectable(dsInfo))
                 {
                     obsFormat = formatImpl;
                     ctx.getLogger().info("Auto-selecting format {}", mimeType);
@@ -208,6 +211,17 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
     }
     
     
+    /*
+     * Observations are also mounted under sampling features, so the parent
+     * is only a datastream when it was reached through the datastream handler
+     */
+    protected BigId getParentDataStreamID(RequestContext ctx)
+    {
+        var parent = ctx.getParentRef();
+        return parent.type instanceof DataStreamHandler ? parent.internalID : null;
+    }
+    
+    
     @Override
     public void doPost(RequestContext ctx) throws IOException
     {
@@ -224,7 +238,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         ctx.getSecurityHandler().checkPermission(permissions.stream);
         Asserts.checkNotNull(ctx.getStreamHandler(), StreamHandler.class);
         
-        var dsID = ctx.getParentID();
+        var dsID = getParentDataStreamID(ctx);
         if (dsID == null)
             throw ServiceErrors.badRequest("Streaming is only supported on a specific datastream");
         
@@ -476,8 +490,18 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         var builder = new ObsFilter.Builder();
         
         // filter on parent if needed
+        BigId parentDsID = null;
+        boolean foiParent = false;
         if (parent.internalID != null)
-            builder.withDataStreams(parent.internalID);
+        {
+            if (parent.type instanceof DataStreamHandler)
+                parentDsID = parent.internalID;
+            else
+            {
+                builder.withFois(parent.internalID);
+                foiParent = true;
+            }
+        }
 
         var phenomenonTimeFilterBuilder = new TemporalFilter.Builder();
 
@@ -500,7 +524,7 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
         
         // foi param
         var foiIDs = parseResourceIdsOrUids("foi", queryParams, idEncoders.getFoiIdEncoder());
-        if (foiIDs != null && !foiIDs.isEmpty())
+        if (foiIDs != null && !foiIDs.isEmpty() && !foiParent)
         {
             if (foiIDs.isUids())
                 builder.withFois().withUniqueIDs(foiIDs.getUids()).done();
@@ -508,25 +532,69 @@ public class ObsHandler extends BaseResourceHandler<BigId, IObsData, ObsFilter, 
                 builder.withFois(foiIDs.getBigIds());
         }
 
-        // system param
+        // the parent datastream and the system, dataStream and observedProperty params
+        // all restrict the same datastream filter, so they are combined with AND
         var sysIDs = parseResourceIdsOrUids("system", queryParams, idEncoders.getSystemIdEncoder());
-        if (sysIDs != null && !sysIDs.isEmpty())
+        var dsIDs = parseResourceIdsOrUids("dataStream", queryParams, idEncoders.getDataStreamIdEncoder());
+        var obsProps = parseMultiValuesArg("observedProperty", queryParams);
+        boolean hasSysIDs = sysIDs != null && !sysIDs.isEmpty();
+        boolean hasObsProps = obsProps != null && !obsProps.isEmpty();
+        
+        // explicit datastream IDs: the parent, the dataStream param, or their intersection
+        // (null means no datastream ID was given)
+        Set<BigId> selectedDsIDs = null;
+        if (parentDsID != null)
+            selectedDsIDs = new HashSet<>(Set.of(parentDsID));
+        if (dsIDs != null && !dsIDs.isEmpty())
         {
-            if (sysIDs.isUids())
-                builder.withSystems().withUniqueIDs(sysIDs.getUids()).done();
-            else
-                builder.withSystems(sysIDs.getBigIds());
+            if (selectedDsIDs == null)
+                selectedDsIDs = new HashSet<>(dsIDs.getBigIds());
+            else // an empty intersection selects no observations
+                selectedDsIDs.retainAll(dsIDs.getBigIds());
         }
         
-        // datastream param
-        var dsIDs = parseResourceIdsOrUids("dataStream", queryParams, idEncoders.getDataStreamIdEncoder());
-        if (dsIDs != null && !dsIDs.isEmpty())
-            builder.withDataStreams(dsIDs.getBigIds());
-
-        // observedProperty param
-        var obsProps = parseMultiValuesArg("observedProperty", queryParams);
-        if (obsProps != null && !obsProps.isEmpty())
-            builder.withDataStreams().withObservedProperties(obsProps).done();
+        // other datastream criteria, by system and observed property
+        var dsFilter = new DataStreamFilter.Builder();
+        if (hasSysIDs)
+        {
+            if (sysIDs.isUids())
+                dsFilter.withSystems().withUniqueIDs(sysIDs.getUids()).done();
+            else
+                dsFilter.withSystems(sysIDs.getBigIds());
+        }
+        if (hasObsProps)
+            dsFilter.withObservedProperties(obsProps);
+        
+        if (selectedDsIDs != null)
+        {
+            // stores use datastream IDs alone when they are given,
+            // so check the other criteria against each selected datastream here
+            if (hasSysIDs || hasObsProps)
+            {
+                var propFilter = dsFilter.build();
+                selectedDsIDs.removeIf(id -> {
+                    // drop unknown datastreams
+                    var dsInfo = db.getDataStreamStore().get(new DataStreamKey(id));
+                    if (dsInfo == null)
+                        return true;
+                    
+                    // drop datastreams of other systems (matched by UID or ID)
+                    if (hasSysIDs && !(sysIDs.isUids() ?
+                        sysIDs.getUids().contains(dsInfo.getSystemID().getUniqueID()) :
+                        sysIDs.getBigIds().contains(dsInfo.getSystemID().getInternalID())))
+                        return true;
+                    
+                    // drop datastreams without one of the observed properties
+                    return !propFilter.testObservedProperty(dsInfo);
+                });
+            }
+            
+            builder.withDataStreams(selectedDsIDs);
+        }
+        
+        // no datastream IDs given, so the store can select datastreams by the other criteria
+        else if (hasSysIDs || hasObsProps)
+            builder.withDataStreams(dsFilter.build());
         
         // use opensearch bbox param to filter spatially
         var bbox = parseBboxArg("bbox", queryParams);
