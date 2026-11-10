@@ -162,6 +162,31 @@ public class MyBeanItem<BeanType> implements Item
             
             String fullName = prefix + prop.getName();
             
+            // Getter-backed collections need the same list editor as public fields.
+            // In particular, live collections often have no setter.
+            Field field = fieldMap.get(prop.getName());
+            if (Collection.class.isAssignableFrom(prop.getPropertyType()) && prop.getReadMethod() != null
+                && field.getGenericType() instanceof ParameterizedType)
+            {
+                var listType = (ParameterizedType)field.getGenericType();
+                if (listType.getActualTypeArguments()[0] instanceof Class<?>)
+                {
+                    try
+                    {
+                        field.setAccessible(true);
+                        var list = (Collection<?>)prop.getReadMethod().invoke(bean);
+                        var elementType = (Class<?>)listType.getActualTypeArguments()[0];
+                        var container = new MyBeanItemContainer<Object>(list, elementType, fullName + PROP_SEPARATOR);
+                        addItemProperty(fullName, new ContainerProperty(bean, field, container));
+                        continue;
+                    }
+                    catch (ReflectiveOperationException e)
+                    {
+                        throw new IllegalStateException("Cannot access property " + fullName, e);
+                    }
+                }
+            }
+
             //System.out.println(prop.getName() + ", get=" + prop.getReadMethod() + ", set=" + prop.getWriteMethod() + ", hidden=" + prop.isHidden());
             addItemProperty(fullName, new MethodProperty(prop.getPropertyType(), bean, prop.getReadMethod(), prop.getWriteMethod()));
         }

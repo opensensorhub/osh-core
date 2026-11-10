@@ -14,7 +14,9 @@ Copyright (C) 2012-2015 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.processing;
 
+import org.sensorhub.api.config.DisplayInfo;
 import org.sensorhub.api.module.ModuleConfig;
+import org.sensorhub.api.sensor.IdentificationInfo;
 
 
 /**
@@ -27,5 +29,8 @@ import org.sensorhub.api.module.ModuleConfig;
  */
 public class ProcessConfig extends ModuleConfig
 {
-    
+
+    @DisplayInfo(label = "Identification Info", desc="Information used to uniquely identify this system and its responsible parties")
+    public IdentificationInfo identificationInfo;
+
 }
