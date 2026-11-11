@@ -191,7 +191,12 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
             }
             
             // create new element data block
-            var newDblk = array.getElementType().createDataBlock();
+            DataBlock newDblk;
+            if (args != null && args.length > 0 && args[0] instanceof IDataAccessor) {
+                newDblk = ((IDataAccessor)args[0]).getDataBlock();
+            } else {
+                newDblk = array.getElementType().createDataBlock();
+            }
             arrayData.add(newDblk);
             ((DataArrayImpl)array).updateSizeComponent(array.getComponentCount()+1);
             var parent = ((AbstractDataComponentImpl)array.getParent());
@@ -206,8 +211,7 @@ public class DataBlockProxy implements IDataAccessor, InvocationHandler
                 accessor.wrap(newDblk);
                 return accessor;
             }
-            else
-            {
+            else if(!(args[0] instanceof IDataAccessor)){
                 var argType = method.getParameters()[0].getType();
                 var val = args[0];
                 setDataValue(newDblk, argType, val);
