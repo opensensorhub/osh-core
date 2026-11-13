@@ -17,6 +17,7 @@ package org.sensorhub.impl.security;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.StringWriter;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -52,30 +53,57 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
     {
         public void addAllowPermissions(String id, Collection<IPermissionPath> permissions)
         {
-            var config = (PermissionsConfig)get(id);
+            var config = getPermissionsConfig(id);
+            if (config == null)
+                return;
             config.allowList.addAll(permissions);
             saveState();
         }
 
         public void addDenyPermissions(String id, Collection<IPermissionPath> permissions)
         {
-            var config = (PermissionsConfig)get(id);
+            var config = getPermissionsConfig(id);
+            if (config == null)
+                return;
             config.denyList.addAll(permissions);
             saveState();
         }
 
         public void removeAllowPermissions(String id, Collection<IPermissionPath> permissions)
         {
-            var config = (PermissionsConfig)get(id);
+            var config = getPermissionsConfig(id);
+            if (config == null)
+                return;
             config.allowList.removeAll(permissions);
             saveState();
         }
 
         public void removeDenyPermissions(String id, Collection<IPermissionPath> permissions)
         {
-            var config = (PermissionsConfig)get(id);
+            var config = getPermissionsConfig(id);
+            if (config == null)
+                return;
             config.denyList.removeAll(permissions);
             saveState();
+        }
+        
+        /*
+         * The registry is a map, so other modules can add entries of their own
+         * class. This realm holds run-time permissions only for entries that are
+         * PermissionsConfig. A module that wants its users to hold run-time
+         * permissions must use a subclass of UserConfig.
+         */
+        protected PermissionsConfig getPermissionsConfig(String id)
+        {
+            var entity = get(id);
+            if (entity instanceof PermissionsConfig)
+                return (PermissionsConfig)entity;
+            
+            if (entity == null)
+                getLogger().warn("Permissions of '{}' not changed: no such entry", id);
+            else
+                getLogger().warn("Permissions of '{}' not changed: the entry was added by another module ({})", id, entity.getClass().getName());
+            return null;
         }
         
         protected void saveState()
@@ -83,10 +111,12 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
             try
             {
                 var stateManager = getParentHub().getModuleRegistry().getStateManager(getLocalID());
+                if (stateManager == null)
+                    return;
                 var fileName = this == users ? USER_PERMISSIONS_FILENAME : ROLE_PERMISSIONS_FILENAME;
                 savePermissionJsonFile(this, stateManager, fileName);
             }
-            catch (SensorHubException e)
+            catch (SensorHubException | RuntimeException e)
             {
                 getLogger().error(e.getMessage(), e);
             }
@@ -166,12 +196,18 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
     
     protected void savePermissionJsonFile(Map<String, ? extends IUserPermissions> permissions, IModuleStateManager saver, String fileName) throws SensorHubException
     {
-        try (var w = new JsonWriter(new OutputStreamWriter(saver.getOutputStream(fileName))))
+        // build the whole document first so the file is never left truncated
+        var json = new StringWriter();
+        try (var w = new JsonWriter(json))
         {
             w.setIndent("  ");
             w.beginObject();
             for (var e: permissions.entrySet())
             {
+                // skip entries added by other modules
+                if (!(e.getValue() instanceof PermissionsConfig))
+                    continue;
+                
                 var id = e.getKey();
                 var entity = (PermissionsConfig)e.getValue();
                 
@@ -198,6 +234,15 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
                 w.endObject();
             }
             w.endObject();
+        }
+        catch (IOException | RuntimeException e)
+        {
+            throw new SensorHubException("Error writing " + fileName, e);
+        }
+        
+        try (var w = new OutputStreamWriter(saver.getOutputStream(fileName)))
+        {
+            w.write(json.toString());
         }
         catch (IOException e)
         {
@@ -229,9 +274,14 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
             while (r.hasNext())
             {
                 var id = r.nextName();
-                var entity = (PermissionsConfig)permissions.get(id);
-                if (entity == null)
+                
+                // skip entries that are unknown or were added by other modules
+                if (!(permissions.get(id) instanceof PermissionsConfig))
+                {
+                    r.skipValue();
                     continue;
+                }
+                var entity = (PermissionsConfig)permissions.get(id);
                 
                 r.beginObject();
                 while (r.hasNext())
@@ -259,12 +309,15 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
                         }
                         r.endArray();
                     }
+                    
+                    else
+                        r.skipValue();
                 }
                 r.endObject();
             }
             r.endObject();
         }
-        catch (IOException e)
+        catch (IOException | RuntimeException e)
         {
             throw new SensorHubException("Error reading " + fileName, e);
         }
