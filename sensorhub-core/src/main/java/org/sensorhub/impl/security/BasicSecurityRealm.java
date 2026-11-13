@@ -89,7 +89,9 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
         
         /*
          * The registry is a map, so other modules can add entries of their own
-         * class. This realm only owns the permissions of its config entries.
+         * class. This realm holds run-time permissions only for entries that are
+         * PermissionsConfig. A module that wants its users to hold run-time
+         * permissions must use a subclass of UserConfig.
          */
         protected PermissionsConfig getPermissionsConfig(String id)
         {
@@ -98,9 +100,9 @@ public class BasicSecurityRealm extends AbstractModule<BasicSecurityRealmConfig>
                 return (PermissionsConfig)entity;
             
             if (entity == null)
-                getLogger().debug("Permission update skipped for '{}': no such entry", id);
+                getLogger().warn("Permissions of '{}' not changed: no such entry", id);
             else
-                getLogger().debug("Permission update skipped for '{}': the entry is managed by another module", id);
+                getLogger().warn("Permissions of '{}' not changed: the entry was added by another module ({})", id, entity.getClass().getName());
             return null;
         }
         

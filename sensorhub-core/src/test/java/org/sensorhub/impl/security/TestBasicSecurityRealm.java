@@ -29,6 +29,7 @@ import org.sensorhub.api.module.IModuleStateManager;
 import org.sensorhub.api.security.IPermissionPath;
 import org.sensorhub.api.security.IUserInfo;
 import org.sensorhub.impl.SensorHub;
+import org.sensorhub.impl.SensorHubConfig;
 import org.sensorhub.impl.module.DefaultModuleStateManager;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig.RoleConfig;
 import org.sensorhub.impl.security.BasicSecurityRealmConfig.UserConfig;
@@ -52,7 +53,8 @@ public class TestBasicSecurityRealm
     @Before
     public void setup() throws Exception
     {
-        hub = new SensorHub();
+        // module data path is set so that permission updates are written to file
+        hub = new SensorHub(new SensorHubConfig(null, tmp.getRoot().getAbsolutePath()));
         hub.start();
         state = new DefaultModuleStateManager(tmp.getRoot().getAbsolutePath(), "realm");
         userFile = new File(state.getDataDirectory(), BasicSecurityRealm.USER_PERMISSIONS_FILENAME);
@@ -226,5 +228,53 @@ public class TestBasicSecurityRealm
 
         realm.users.addAllowPermissions("user1", runtimePerm());
         assertEquals(List.of(RUNTIME_PERM), allowStrings(realm, "user1"));
+
+        // the update is written to a complete file, without the other user
+        var json = readUserFile();
+        assertEquals(RUNTIME_PERM, json.getAsJsonObject("user1").getAsJsonArray("allow").get(0).getAsString());
+        assertTrue(json.has("admin"));
+        assertFalse(json.has(OTHER_USER));
+    }
+
+
+    @Test
+    public void testPermissionUpdateOnUserConfigOfOtherModule() throws Exception
+    {
+        var realm = newRealm();
+        var user = new UserConfig() {};
+        user.userID = OTHER_USER;
+        realm.users.put(OTHER_USER, user);
+
+        // a user class that extends UserConfig holds run-time permissions
+        realm.users.addAllowPermissions(OTHER_USER, runtimePerm());
+        assertEquals(List.of(RUNTIME_PERM), allowStrings(realm, OTHER_USER));
+        assertTrue(readUserFile().has(OTHER_USER));
+    }
+
+
+    @Test
+    public void testFailedSaveKeepsFile() throws Exception
+    {
+        var realm = newRealm();
+        realm.users.addAllowPermissions("user1", runtimePerm());
+        var saved = Files.readString(userFile.toPath());
+
+        // entry that fails when it is written
+        var badUser = new UserConfig() {
+            @Override
+            public Collection<IPermissionPath> getAllowList()
+            {
+                throw new IllegalStateException("test");
+            }
+        };
+        badUser.userID = "zzz";
+        realm.users.put("zzz", badUser);
+
+        assertThrows(SensorHubException.class, () -> realm.saveState(state));
+        assertEquals(saved, Files.readString(userFile.toPath()));
+
+        // a failed save does not fail the permission update
+        realm.users.addAllowPermissions("admin", runtimePerm());
+        assertEquals(saved, Files.readString(userFile.toPath()));
     }
 }
