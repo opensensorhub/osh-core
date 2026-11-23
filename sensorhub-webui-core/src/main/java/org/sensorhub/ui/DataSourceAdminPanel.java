@@ -234,7 +234,7 @@ public class DataSourceAdminPanel<ModuleType extends IDataProducerModule<?>> ext
     {
         Panel panel = new Panel(title);
         VerticalLayout layout = new VerticalLayout();
-        layout.setSizeFull();
+        layout.setWidth(100.0f, Unit.PERCENTAGE);
         layout.setMargin(true);
         layout.setSpacing(true);
         layout.setDefaultComponentAlignment(Alignment.TOP_LEFT);

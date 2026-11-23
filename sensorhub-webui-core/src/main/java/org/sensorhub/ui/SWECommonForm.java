@@ -62,6 +62,7 @@ public class SWECommonForm extends VerticalLayout
             
             Label l = new Label();
             l.addStyleName(UIConstants.STYLE_SMALL);
+            l.setWidth(100.0f, Unit.PERCENTAGE);
             l.setContentMode(ContentMode.HTML);
             l.setValue(getCaption(dataComponent, false));
             l.setDescription(getTooltip(dataComponent), ContentMode.HTML);
@@ -91,6 +92,7 @@ public class SWECommonForm extends VerticalLayout
             
             Label l = new Label();
             l.addStyleName(UIConstants.STYLE_SMALL);
+            l.setWidth(100.0f, Unit.PERCENTAGE);
             l.setContentMode(ContentMode.HTML);
             l.setValue(getCaption(dataComponent, false));
             l.setDescription(getTooltip(dataComponent), ContentMode.HTML);
@@ -114,6 +116,7 @@ public class SWECommonForm extends VerticalLayout
             
             Label l = new Label();
             l.addStyleName(UIConstants.STYLE_SMALL);
+            l.setWidth(100.0f, Unit.PERCENTAGE);
             l.setContentMode(ContentMode.HTML);
             l.setValue(getCaption(dataChoice, false));
             l.setDescription(getTooltip(dataChoice), ContentMode.HTML);
@@ -138,6 +141,7 @@ public class SWECommonForm extends VerticalLayout
         {
             Label l = new Label();
             l.addStyleName(UIConstants.STYLE_SMALL);
+            l.setWidth(100.0f, Unit.PERCENTAGE);
             l.setContentMode(ContentMode.HTML);
             l.setValue(getCaption(dataComponent, showValues));
             l.setDescription(getTooltip(dataComponent), ContentMode.HTML);
