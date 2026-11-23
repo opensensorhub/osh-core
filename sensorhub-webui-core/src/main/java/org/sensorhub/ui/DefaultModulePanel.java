@@ -25,6 +25,7 @@ import org.sensorhub.ui.api.IModuleAdminPanel;
 import org.sensorhub.ui.api.IModuleConfigForm;
 import org.sensorhub.ui.api.UIConstants;
 import org.sensorhub.ui.data.MyBeanItem;
+import com.vaadin.server.FontIcon;
 import com.vaadin.shared.ui.ContentMode;
 import org.slf4j.Logger;
 import com.vaadin.ui.Button;
@@ -51,7 +52,7 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
     transient ModuleType module;
     HorizontalLayout header;
     Label spinner;
-    Button statusBtn;
+    HorizontalLayout statusBar;
     Button errorBtn;
     TabSheet configTabs;
 
@@ -167,24 +168,31 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
         String statusMsg = module.getStatusMessage();
         if (statusMsg != null)
         {
-            Button oldBtn = statusBtn;
+            HorizontalLayout oldStatus = statusBar;
 
-            statusBtn = new Button();
-            statusBtn.setStyleName(STYLE_LINK);
-            statusBtn.setIcon(INFO_ICON);
-            statusBtn.setCaption(statusMsg);
+            // use labels rather than a button so long messages can wrap
+            Label icon = new Label(((FontIcon)INFO_ICON).getHtml(), ContentMode.HTML);
+            icon.addStyleName(STYLE_COLORED);
+            Label msg = new Label(statusMsg, ContentMode.TEXT);
+            msg.addStyleName(STYLE_COLORED);
+            msg.setWidth(100.0f, Unit.PERCENTAGE);
 
-            if (oldBtn == null)
-                addComponent(statusBtn, 2);
+            statusBar = new HorizontalLayout(icon, msg);
+            statusBar.setWidth(100.0f, Unit.PERCENTAGE);
+            statusBar.setSpacing(true);
+            statusBar.setExpandRatio(msg, 1.0f);
+
+            if (oldStatus == null)
+                addComponent(statusBar, 2);
             else
-                replaceComponent(oldBtn, statusBtn);
+                replaceComponent(oldStatus, statusBar);
         }
         else
         {
-            if (statusBtn != null)
+            if (statusBar != null)
             {
-                removeComponent(statusBtn);
-                statusBtn = null;
+                removeComponent(statusBar);
+                statusBar = null;
             }
         }
     }
@@ -218,7 +226,7 @@ public class DefaultModulePanel<ModuleType extends IModule<? extends ModuleConfi
             });
 
             if (oldBtn == null)
-                addComponent(errorBtn, (statusBtn == null) ? 2 : 3);
+                addComponent(errorBtn, (statusBar == null) ? 2 : 3);
             else
                 replaceComponent(oldBtn, errorBtn);
         }
