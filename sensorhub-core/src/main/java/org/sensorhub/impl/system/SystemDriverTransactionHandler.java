@@ -14,6 +14,7 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.system;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -267,7 +268,8 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
             output.getName(),
             output.getRecordDescription(),
             output.getRecommendedEncoding(),
-            output.getValidStartTime());
+            output.getValidStartTime(),
+            toSamplingPeriod(output.getAverageSamplingPeriod()));
             
         // replace and cleanup old handler
         var oldDsHandler = dataStreamHandlers.get(output.getName());
@@ -283,6 +285,15 @@ class SystemDriverTransactionHandler extends SystemTransactionHandler implements
         output.registerListener(newDsHandler);
         
         return isNew;
+    }
+
+
+    protected static Duration toSamplingPeriod(double samplingPeriod)
+    {
+        if (!Double.isFinite(samplingPeriod) || samplingPeriod <= 0.0)
+            return null;
+
+        return Duration.ofNanos(Math.round(samplingPeriod * 1e9));
     }
 
 

@@ -14,6 +14,7 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.system;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -297,34 +298,41 @@ public class SystemTransactionHandler
     {
         return addOrUpdateDataStream(outputName, dataStruct, dataEncoding, null);
     }
-    
-    
+
+
     public DataStreamTransactionHandler addOrUpdateDataStream(String outputName, DataComponent dataStruct, DataEncoding dataEncoding, Instant validStartTime) throws DataStoreException
+    {
+        return addOrUpdateDataStream(outputName, dataStruct, dataEncoding, validStartTime, null);
+    }
+
+
+    public DataStreamTransactionHandler addOrUpdateDataStream(String outputName, DataComponent dataStruct, DataEncoding dataEncoding, Instant validStartTime, Duration samplingPeriod) throws DataStoreException
     {
         Asserts.checkNotNullOrEmpty(outputName, "outputName");
         Asserts.checkNotNull(dataStruct, DataComponent.class);
         Asserts.checkNotNull(dataEncoding, DataEncoding.class);
-        
+
         // retrieve parent system name
         var sysName = getSystemDescStore().get(sysKey).getName();
         var dsName = Strings.isNullOrEmpty(dataStruct.getLabel()) ? outputName : dataStruct.getLabel();
-        
+
         // compute valid time extent
         TimeExtent validTime = null;
         if (validStartTime != null) {
             validTime = TimeExtent.endNow(validStartTime);
         }
-        
+
         // create datastream info
         dataStruct.setName(outputName);
         var dsInfo = new DataStreamInfo.Builder()
             .withName(sysName + " - " + dsName)
             .withSystem(FeatureId.NULL_FEATURE)
             .withValidTime(validTime)
+            .withPhenomenonTimeInterval(samplingPeriod)
             .withRecordDescription(dataStruct)
             .withRecordEncoding(dataEncoding)
             .build();
-        
+
         return addOrUpdateDataStream(dsInfo);
     }
     
@@ -381,6 +389,7 @@ public class SystemTransactionHandler
                 // compare properties of old and new datastreams
                 var sameName = Objects.equals(oldDsInfo.getName(), dsInfo.getName());
                 var sameDescription = Objects.equals(oldDsInfo.getDescription(), dsInfo.getDescription());
+                var sameSamplingPeriod = Objects.equals(oldDsInfo.getPhenomenonTimeInterval(), dsInfo.getPhenomenonTimeInterval());
                 var sameRecordStruct = DataComponentChecks.checkStructEquals(oldDsInfo.getRecordStructure(), dsInfo.getRecordStructure());
                 var sameRecordEncoding = DataComponentChecks.checkEncodingEquals(oldDsInfo.getRecordEncoding(), dsInfo.getRecordEncoding());
                 var recordStructCompatible = sameRecordStruct || DataComponentChecks.checkStructCompatible(oldDsInfo.getRecordStructure(), dsInfo.getRecordStructure());
@@ -399,7 +408,7 @@ public class SystemTransactionHandler
                 }
                 
                 // if something else has changed, update existing datastream
-                else if (!sameRecordStruct || !sameRecordEncoding || !sameName || !sameDescription)
+                else if (!sameRecordStruct || !sameRecordEncoding || !sameName || !sameDescription || !sameSamplingPeriod)
                 {
                     var dsHandler = new DataStreamTransactionHandler(dsKey, oldDsInfo, rootHandler);
                     dsHandler.update(dsInfo);
