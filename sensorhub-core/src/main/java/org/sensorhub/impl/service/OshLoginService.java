@@ -15,6 +15,8 @@ Copyright (C) 2012-2016 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
+import javax.naming.ldap.LdapName;
 import javax.security.auth.Subject;
 import javax.servlet.ServletRequest;
 import org.eclipse.jetty.security.DefaultIdentityService;
@@ -97,29 +99,68 @@ public class OshLoginService implements LoginService
     {
         if (username == null)
             return null;
-        
-        boolean isCert = false;
-        if (username.startsWith("CN="))
+
+        // The login type is determined by the verified X509 client certificate
+        // that the TLS layer attached to the request, never by the shape of the
+        // username. With BASIC/DIGEST the username is supplied by the client, so
+        // inferring a certificate login from a "CN=" prefix let a caller skip
+        // the password check and log in as any user (authentication bypass).
+        X509Certificate[] certs = (request != null) ?
+            (X509Certificate[])request.getAttribute("javax.servlet.request.X509Certificate") : null;
+        boolean isCert = (certs != null && certs.length > 0);
+
+        // For a certificate login, take the user id from the verified certificate
+        // itself, not from the passed-in username.
+        String userId;
+        if (isCert)
         {
-            username = username.substring(3, username.indexOf(','));
-            isCert = true;
-        }
-        
-        IUserInfo user = securityManager.getUserInfo(username);
-        if (user == null)
-            return null;
-        
-        UserIdentity identity = null;
-        if (!isCert)
-        {
-            Credential storedCredential = Credential.getCredential(user.getPassword());
-            if (storedCredential.check(credentials))
-                identity = createUserIdentity(user, credentials);
+            userId = getSubjectCommonName(certs[0]);
+            if (userId == null)
+                return null;
         }
         else
-            identity = createUserIdentity(user, credentials);
-        
-        return identity;
+            userId = username;
+
+        IUserInfo user = securityManager.getUserInfo(userId);
+        if (user == null)
+            return null;
+
+        // A certificate login is already proven by the TLS handshake. A password
+        // login must always have its credentials verified; it is never skipped.
+        if (isCert)
+            return createUserIdentity(user, credentials);
+
+        String storedPassword = user.getPassword();
+        if (storedPassword == null)
+            return null;
+        Credential storedCredential = Credential.getCredential(storedPassword);
+        if (storedCredential.check(credentials))
+            return createUserIdentity(user, credentials);
+
+        return null;
+    }
+
+
+    /*
+     * Extracts the CN attribute from a verified certificate's subject DN,
+     * parsed as a proper LDAP name (CN need not be first, values may be escaped).
+     */
+    protected static String getSubjectCommonName(X509Certificate cert)
+    {
+        try
+        {
+            var dn = cert.getSubjectX500Principal().getName();
+            for (var rdn: new LdapName(dn).getRdns())
+            {
+                if ("CN".equalsIgnoreCase(rdn.getType()))
+                    return rdn.getValue().toString();
+            }
+        }
+        catch (Exception e)
+        {
+            // malformed DN: treat as no usable identity
+        }
+        return null;
     }
     
     
