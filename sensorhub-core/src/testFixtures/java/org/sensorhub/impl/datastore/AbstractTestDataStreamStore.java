@@ -16,6 +16,7 @@ package org.sensorhub.impl.datastore;
 
 import static org.junit.Assert.*;
 import java.io.ByteArrayOutputStream;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -60,6 +61,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
 {
     protected static int DATABASE_NUM = 2;
     protected static String PROC_UID_PREFIX = "urn:osh:test:sensor:";
+    protected static Duration SAMPLING_PERIOD = Duration.ofMillis(100);
 
     protected StoreType dataStreamStore;
     protected Map<DataStreamKey, IDataStreamInfo> allDataStreams = new LinkedHashMap<>();
@@ -82,6 +84,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         var builder = new DataStreamInfo.Builder()
                 .withName(recordStruct.getName())
                 .withSystem(sysID)
+                .withPhenomenonTimeInterval(SAMPLING_PERIOD)
                 .withRecordDescription(recordStruct)
                 .withRecordEncoding(new TextEncodingImpl());
 
@@ -177,6 +180,7 @@ public abstract class AbstractTestDataStreamStore<StoreType extends IDataStreamS
         assertEquals(ds1.getOutputName(), ds2.getOutputName());
         assertEquals(ds1.getName(), ds2.getName());
         assertEquals(ds1.getDescription(), ds2.getDescription());
+        assertEquals(ds1.getPhenomenonTimeInterval(), ds2.getPhenomenonTimeInterval());
         checkDataComponentEquals(ds1.getRecordStructure(), ds2.getRecordStructure());
         //assertEquals(ds1.getRecordEncoding(), ds2.getRecordEncoding());
         assertEquals(ds1.getValidTime(), ds2.getValidTime());
