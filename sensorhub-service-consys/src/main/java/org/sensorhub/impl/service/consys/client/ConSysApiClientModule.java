@@ -21,6 +21,7 @@ import org.sensorhub.api.system.SystemEnabledEvent;
 import org.sensorhub.api.system.SystemRemovedEvent;
 import org.sensorhub.api.system.SystemDisabledEvent;
 import org.sensorhub.api.system.SystemEvent;
+import org.sensorhub.api.system.IDeploymentWithDesc;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.impl.security.ClientAuth;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
@@ -41,6 +42,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     String apiEndpointUrl;
     ConSysApiClient client;
     Map<String, SystemRegInfo> registeredSystems;
+    Map<BigId, DeploymentRegInfo> registeredDeployments;
     Map<BigId, String> registeredFeatureIDs;
     NavigableMap<String, StreamInfo> dataStreams;
     Flow.Subscription registrySubscription;
@@ -51,6 +53,13 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         private BigId internalID;
         private Flow.Subscription subscription;
         private ISystemWithDesc system;
+    }
+
+    public static class DeploymentRegInfo
+    {
+        private String deploymentID;
+        private BigId internalID;
+        private IDeploymentWithDesc deployment;
     }
 
     public static class StreamInfo
@@ -66,6 +75,7 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
     public ConSysApiClientModule()
     {
         this.registeredSystems = new ConcurrentHashMap<>();
+        this.registeredDeployments = new ConcurrentHashMap<>();
         this.registeredFeatureIDs = new ConcurrentHashMap<>();
         this.dataStreams = new ConcurrentSkipListMap<>();
     }
@@ -129,6 +139,10 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                     checkSubSystems(systemRegInfo);
                     registerSystemDataStreams(systemRegInfo);
                 });
+
+        dataBaseView.getDeploymentStore().selectEntries(
+                        dataBaseView.getDeploymentStore().selectAllFilter())
+                .forEach(entry -> registerDeployment(entry.getKey().getInternalID(), entry.getValue()));
 
         dataBaseView.getFoiStore().selectEntries(
                 dataBaseView.getFoiStore().selectAllFilter())
@@ -207,6 +221,24 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
         return null;
     }
 
+    private String tryUpdateDeployment(IDeploymentWithDesc deployment)
+    {
+        try {
+            var oldDeployment = client.getDeploymentByUid(deployment.getUniqueIdentifier(), ResourceFormat.JSON).get();
+            if (oldDeployment != null) {
+                var deploymentID = oldDeployment.getId();
+                var responseCode = client.updateDeployment(deploymentID, deployment).get();
+                if (responseCode != HttpURLConnection.HTTP_NO_CONTENT)
+                    throw new ClientException("Failed to update resource: " +
+                            apiEndpointUrl + ConSysApiClient.DEPLOYMENTS_COLLECTION + "/" + deploymentID);
+                return deploymentID;
+            }
+        } catch (ExecutionException | InterruptedException | ClientException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
     private String tryUpdateSamplingFeature(IFeature feature)
     {
         try {
@@ -255,6 +287,18 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
                 systemID = client.addSystem(system).get();
 
             return registerSystemInfo(systemID, systemInternalID, system);
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected DeploymentRegInfo registerDeployment(BigId deploymentInternalID, IDeploymentWithDesc deployment) {
+        try {
+            String deploymentID = tryUpdateDeployment(deployment);
+            if(deploymentID == null)
+                deploymentID = client.addDeployment(deployment).get();
+
+            return registerDeploymentInfo(deploymentID, deploymentInternalID, deployment);
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
@@ -310,6 +354,16 @@ public class ConSysApiClientModule extends AbstractModule<ConSysApiClientConfig>
 
         registeredSystems.put(system.getUniqueIdentifier(), systemRegInfo);
         return systemRegInfo;
+    }
+
+    private DeploymentRegInfo registerDeploymentInfo(String deploymentID, BigId deploymentInternalID, IDeploymentWithDesc deployment) {
+        DeploymentRegInfo deploymentRegInfo = new DeploymentRegInfo();
+        deploymentRegInfo.deploymentID = deploymentID;
+        deploymentRegInfo.internalID = deploymentInternalID;
+        deploymentRegInfo.deployment = deployment;
+
+        registeredDeployments.put(deploymentInternalID, deploymentRegInfo);
+        return deploymentRegInfo;
     }
 
     protected List<StreamInfo> registerSystemDataStreams(SystemRegInfo system)
