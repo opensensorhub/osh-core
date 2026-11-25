@@ -25,7 +25,11 @@ import java.util.stream.StreamSupport;
 
 /**
  * <p>
- * Wrapper for native H2 Cursor and DescendingCursor
+ * Wrapper for native H2 Cursor adding support for descending iteration
+ * and key/value/entry streams.
+ * </p><p>
+ * When iterating in descending order, {@code from} must be greater than
+ * or equal to {@code to}. Both bounds are inclusive in either direction.
  * </p>
  *
  * @author Alex Robin
@@ -35,7 +39,7 @@ import java.util.stream.StreamSupport;
  */
 public class RangeCursor<K, V> implements Iterator<K>
 {
-    final Iterator<K> cursor; 
+    final Cursor<K, V> cursor;
     final MVMap<K, V> map;
     final boolean descending;
     
@@ -54,21 +58,19 @@ public class RangeCursor<K, V> implements Iterator<K>
     
     public RangeCursor(MVMap<K, V> map, K from, K to, boolean descending)
     {
-        this.cursor = descending ?
-            new DescendingCursor<K, V>(map.getRootPage(), from, to) :
-            new Cursor<K, V>(map.getRootPage(), from, to);
+        this.cursor = map.cursor(from, to, descending);
         this.map = map;
         this.descending = descending;
     }
     
-    
+
     @Override
     public boolean hasNext()
     {
         return cursor.hasNext();
     }
     
-    
+
     @Override
     public K next()
     {
@@ -76,21 +78,15 @@ public class RangeCursor<K, V> implements Iterator<K>
     }
     
     
-    @SuppressWarnings("unchecked")
     public K getKey()
     {
-        return descending ?
-            ((DescendingCursor<K, V>)cursor).getKey() :
-            ((Cursor<K, V>)cursor).getKey();
+        return cursor.getKey();
     }
     
     
-    @SuppressWarnings("unchecked")
     public V getValue()
     {
-        return descending ?
-            ((DescendingCursor<K, V>)cursor).getValue() :
-            ((Cursor<K, V>)cursor).getValue();
+        return cursor.getValue();
     }
     
     

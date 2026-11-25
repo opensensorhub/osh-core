@@ -15,8 +15,9 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.datastore.h2;
 
 import java.nio.ByteBuffer;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 import org.sensorhub.api.common.BigId;
 
 
@@ -28,7 +29,7 @@ import org.sensorhub.api.common.BigId;
  * @author Alex Robin
  * @date Jan 5, 2022
  */
-class MVCommandStatusKeyDataType implements DataType
+class MVCommandStatusKeyDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     int idScope;
     
@@ -89,14 +90,6 @@ class MVCommandStatusKeyDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         return decode(idScope, buff);
@@ -113,12 +106,5 @@ class MVCommandStatusKeyDataType implements DataType
         return new MVCommandStatusKey(cmdID, reportTime);
     }
     
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);
-    }
 
 }

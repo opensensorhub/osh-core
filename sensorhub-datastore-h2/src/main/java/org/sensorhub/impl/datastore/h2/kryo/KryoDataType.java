@@ -19,8 +19,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 import org.sensorhub.impl.datastore.h2.H2Utils;
 import org.sensorhub.impl.serialization.kryo.VersionedSerializer;
@@ -36,7 +37,7 @@ import com.esotericsoftware.kryo.util.Pool;
 import com.google.common.collect.ImmutableMap;
 
 
-public class KryoDataType implements DataType
+public class KryoDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     static Logger log = LoggerFactory.getLogger(KryoDataType.class);
     
@@ -176,8 +177,9 @@ public class KryoDataType implements DataType
 
 
     @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
+    public void read(ByteBuffer buff, Object storage, int len)
     {
+        Object[] obj = cast(storage);
         KryoInstance kryoI = getReadKryo();
         for (int i = 0; i < len; i++)
             obj[i] = read(buff, kryoI);
@@ -190,9 +192,11 @@ public class KryoDataType implements DataType
         Kryo kryo = kryoI.kryo;
         Input input = kryoI.input;
         
-        input.setBuffer(buff.array(), buff.position(), buff.remaining());
+        // H2 2.x passes slices of an unsaved chunk's buffer, so the page may not start at array index 0
+        int offset = buff.arrayOffset();
+        input.setBuffer(buff.array(), offset + buff.position(), buff.remaining());
         Object obj = kryo.readClassAndObject(input);
-        buff.position(input.position());
+        buff.position(input.position() - offset);
         
         return obj;
     }
@@ -207,8 +211,9 @@ public class KryoDataType implements DataType
 
 
     @Override
-    public void write(WriteBuffer buff, Object[] objects, int len, boolean key)
+    public void write(WriteBuffer buff, Object storage, int len)
     {
+        Object[] objects = cast(storage);
         for (int i = 0; i < len; i++)
         {
             var obj = objects[i];

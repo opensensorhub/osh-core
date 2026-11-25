@@ -14,6 +14,8 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.impl.datastore.h2;
 
+import java.nio.file.Paths;
+
 import java.util.concurrent.Callable;
 import org.h2.mvstore.MVStore;
 import org.sensorhub.api.common.SensorHubException;
@@ -21,6 +23,7 @@ import org.sensorhub.api.database.IFeatureDatabase;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.utils.FileUtils;
+import org.sensorhub.impl.datastore.h2.migrate.Migrator;
 
 
 /**
@@ -34,7 +37,7 @@ import org.sensorhub.utils.FileUtils;
  */
 public class MVFeatureDatabase extends AbstractModule<MVFeatureDatabaseConfig> implements IFeatureDatabase
 {
-    final static String FEATURE_STORE_NAME = "feature_store";
+    public final static String FEATURE_STORE_NAME = "feature_store";
     
     MVStore mvStore;
     MVFeatureStoreImpl featureStore;
@@ -49,7 +52,7 @@ public class MVFeatureDatabase extends AbstractModule<MVFeatureDatabaseConfig> i
             if (!FileUtils.isSafeFilePath(config.storagePath))
                 throw new DataStoreException("Storage path contains illegal characters: " + config.storagePath);
             
-            MVStore.Builder builder = new MVStore.Builder().fileName(config.storagePath);
+            MVStore.Builder builder = new MVStore.Builder();
             
             if (config.readOnly)
                 builder.readOnly();
@@ -63,8 +66,10 @@ public class MVFeatureDatabase extends AbstractModule<MVFeatureDatabaseConfig> i
             if (config.useCompression)
                 builder.compress();
             
-            mvStore = builder.open();
-            mvStore.setAutoCommitDelay(config.autoCommitPeriod*1000);
+            if (config.autoMigrate && !config.readOnly)
+                Migrator.migrateIfNeeded(Paths.get(config.storagePath), config.backupOnMigrate, msg -> getLogger().info(msg));
+
+            mvStore = H2Utils.openMVStore(config.storagePath, builder, config.autoCommitPeriod*1000);
             mvStore.setVersionsToKeep(0);
             
             // open feature store
@@ -72,6 +77,12 @@ public class MVFeatureDatabase extends AbstractModule<MVFeatureDatabaseConfig> i
             featureStore = MVFeatureStoreImpl.open(mvStore, idScope, config.idProviderType, MVDataStoreInfo.builder()
                 .withName(FEATURE_STORE_NAME)
                 .build());
+        }
+        catch (DatabaseMigrationRequiredException e)
+        {
+            // one plain line for the operator, in addition to the module error state
+            getLogger().error("Cannot open database file: {}", e.getMessage());
+            throw e;
         }
         catch (Exception e)
         {

@@ -49,7 +49,6 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
 {
     protected static final Pattern NUMBER_PATTERN = Pattern.compile("^\\.?\\d+(\\.\\d+)?");
         
-    //MVRadixTreeMap<byte[], K> radixTreeMap;
     MVBTreeMap<FullTextKey<K>, Boolean> btreeMap;
     
     /* Default analyzer */
@@ -58,9 +57,6 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
     
     public FullTextIndex(MVStore mvStore, String mapName, DataType valueType)
     {
-        //this.radixTreeMap = mvStore.openMap(mapName, new MVRadixTreeMap.Builder<byte[], K>()
-        //    .keyType(new ResourceRadixKeyDataType())
-        //    .valueType(valueType));
         this.btreeMap = mvStore.openMap(mapName, new MVBTreeMap.Builder<FullTextKey<K>, Boolean>()
             .keyType(new FullTextKeyDataType(valueType))
             .valueType(new MVVoidDataType()));
@@ -73,7 +69,6 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
         HashSet<String> tokenSet = new HashSet<>();
         addToTokenSet(res, tokenSet);
         for (String token: tokenSet)
-            //radixTreeMap.put(token.getBytes(), key);
             btreeMap.put(new FullTextKey<>(token, key), Boolean.TRUE);
     }
     
@@ -90,17 +85,12 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
         HashSet<String> tokenSet = new HashSet<>();
         addToTokenSet(res, tokenSet);
         for (String token: tokenSet)
-            //radixTreeMap.remove(token.getBytes(), key);
             btreeMap.put(new FullTextKey<>(token, key), Boolean.TRUE);
     }
     
     
     public Stream<K> selectKeys(FullTextFilter filter)
     {
-        //return getKeywordStream(filter)
-        //    .flatMap(w -> radixTreeMap.entryCursor(w.getBytes()).valueStream())
-        //    .distinct(); // remove duplicate IDs
-        
         return getKeywordStream(filter)
             .flatMap(w -> {
                 var startKey = new FullTextKey<K>(w, null);
@@ -153,21 +143,6 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
     
     public Stream<K> addFullTextPostFilter(Stream<K> pkStream, FullTextFilter filter)
     {
-        /*Set<byte[]> keywordSet = getKeywordStream(filter)
-            .map(String::getBytes)
-            .collect(Collectors.toSet());
-        
-        return pkStream.filter(k -> {
-            if (k == null)
-                return false;
-            for (byte[] w: keywordSet)
-            {
-                if (radixTreeMap.containsValue(w, k))
-                    return true;
-            }
-            return false;
-        });*/
-        
         var keywordSet = getKeywordStream(filter)
             .collect(Collectors.toSet());
         
@@ -187,7 +162,6 @@ public class FullTextIndex<T extends IResource, K extends Comparable<?>>
     
     public void clear()
     {
-        //radixTreeMap.clear();
         btreeMap.clear();
     }
     

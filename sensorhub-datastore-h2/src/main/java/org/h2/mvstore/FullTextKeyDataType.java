@@ -15,10 +15,11 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.h2.mvstore;
 
 import java.nio.ByteBuffer;
+import org.h2.mvstore.type.BasicDataType;
 import org.h2.mvstore.type.DataType;
 
 
-public class FullTextKeyDataType implements DataType
+public class FullTextKeyDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     DataType refKeyDataType;
     
@@ -65,14 +66,6 @@ public class FullTextKeyDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         String word = DataUtils.readString(buff);
@@ -80,12 +73,5 @@ public class FullTextKeyDataType implements DataType
         return new FullTextKey<>(word, refKey);
     }
     
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);
-    }
 
 }

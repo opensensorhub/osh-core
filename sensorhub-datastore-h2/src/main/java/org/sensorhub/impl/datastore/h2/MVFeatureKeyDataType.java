@@ -17,9 +17,10 @@ package org.sensorhub.impl.datastore.h2;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Comparator;
+import org.h2.mvstore.ObjectArrayDataType;
 import org.h2.mvstore.DataUtils;
 import org.h2.mvstore.WriteBuffer;
-import org.h2.mvstore.type.DataType;
+import org.h2.mvstore.type.BasicDataType;
 import org.sensorhub.api.datastore.feature.FeatureKey;
 
 
@@ -31,7 +32,7 @@ import org.sensorhub.api.datastore.feature.FeatureKey;
  * @author Alex Robin
  * @date Apr 7, 2018
  */
-class MVFeatureKeyDataType implements DataType
+class MVFeatureKeyDataType extends BasicDataType<Object> implements ObjectArrayDataType
 {
     Comparator<Instant> timeCompare = Comparator.nullsFirst(Comparator.naturalOrder());
     int idScope;
@@ -78,14 +79,6 @@ class MVFeatureKeyDataType implements DataType
     
 
     @Override
-    public void write(WriteBuffer wbuf, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            write(wbuf, obj[i]);
-    }
-    
-
-    @Override
     public Object read(ByteBuffer buff)
     {
         long internalID = DataUtils.readVarLong(buff); 
@@ -93,12 +86,5 @@ class MVFeatureKeyDataType implements DataType
         return new FeatureKey(idScope, internalID, validStartTime);
     }
     
-
-    @Override
-    public void read(ByteBuffer buff, Object[] obj, int len, boolean key)
-    {
-        for (int i=0; i<len; i++)
-            obj[i] = read(buff);
-    }
 
 }

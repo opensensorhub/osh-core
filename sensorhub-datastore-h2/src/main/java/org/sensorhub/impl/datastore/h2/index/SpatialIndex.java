@@ -22,7 +22,7 @@ import org.h2.mvstore.MVStore;
 import org.h2.mvstore.Page;
 import org.h2.mvstore.RTreeEntryCursor;
 import org.h2.mvstore.rtree.MVRTreeMap;
-import org.h2.mvstore.rtree.SpatialKey;
+import org.h2.mvstore.rtree.Spatial;
 import org.h2.mvstore.rtree.SpatialDataType;
 import org.h2.mvstore.type.DataType;
 import org.sensorhub.api.datastore.SpatialFilter;
@@ -46,10 +46,10 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
     protected MVRTreeMap<K> rTreeMap;
     
        
-    protected abstract SpatialKey getSpatialKey(K key, T resource);
+    protected abstract Spatial getSpatialKey(K key, T resource);
     
     
-    public SpatialIndex(MVStore mvStore, String mapName, DataType valueType)
+    public SpatialIndex(MVStore mvStore, String mapName, DataType<? super K> valueType)
     {
         this.rTreeMap = mvStore.openMap(mapName, new MVRTreeMap.Builder<K>()
             .dimensions(3)
@@ -59,7 +59,7 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
     
     public void add(K key, T res)
     {
-        SpatialKey spatialKey = getSpatialKey(key, res);
+        Spatial spatialKey = getSpatialKey(key, res);
         if (spatialKey != null)
             rTreeMap.put(spatialKey, key);
     }
@@ -74,7 +74,7 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
     
     public void remove(K key, T res)
     {
-        SpatialKey spatialKey = getSpatialKey(key, res);
+        Spatial spatialKey = getSpatialKey(key, res);
         if (spatialKey != null)
             rTreeMap.remove(spatialKey);
     }
@@ -82,7 +82,7 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
     
     public Stream<K> selectKeys(SpatialFilter filter)
     {
-        SpatialKey bbox = H2Utils.getBoundingRectangle(0, filter.getRoi());
+        Spatial bbox = H2Utils.getBoundingRectangle(0, filter.getRoi());
         
         /*final RTreeCursor geoCursor = rTreeMap.findIntersectingKeys(bbox);
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(geoCursor, Spliterator.DISTINCT), true)
@@ -91,7 +91,7 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
         var rTreeKeyType = ((SpatialDataType)rTreeMap.getKeyType());
         var geoCursor = new RTreeEntryCursor<K>(rTreeMap.getRoot().root, bbox) {
             @Override
-            protected boolean check(boolean leaf, SpatialKey key, SpatialKey test)
+            protected boolean check(boolean leaf, Spatial key, Spatial test)
             {
                 return rTreeKeyType.isOverlap(key, test);
             }
@@ -109,10 +109,10 @@ public abstract class SpatialIndex<T extends IResource, K extends Comparable<?>>
     {
         Bbox extent = new Bbox();
         
-        Page root = rTreeMap.getRoot().root;
+        Page<Spatial, K> root = rTreeMap.getRoot().root;
         for (int i = 0; i < root.getKeyCount(); i++)
         {
-            SpatialKey key = (SpatialKey)root.getKey(i);
+            Spatial key = root.getKey(i);
             extent.add(new Bbox(key.min(0), key.min(1), key.min(2),
                                 key.max(0), key.max(1), key.max(2)));
         }

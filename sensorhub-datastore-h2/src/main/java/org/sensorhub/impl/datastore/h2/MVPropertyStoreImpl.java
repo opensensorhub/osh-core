@@ -104,14 +104,14 @@ public class MVPropertyStoreImpl extends MVBaseResourceStoreImpl<PropertyKey, ID
     
     
     @Override
-    protected DataType getResourceKeyDataType(int idScope)
+    protected DataType<Object> getResourceKeyDataType(int idScope)
     {
         return new MVPropertyKeyDataType(idScope);
     }
     
     
     @Override
-    protected DataType getResourceDataType(MVMap<String, Integer> kryoClassMap, int idScope)
+    protected DataType<Object> getResourceDataType(MVMap<String, Integer> kryoClassMap, int idScope)
     {
         return new PropertyDataType(kryoClassMap);
     }

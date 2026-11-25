@@ -76,6 +76,17 @@ public abstract class MVDatabaseConfig extends DatabaseConfig
     public boolean readOnly = false;
     
     
+    @DisplayInfo(desc = "Set to migrate a database file written by an older H2 version at startup. " +
+        "The original file is kept unmodified next to the migrated one with a .old suffix. " +
+        "When unset, such files are rejected with an error")
+    public boolean autoMigrate = false;
+    
+    
+    @DisplayInfo(desc = "Set to also keep a verified backup copy of the original file when autoMigrate " +
+        "migrates it (the original is kept as .old either way)")
+    public boolean backupOnMigrate = false;
+
+
     @DisplayInfo(desc = "Set to compact the database file when the database module is stopped or restarted")
     public boolean compactOnClose = false;
     

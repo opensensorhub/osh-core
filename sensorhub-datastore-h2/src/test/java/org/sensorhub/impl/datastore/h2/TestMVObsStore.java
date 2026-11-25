@@ -39,13 +39,13 @@ public class TestMVObsStore extends AbstractTestObsStore<MVObsStoreImpl>
     }
     
     
-    protected void forceReadBackFromStorage()
+    protected void forceReadBackFromStorage() throws Exception
     {
         this.obsStore = openMVStore();
     }
     
     
-    private MVObsStoreImpl openMVStore()
+    private MVObsStoreImpl openMVStore() throws Exception
     {
         if (mvStore != null)
         {
@@ -54,11 +54,9 @@ public class TestMVObsStore extends AbstractTestObsStore<MVObsStoreImpl>
             System.out.println("MVStore flushed to disk");
         }
         
-        mvStore = new MVStore.Builder()
-                .fileName(dbFile.getAbsolutePath())
+        mvStore = H2Utils.openMVStore(dbFile.getAbsolutePath(), new MVStore.Builder()
                 .autoCommitBufferSize(10)
-                .cacheSize(1)
-                .open();
+                .cacheSize(1), 1000);
         
         return MVObsStoreImpl.open(mvStore, DATABASE_NUM, IdProviderType.SEQUENTIAL,
             MVDataStoreInfo.builder()

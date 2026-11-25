@@ -15,6 +15,7 @@ Copyright (C) 2020 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.datastore.h2;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.io.StringWriter;
 import java.util.concurrent.Callable;
 import org.h2.mvstore.MVStore;
@@ -33,6 +34,7 @@ import org.sensorhub.api.datastore.property.IPropertyStore;
 import org.sensorhub.api.datastore.system.ISystemDescStore;
 import org.sensorhub.impl.module.AbstractModule;
 import org.sensorhub.utils.FileUtils;
+import org.sensorhub.impl.datastore.h2.migrate.Migrator;
 
 
 /**
@@ -47,14 +49,14 @@ import org.sensorhub.utils.FileUtils;
  */
 public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfig> implements IObsSystemDatabase, IProcedureDatabase, IObsSystemDatabaseModule<MVObsSystemDatabaseConfig>
 {
-    final static String KRYO_CLASS_MAP_NAME = "kryo_class_map";
-    final static String SYSTEM_STORE_NAME = "sys_store";
-    final static String DEPL_STORE_NAME = "depl_store";
-    final static String FOI_STORE_NAME = "foi_store";
-    final static String OBS_STORE_NAME = "obs_store";
-    final static String CMD_STORE_NAME = "cmd_store";
-    final static String PROC_STORE_NAME = "proc_store";
-    final static String PROP_STORE_NAME = "prop_store";
+    public final static String KRYO_CLASS_MAP_NAME = "kryo_class_map";
+    public final static String SYSTEM_STORE_NAME = "sys_store";
+    public final static String DEPL_STORE_NAME = "depl_store";
+    public final static String FOI_STORE_NAME = "foi_store";
+    public final static String OBS_STORE_NAME = "obs_store";
+    public final static String CMD_STORE_NAME = "cmd_store";
+    public final static String PROC_STORE_NAME = "proc_store";
+    public final static String PROP_STORE_NAME = "prop_store";
     
     MVStore mvStore;
     MVSystemStoreImpl sysStore;
@@ -82,7 +84,7 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
     {
         try
         {
-            MVStore.Builder builder = new MVStore.Builder().fileName(config.storagePath);
+            MVStore.Builder builder = new MVStore.Builder();
             builder.backgroundExceptionHandler((t, e) -> {
                 getLogger().error("Error in H2 background thread {}", t.getName(), e);
             });
@@ -102,8 +104,10 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
             if (config.useCompression)
                 builder.compress();
             
-            mvStore = builder.open();
-            mvStore.setAutoCommitDelay(config.autoCommitPeriod*1000);
+            if (config.autoMigrate && !config.readOnly)
+                Migrator.migrateIfNeeded(Paths.get(config.storagePath), config.backupOnMigrate, msg -> getLogger().info(msg));
+
+            mvStore = H2Utils.openMVStore(config.storagePath, builder, config.autoCommitPeriod*1000);
             mvStore.setVersionsToKeep(0);
             
             var idScope = getDatabaseNum() != null ? getDatabaseNum() : 0;
@@ -151,6 +155,12 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
             obsStore.getDataStreams().linkTo(sysStore);
             cmdStore.getCommandStreams().linkTo(sysStore);
         }
+        catch (DatabaseMigrationRequiredException e)
+        {
+            // one plain line for the operator, in addition to the module error state
+            getLogger().error("Cannot open database file: {}", e.getMessage());
+            throw e;
+        }
         catch (Exception e)
         {
             throw new DataStoreException("Error while starting MVStore", e);
@@ -177,14 +187,15 @@ public class MVObsSystemDatabase extends AbstractModule<MVObsSystemDatabaseConfi
     @Override
     protected void doStop() throws SensorHubException
     {
-        if (mvStore != null) 
-        {
-            // must call commit first to make sure kryo persistent class resolver
-            // is updated before we serialize it again in close
-            mvStore.commit();
-            mvStore.close();
-            mvStore = null;
-        }
+        // Startup may have rejected the file before acquiring a compatible store.
+        if (mvStore == null)
+            return;
+
+        // must call commit first to make sure kryo persistent class resolver
+        // is updated before we serialize it again in close
+        mvStore.commit();
+        mvStore.close();
+        mvStore = null;
         
         // log store info if debug is enabled
         if (config.printDebugInfoOnClose && getLogger().isDebugEnabled() && new File(config.storagePath).exists())
