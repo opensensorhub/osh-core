@@ -51,6 +51,7 @@ import org.sensorhub.impl.service.consys.task.CommandResultHandler;
 import org.sensorhub.impl.service.consys.task.CommandStatusHandler;
 import org.sensorhub.impl.service.consys.task.CommandStreamHandler;
 import org.sensorhub.impl.service.consys.task.CommandStreamSchemaHandler;
+import org.sensorhub.impl.service.consys.task.CustomCommandFormat;
 import org.sensorhub.utils.NamedThreadFactory;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
@@ -166,15 +167,23 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         
         // load custom formats
         Map<String, CustomObsFormat> customFormats = new HashMap<>();
+        Map<String, CustomCommandFormat> customCmdFormats = new HashMap<>();
         for (var formatConfig: config.customFormats)
         {
             try
             {
                 // find impl for this mime type
+                // a single class can handle observations, commands or both
                 ModuleRegistry moduleReg = getParentHub().getModuleRegistry();
-                var clazz = moduleReg.<CustomObsFormat>findClass(formatConfig.className);
+                var clazz = moduleReg.findClass(formatConfig.className);
                 var formatImpl = clazz.getDeclaredConstructor().newInstance();
-                customFormats.put(formatConfig.mimeType, formatImpl);
+                if (!(formatImpl instanceof CustomObsFormat) && !(formatImpl instanceof CustomCommandFormat))
+                    throw new IllegalArgumentException(formatConfig.className + " must implement " +
+                        CustomObsFormat.class.getSimpleName() + " or " + CustomCommandFormat.class.getSimpleName());
+                if (formatImpl instanceof CustomObsFormat)
+                    customFormats.put(formatConfig.mimeType, (CustomObsFormat)formatImpl);
+                if (formatImpl instanceof CustomCommandFormat)
+                    customCmdFormats.put(formatConfig.mimeType, (CustomCommandFormat)formatImpl);
                 getLogger().info("Loaded custom {} format implementation: {}", formatConfig.mimeType, formatConfig.className);
             }
             catch (Exception e)
@@ -262,7 +271,7 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         rootHandler.addSubResource(dataStreamHandler);
         systemsHandler.addSubResource(dataStreamHandler);
         sysMembersHandler.addSubResource(dataStreamHandler);
-        var dataSchemaHandler = new DataStreamSchemaHandler(handlerCtx, security.datastream_permissions);
+        var dataSchemaHandler = new DataStreamSchemaHandler(handlerCtx, security.datastream_permissions, customFormats);
         dataStreamHandler.addSubResource(dataSchemaHandler);
         
         // observations
@@ -278,15 +287,15 @@ public class ConSysApiService extends AbstractHttpServiceModule<ConSysApiService
         //foiHandler.addSubResource(obsStatsHandler);
         
         // command streams
-        var cmdStreamHandler = new CommandStreamHandler(handlerCtx, security.commandstream_permissions);
+        var cmdStreamHandler = new CommandStreamHandler(handlerCtx, security.commandstream_permissions, customCmdFormats);
         rootHandler.addSubResource(cmdStreamHandler);
         systemsHandler.addSubResource(cmdStreamHandler);
         sysMembersHandler.addSubResource(cmdStreamHandler);
-        var cmdSchemaHandler = new CommandStreamSchemaHandler(handlerCtx, security.commandstream_permissions);
+        var cmdSchemaHandler = new CommandStreamSchemaHandler(handlerCtx, security.commandstream_permissions, customCmdFormats);
         cmdStreamHandler.addSubResource(cmdSchemaHandler);
-        
+
         // commands
-        var cmdHandler = new CommandHandler(handlerCtx, threadPool, security.command_permissions);
+        var cmdHandler = new CommandHandler(handlerCtx, threadPool, security.command_permissions, customCmdFormats);
         cmdStreamHandler.addSubResource(cmdHandler);
         
         // command status

@@ -18,9 +18,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import org.sensorhub.api.command.ICommandStreamInfo;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.impl.service.consys.obs.CustomObsFormat;
 import org.sensorhub.impl.service.consys.resource.ResourceFormat;
+import org.sensorhub.impl.service.consys.task.CustomCommandFormat;
 import org.vast.cdm.common.DataStreamParser;
 import org.vast.cdm.common.DataStreamWriter;
 import org.vast.data.DataIterator;
@@ -224,6 +226,35 @@ public class SWECommonUtils
         for (var formatEntry: customFormats.entrySet())
         {
             if (formatEntry.getValue().isCompatible(dsInfo))
+                formatList.add(formatEntry.getKey());
+        }
+        
+        return formatList;
+    }
+    
+    
+    /*
+     * Get list of format available for a given command stream
+     */
+    public static Collection<String> getAvailableFormats(ICommandStreamInfo csInfo, Map<String, CustomCommandFormat> customFormats)
+    {
+        var formatList = new ArrayList<String>();
+        
+        formatList.add(ResourceFormat.JSON.getMimeType());
+        
+        if (ResourceFormat.allowNonBinaryFormat(csInfo.getRecordEncoding()))
+        {
+            formatList.add(ResourceFormat.SWE_JSON.getMimeType());
+            formatList.add(ResourceFormat.SWE_TEXT.getMimeType());
+            formatList.add(ResourceFormat.SWE_XML.getMimeType());
+        }
+        
+        formatList.add(ResourceFormat.SWE_BINARY.getMimeType());
+        
+        // also list compatible custom formats
+        for (var formatEntry: customFormats.entrySet())
+        {
+            if (formatEntry.getValue().isCompatible(csInfo))
                 formatList.add(formatEntry.getKey());
         }
         

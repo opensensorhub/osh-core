@@ -74,6 +74,7 @@ public class MVObsStoreImpl implements IObsStore
     protected MVDataStreamStoreImpl dataStreamStore;
     protected MVBTreeMap<MVTimeSeriesRecordKey, IObsData> obsRecordsIndex;
     protected MVBTreeMap<MVTimeSeriesKey, MVTimeSeriesInfo> obsSeriesMainIndex;
+    protected long lastSeriesID;
     protected MVBTreeMap<MVTimeSeriesKey, Boolean> obsSeriesByFoiIndex;
     protected int idScope;
     
@@ -164,6 +165,12 @@ public class MVObsStoreImpl implements IObsStore
         this.obsSeriesByFoiIndex = mvStore.openMap(mapName, new MVBTreeMap.Builder<MVTimeSeriesKey, Boolean>()
                 .keyType(new MVObsSeriesKeyByFoiDataType())
                 .valueType(new MVVoidDataType()));
+        
+        // next series ID must follow every series still registered, including empty ones,
+        // otherwise a new series can reuse the ID of an existing one
+        this.lastSeriesID = Math.max(
+            obsSeriesMainIndex.values().stream().mapToLong(s -> s.id).max().orElse(0),
+            obsRecordsIndex.isEmpty() ? 0 : obsRecordsIndex.lastKey().seriesID);
         
         return this;
     }
@@ -303,11 +310,12 @@ public class MVObsStoreImpl implements IObsStore
             }
             
             // if request if for latest result only, get only the latest obs in series
+            // within the requested phenomenon time range
             if (timeParams.latestResultOnly)
             {
-                MVTimeSeriesRecordKey maxKey = new MVTimeSeriesRecordKey(series.id, Instant.MAX);
+                MVTimeSeriesRecordKey maxKey = new MVTimeSeriesRecordKey(series.id, phenomenonTimeRange.upperEndpoint());
                 Entry<MVTimeSeriesRecordKey, IObsData> e = obsRecordsIndex.floorEntry(maxKey);
-                if (e != null && e.getKey().seriesID == series.id)
+                if (e != null && e.getKey().seriesID == series.id && phenomenonTimeRange.contains(e.getKey().timeStamp))
                     return Stream.of(e);
                 else
                     return Stream.empty();
@@ -908,7 +916,7 @@ public class MVObsStoreImpl implements IObsStore
             obsSeriesByFoiIndex.putIfAbsent(seriesKey, Boolean.TRUE);
             
             return new MVTimeSeriesInfo(
-                obsRecordsIndex.isEmpty() ? 1 : obsRecordsIndex.lastKey().seriesID + 1);
+                ++lastSeriesID);
         });
         
         // add to main obs index

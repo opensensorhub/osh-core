@@ -14,6 +14,8 @@ Copyright (C) 2019 Sensia Software LLC. All Rights Reserved.
 
 package org.sensorhub.api.datastore.obs;
 
+import java.time.Instant;
+import java.util.Comparator;
 import org.sensorhub.api.data.IDataStreamInfo;
 import org.sensorhub.api.datastore.DataStoreException;
 import org.sensorhub.api.datastore.obs.IDataStreamStore.DataStreamInfoField;
@@ -111,9 +113,17 @@ public interface IDataStreamStore extends IResourceStore<DataStreamKey, IDataStr
                 .done()
             .withOutputNames(outputName)
             .build())
-        .findFirst();
+        // results are not guaranteed to be sorted, so select the version with the latest valid time
+        .max(Comparator.comparing(e -> getValidTimeBegin(e.getValue())));
         
         return entryOpt.isPresent() ? entryOpt.get() : null;
+    }
+    
+    
+    private static Instant getValidTimeBegin(IDataStreamInfo info)
+    {
+        var validTime = info.getValidTime();
+        return validTime != null ? validTime.begin() : Instant.MIN;
     }
     
     

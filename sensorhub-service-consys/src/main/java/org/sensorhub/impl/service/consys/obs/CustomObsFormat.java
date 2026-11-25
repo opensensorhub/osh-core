@@ -26,11 +26,28 @@ import org.sensorhub.impl.service.consys.resource.ResourceBinding;
 
 public interface CustomObsFormat
 {
+    /**
+     * @return true if this format can encode observations of the given
+     * datastream. Drives the "formats" list advertised on the datastream
+     * resource and explicit format selection.
+     */
     boolean isCompatible(IDataStreamInfo dsInfo);
-    
-    
+
+
+    /**
+     * @return true if this format should be auto-selected for browser requests
+     * with no explicit format (e.g. video formats playable in a browser).
+     * Defaults to {@link #isCompatible}; override to return false for formats
+     * that should be advertised but only served when explicitly requested.
+     */
+    default boolean isAutoSelectable(IDataStreamInfo dsInfo)
+    {
+        return isCompatible(dsInfo);
+    }
+
+
     ResourceBinding<DataStreamKey, IDataStreamInfo> getSchemaBinding(RequestContext ctx, IdEncoders idEncoders, IDataStreamInfo dsInfo) throws IOException;
-    
-    
+
+
     ResourceBinding<BigId, IObsData> getObsBinding(RequestContext ctx, IdEncoders idEncoders, IDataStreamInfo dsInfo) throws IOException;
 }

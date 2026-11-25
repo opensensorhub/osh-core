@@ -66,6 +66,7 @@ public class MVCommandStoreImpl implements ICommandStore
     protected MVCommandStatusStoreImpl cmdStatusStore;
     protected MVBTreeMap<MVTimeSeriesRecordKey, ICommandData> cmdRecordsIndex;
     protected MVBTreeMap<MVTimeSeriesKey, MVTimeSeriesInfo> cmdSeriesMainIndex;
+    protected long lastSeriesID;
     protected int idScope;
     
     protected IFoiStore foiStore;
@@ -142,6 +143,12 @@ public class MVCommandStoreImpl implements ICommandStore
         this.cmdSeriesMainIndex = mvStore.openMap(mapName, new MVBTreeMap.Builder<MVTimeSeriesKey, MVTimeSeriesInfo>()
                 .keyType(new MVCommandSeriesKeyByCommandStreamDataType())
                 .valueType(new MVTimeSeriesInfoDataType()));
+        
+        // next series ID must follow every series still registered, including empty ones,
+        // otherwise a new series can reuse the ID of an existing one
+        this.lastSeriesID = Math.max(
+            cmdSeriesMainIndex.values().stream().mapToLong(s -> s.id).max().orElse(0),
+            cmdRecordsIndex.isEmpty() ? 0 : cmdRecordsIndex.lastKey().seriesID);
         
         return this;
     }
@@ -621,7 +628,7 @@ public class MVCommandStoreImpl implements ICommandStore
         
         MVTimeSeriesInfo series = cmdSeriesMainIndex.computeIfAbsent(seriesKey, k -> {
             return new MVTimeSeriesInfo(
-                cmdRecordsIndex.isEmpty() ? 1 : cmdRecordsIndex.lastKey().seriesID + 1);
+                ++lastSeriesID);
         });
         
         // add to main command index

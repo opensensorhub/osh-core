@@ -68,9 +68,10 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
     final SystemDatabaseTransactionHandler readOnlyTxHandler;
     final SystemDatabaseTransactionHandler fullTxHandler;
     final ScheduledExecutorService threadPool;
+    final Map<String, CustomCommandFormat> customFormats;
     final Random random = new SecureRandom();
-    
-    
+
+
     public static class CommandHandlerContextData
     {
         public BigId streamID;
@@ -78,16 +79,23 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         public BigId foiId;
         public CommandStreamTransactionHandler dsHandler;
     }
-    
-    
+
+
     public CommandHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions)
     {
+        this(ctx, threadPool, permissions, java.util.Collections.emptyMap());
+    }
+
+
+    public CommandHandler(HandlerContext ctx, ScheduledExecutorService threadPool, ResourcePermissions permissions, Map<String, CustomCommandFormat> customFormats)
+    {
         super(ctx.getReadDb().getCommandStore(), ctx.getCommandIdEncoder(), ctx, permissions);
-        
+
         this.eventBus = ctx.getEventBus();
         this.db = ctx.getReadDb();
         this.threadPool = threadPool;
-        
+        this.customFormats = customFormats != null ? customFormats : java.util.Collections.emptyMap();
+
         // I know the doc says otherwise but we need to use the federated DB for command transactions here
         // because we don't write to DB directly but rather send commands to systems that can be in other databases
         this.readOnlyTxHandler = new SystemDatabaseTransactionHandler(eventBus, ctx.getReadDb());
@@ -151,10 +159,28 @@ public class CommandHandler extends BaseResourceHandler<BigId, ICommandData, Com
         }
         
         // select binding depending on format
+        // use a custom format if available for selected mime type
+        // do this only if commands from single command stream are requested
+        if (contextData.csInfo != null)
+        {
+            var binding = getCustomFormatBinding(ctx, contextData.csInfo, forReading);
+            if (binding != null)
+                return binding;
+        }
+
+        // otherwise use standard formats
         if (format.isOneOf(ResourceFormat.AUTO, ResourceFormat.JSON))
             return new CommandBindingJson(ctx, idEncoders, forReading, dataStore);
         else
             return new CommandBindingSweCommon(ctx, idEncoders, forReading, dataStore);
+    }
+
+
+    protected ResourceBinding<BigId, ICommandData> getCustomFormatBinding(RequestContext ctx, ICommandStreamInfo csInfo, boolean forReading) throws IOException
+    {
+        var format = ctx.getFormat();
+        var cmdFormat = customFormats.get(format.getMimeType());
+        return cmdFormat != null ? cmdFormat.getCommandBinding(ctx, idEncoders, csInfo, forReading) : null;
     }
     
     

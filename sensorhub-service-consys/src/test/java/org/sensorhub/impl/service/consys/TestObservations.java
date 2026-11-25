@@ -15,6 +15,7 @@ Copyright (C) 2022 Sensia Software LLC. All Rights Reserved.
 package org.sensorhub.impl.service.consys;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.time.Instant;
@@ -23,6 +24,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.sensorhub.api.common.SensorHubException;
+import org.sensorhub.impl.datastore.h2.MVObsSystemDatabase;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -33,6 +35,7 @@ public class TestObservations extends AbstractTestApiBase
 {
     TestSystems systemTests = new TestSystems();
     TestDataStreams datastreamTests = new TestDataStreams();
+    TestFois foiTests = new TestFois();
     
     
     @Before
@@ -41,6 +44,7 @@ public class TestObservations extends AbstractTestApiBase
         super.setup();
         systemTests.apiRootUrl = apiRootUrl;
         datastreamTests.apiRootUrl = apiRootUrl;
+        foiTests.apiRootUrl = apiRootUrl;
     }
     
     
@@ -141,8 +145,78 @@ public class TestObservations extends AbstractTestApiBase
     }
     
     
-    // Non-Test helper methods
+    @Test
+    public void testDatastreamFiltersCombineWithParent() throws Exception
+    {
+        // add 2 systems with 3 datastreams
+        var sysUrl1 = systemTests.addFeature(7);
+        var sysUrl2 = systemTests.addFeature(8);
+        var dsUrl1 = datastreamTests.addDatastreamOmJson(sysUrl1, 1);
+        var dsUrl2 = datastreamTests.addDatastreamOmJson(sysUrl1, 2);
+        var dsUrl3 = datastreamTests.addDatastreamOmJson(sysUrl2, 3);
+        var sysId1 = getResourceId(sysUrl1);
+        var sysId2 = getResourceId(sysUrl2);
+        var dsId1 = getResourceId(dsUrl1);
+        var dsId2 = getResourceId(dsUrl2);
+
+        addObservationBatch(dsUrl1, Instant.now(), 100, 10, false);
+        addObservationBatch(dsUrl2, Instant.now(), 100, 5, false);
+        addObservationBatch(dsUrl3, Instant.now(), 100, 3, false);
+
+        // params narrow the parent datastream, they don't replace it
+        var dsObs = concat(dsUrl1, OBS_COLLECTION);
+        sendGetRequestAndGetItems(dsObs + "?dataStream=" + dsId1, 10);
+        sendGetRequestAndGetItems(dsObs + "?dataStream=" + dsId2, 0);
+        sendGetRequestAndGetItems(dsObs + "?system=" + sysId1, 10);
+        sendGetRequestAndGetItems(dsObs + "?system=" + sysId2, 0);
+        sendGetRequestAndGetItems(dsObs + "?observedProperty=" + TestDataStreams.URI_DECIMAL_PROP, 10);
+        sendGetRequestAndGetItems(dsObs + "?observedProperty=http://blabla/nothing", 0);
+
+        // params combine with each other at the top level
+        sendGetRequestAndGetItems(OBS_COLLECTION + "?system=" + sysId1 + "&observedProperty=" + TestDataStreams.URI_DECIMAL_PROP, 15);
+        sendGetRequestAndGetItems(OBS_COLLECTION + "?dataStream=" + dsId2 + "&system=" + sysId2, 0);
+    }
+
+
+    @Test
+    public void testWritesAreCommittedBeforeResponse() throws Exception
+    {
+        var mvStore = ((MVObsSystemDatabase)db).getMVStore();
+        
+        var sysUrl = systemTests.addFeature(9);
+        assertFalse("System not committed", mvStore.hasUnsavedChanges());
+        
+        var dsUrl = datastreamTests.addDatastreamOmJson(sysUrl, 1);
+        assertFalse("Datastream not committed", mvStore.hasUnsavedChanges());
+        
+        var urls = addObservationBatch(dsUrl, Instant.now(), 100, 5, false);
+        assertFalse("Observations not committed", mvStore.hasUnsavedChanges());
+        
+        sendDeleteRequestAndCheckStatus(urls.get(0), 204);
+        assertFalse("Observation delete not committed", mvStore.hasUnsavedChanges());
+    }
     
+    
+    @Test
+    public void testSamplingFeatureObservations() throws Exception
+    {
+        var sysUrl = systemTests.addFeature(10);
+        var dsUrl = datastreamTests.addDatastreamOmJson(sysUrl, 1);
+        var foiId = getResourceId(foiTests.addFoi(null, 1));
+        
+        // obs with and without the sampling feature
+        var obsUrl = concat(dsUrl, OBS_COLLECTION);
+        for (int i = 0; i < 4; i++)
+            sendPostRequest(obsUrl + "?foi=" + foiId, createObservationNoFoi(Instant.now(), 100, i));
+        addObservationBatch(dsUrl, Instant.now(), 100, 3, false);
+        
+        sendGetRequestAndGetItems(concat(concat(FOI_COLLECTION, foiId), OBS_COLLECTION), 4);
+        sendGetRequestAndGetItems(obsUrl, 7);
+    }
+    
+    
+    // Non-Test helper methods
+
     protected String addObservation(String dsUrl, Instant startTime, int num) throws Exception
     {
         return addObservation(dsUrl, startTime, 1000L, num);

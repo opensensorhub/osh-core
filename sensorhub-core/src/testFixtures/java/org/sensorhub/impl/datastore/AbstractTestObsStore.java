@@ -384,6 +384,66 @@ public abstract class AbstractTestObsStore<StoreType extends IObsStore>
     
     
     @Test
+    public void testRemoveByKeyDoesNotMixDataStreams() throws Exception
+    {
+        var ds1ID = addSimpleDataStream(bigId(10), "out1");
+        var ds2ID = addSimpleDataStream(bigId(20), "out2");
+
+        // empty the newest obs series by removing its only obs
+        var removed = addSimpleObsWithoutResultTime(ds1ID, BigId.NONE, Instant.parse("2020-01-01T00:00:00Z"), 1);
+        for (var k: removed.keySet())
+        {
+            obsStore.remove(k);
+            allObs.remove(k);
+        }
+        forceReadBackFromStorage();
+
+        // new series for datastream 2, then more obs in the existing series of datastream 1
+        var ds2Obs = addSimpleObsWithoutResultTime(ds2ID, BigId.NONE, Instant.parse("2021-01-01T00:00:00Z"), 10);
+        forceReadBackFromStorage();
+        var ds1Obs = addSimpleObsWithoutResultTime(ds1ID, BigId.NONE, Instant.parse("2022-01-01T00:00:00Z"), 3);
+        forceReadBackFromStorage();
+
+        var filter = new ObsFilter.Builder()
+            .withDataStreams(ds1ID)
+            .build();
+        checkSelectedEntries(obsStore.selectEntries(filter), ds1Obs, filter);
+
+        filter = new ObsFilter.Builder()
+            .withDataStreams(ds2ID)
+            .build();
+        checkSelectedEntries(obsStore.selectEntries(filter), ds2Obs, filter);
+    }
+
+
+    @Test
+    public void testSelectLatestResultWithinPhenomenonTimeRange() throws Exception
+    {
+        var dsID = addSimpleDataStream(bigId(10), "out1");
+        var startTime = Instant.parse("2020-01-01T00:00:00Z");
+        var obs = new ArrayList<>(addSimpleObsWithoutResultTime(dsID, BigId.NONE, startTime, 5, 60000).entrySet());
+        forceReadBackFromStorage();
+
+        // range covers the 2nd to 3rd obs, so only the 3rd is expected
+        var filter = new ObsFilter.Builder()
+            .withDataStreams(dsID)
+            .withPhenomenonTimeDuring(startTime.plusSeconds(60), startTime.plusSeconds(150))
+            .withLatestResult()
+            .build();
+        var expected = Map.of(obs.get(2).getKey(), obs.get(2).getValue());
+        checkSelectedEntries(obsStore.selectEntries(filter), expected, filter);
+
+        // range after all obs
+        filter = new ObsFilter.Builder()
+            .withDataStreams(dsID)
+            .withPhenomenonTimeDuring(startTime.plusSeconds(3600), startTime.plusSeconds(7200))
+            .withLatestResult()
+            .build();
+        checkSelectedEntries(obsStore.selectEntries(filter), Collections.emptyMap(), filter);
+    }
+
+
+    @Test
     public void testAddAndRemoveEntireDatastream() throws Exception
     {
         var ds1ID = addSimpleDataStream(bigId(10), "out1");

@@ -63,6 +63,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
     public static final String EVENTS_UNSUPPORTED_ERROR_MSG = "Events not supported on this resource collection";
     
     protected final S dataStore;
+    protected final HandlerContext handlerCtx;
     protected final IdEncoder idEncoder;
     protected final ResourcePermissions permissions;
     protected boolean readOnly = false;
@@ -72,6 +73,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
     {
         super(ctx);
         this.dataStore = Asserts.checkNotNull(dataStore, IDataStore.class);
+        this.handlerCtx = ctx;
         this.idEncoder = Asserts.checkNotNull(idEncoder, IdEncoder.class);
         this.permissions = Asserts.checkNotNull(permissions, ResourcePermissions.class);
     }
@@ -342,8 +344,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
                             ctx.addResourceUri(url);
                 }
                 
-                if (!dataStore.isReadOnly())
-                    dataStore.commit();
+                commit();
             }
             catch (DataStoreException e)
             {
@@ -357,6 +358,19 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
         {
             throw ServiceErrors.invalidPayload("Invalid payload: " + e.getMessage());
         }
+    }
+    
+    
+    /*
+     * Commit the database the change was written to. Some handlers hold the read-only
+     * federated store and write through the context's write database instead.
+     */
+    protected void commit() throws DataStoreException
+    {
+        if (!dataStore.isReadOnly())
+            dataStore.commit();
+        else
+            handlerCtx.getWriteDb().commit();
     }
     
     
@@ -407,8 +421,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
         {
             if (updateEntry(ctx, key, res))
             {
-                if (!dataStore.isReadOnly())
-                    dataStore.commit();
+                commit();
                 ctx.getLogger().debug("Updated resource {}, key={}", id, key);
             }
             else
@@ -446,8 +459,7 @@ public abstract class BaseResourceHandler<K, V, F extends IQueryFilter, S extend
         {
             if (deleteEntry(ctx, key))
             {
-                if (!dataStore.isReadOnly())
-                    dataStore.commit();
+                commit();
                 ctx.getLogger().info("Deleted resource {}, key={}", id, key);
             }
             else

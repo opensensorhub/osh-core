@@ -484,6 +484,39 @@ public abstract class AbstractTestCommandStore<StoreType extends ICommandStore>
 
 
     @Test
+    public void testRemoveByKeyDoesNotMixCommandStreams() throws Exception
+    {
+        var cs1ID = addSimpleCommandStream(bigId(10), "out1").getInternalID();
+        var cs2ID = addSimpleCommandStream(bigId(20), "out2").getInternalID();
+
+        // empty the newest command series by removing its only command
+        var removed = addCommands(cs1ID, Instant.parse("2020-01-01T00:00:00Z"), 1, 1000);
+        for (var k: removed.keySet())
+        {
+            cmdStore.remove(k);
+            allCommands.remove(k);
+        }
+        forceReadBackFromStorage();
+
+        // new series for command stream 2, then more commands in the existing series of stream 1
+        var cs2Cmds = addCommands(cs2ID, Instant.parse("2021-01-01T00:00:00Z"), 10, 1000);
+        forceReadBackFromStorage();
+        var cs1Cmds = addCommands(cs1ID, Instant.parse("2022-01-01T00:00:00Z"), 3, 1000);
+        forceReadBackFromStorage();
+
+        var filter = new CommandFilter.Builder()
+            .withCommandStreams(cs1ID)
+            .build();
+        checkSelectedEntries(cmdStore.selectEntries(filter), cs1Cmds, filter);
+
+        filter = new CommandFilter.Builder()
+            .withCommandStreams(cs2ID)
+            .build();
+        checkSelectedEntries(cmdStore.selectEntries(filter), cs2Cmds, filter);
+    }
+
+
+    @Test
     public void testSelectCommandsByDataStreamIDAndTime() throws Exception
     {
         Stream<Entry<BigId, ICommandData>> resultStream;
